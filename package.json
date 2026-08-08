@@ -17,8 +17,12 @@
     "clean": "pnpm -r --if-present clean"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "^0.3.0",
+    "@astryxdesign/core": "^0.3.0",
+    "@astryxdesign/theme-neutral": "^0.3.0",
     "@eslint/js": "9.35.0",
     "@types/node": "22.18.0",
+    "esbuild": "0.28.1",
     "eslint": "9.35.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "16.3.0",

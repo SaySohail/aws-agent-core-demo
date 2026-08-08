@@ -3,7 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "typecheck": "node --eval \"process.exit(0)\"",
-    "build": "node --eval \"process.exit(0)\""
+    "build": "tsc --noEmit",
+    "cdk": "cdk",
+    "deploy:dev": "cdk deploy ControlPlane-dev -c environment=dev --require-approval never",
+    "destroy:dev": "cdk destroy ControlPlane-dev -c environment=dev",
+    "diff": "cdk diff ControlPlane-dev --template cdk.out/ControlPlane-dev.template.json -c environment=dev",
+    "synth": "cdk synth -c environment=dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.263.0",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.156",
+    "aws-cdk": "2.1135.1",
+    "esbuild": "0.28.1",
+    "tsx": "4.20.6"
   }
 }

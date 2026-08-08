@@ -1,0 +1,7 @@
+{
+  "app": "tsx bin/control-plane.ts",
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true
+  }
+}

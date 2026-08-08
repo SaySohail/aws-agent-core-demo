@@ -1,7 +1,7 @@
 # Agent Launchpad
 
-Production-ready monorepo foundation for launching agents. It deliberately contains no AWS,
-AgentCore, control-plane, or deployment business logic yet.
+Production-ready monorepo foundation for launching agents. The control-plane baseline is defined in
+AWS CDK; AgentCore and customer-account deployment logic are intentionally not implemented yet.
 
 ## Requirements
 
@@ -41,10 +41,12 @@ agents/customer-support          independently compilable agent template
 packages/schemas                 validated contracts shared across boundaries
 packages/aws                     server-only AWS helper boundary
 packages/shared                  environment and cross-cutting shared utilities
-infrastructure/control-plane     reserved infrastructure module
+infrastructure/control-plane     standalone CDK control-plane baseline
 infrastructure/customer-bootstrap reserved customer bootstrap module
 infrastructure/agent-template    reserved reusable agent infrastructure module
 ```
 
-The `infrastructure/*` packages are intentionally metadata/documentation-only until infrastructure
-work begins. The AWS package does not expose browser-compatible credential helpers.
+See [`infrastructure/control-plane/README.md`](infrastructure/control-plane/README.md) for the CDK
+bootstrap, synth, diff, deploy, and destroy workflow. Customer bootstrap and agent-template
+infrastructure remain separate placeholders. The AWS package does not expose browser-compatible
+credential helpers.

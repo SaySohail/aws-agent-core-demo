@@ -6,4 +6,10 @@ packages:
   - infrastructure/*
 
 allowBuilds:
+  '@astryxdesign/cli': set this to true or false
+  '@astryxdesign/core': set this to true or false
+  esbuild: true
   sharp: true
+
+minimumReleaseAgeExclude:
+  - aws-cdk@2.1135.1

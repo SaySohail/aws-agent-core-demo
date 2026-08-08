@@ -25,3 +25,4 @@ terraform.tfstate.*
 .vscode/
 tasks/lessons.md
 tasks/todo.md
+AGENTS.md
