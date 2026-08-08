@@ -53,8 +53,12 @@ configured in both environments.
 
 The stack provisions an HTTP API with public `GET /health` and JWT-protected `GET /me`, Node.js 22
 TypeScript Lambdas and restricted CloudWatch Logs roles, a pay-per-request DynamoDB table using generic
-`pk`/`sk` keys, and an artifact bucket. It also provisions a Cognito User Pool with public sign-up
-disabled, a browser-safe Authorization Code + PKCE client (no client secret), and a Cognito domain.
+`pk`/`sk` keys, and an artifact bucket. The table additionally has `MembershipsByUser`
+(`gsi1pk`/`gsi1sk`) for `USER#<cognitoSub>` to `TENANT#<tenantId>` membership queries, and
+`DeploymentsByAgent` (`gsi2pk`/`gsi2sk`) for chronological deployment queries using
+`TENANT#<tenantId>#AGENT#<agentId>` and `<createdAt>#<deploymentId>`. It also provisions a
+Cognito User Pool with public sign-up disabled, a browser-safe Authorization Code + PKCE client
+(no client secret), and a Cognito domain.
 The configured browser origin is the only callback and logout origin. Outputs expose the API endpoint,
 table name, bucket name, and Cognito values required by the web app. Every supported resource is tagged
 with `Project`, `Environment`, `ManagedBy`, and `Plane`.

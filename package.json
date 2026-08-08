@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @agent-launchpad/web dev",
     "lint": "eslint .",
+    "test": "pnpm -r --if-present test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present typecheck",

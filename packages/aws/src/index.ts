@@ -1,5 +1,7 @@
-/**
- * Server-only AWS boundary. Browser-compatible credentials and client creation are intentionally
- * not exported from this package. Add server-side helpers only when AWS work is approved.
- */
+/** Server-only AWS persistence boundary for tenant-aware control-plane data. */
 export const awsPackageBoundary = 'server-only';
+export * from './keys.js';
+export * from './mappers.js';
+export * from './pagination.js';
+export * from './repository.js';
+export * from './store.js';

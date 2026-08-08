@@ -41,6 +41,24 @@ export class ControlPlaneStack extends Stack {
       removalPolicy: persistentRemovalPolicy
     });
 
+    // Query membership records by Cognito subject without a table scan:
+    // gsi1pk = USER#<cognitoSub>, gsi1sk = TENANT#<tenantId>.
+    controlPlaneTable.addGlobalSecondaryIndex({
+      indexName: 'MembershipsByUser',
+      partitionKey: { name: 'gsi1pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'gsi1sk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL
+    });
+
+    // Query a tenant agent's deployment history in chronological order without a table scan:
+    // gsi2pk = TENANT#<tenantId>#AGENT#<agentId>, gsi2sk = <createdAt>#<deploymentId>.
+    controlPlaneTable.addGlobalSecondaryIndex({
+      indexName: 'DeploymentsByAgent',
+      partitionKey: { name: 'gsi2pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'gsi2sk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL
+    });
+
     const artifactBucket = new s3.Bucket(this, 'ArtifactBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
