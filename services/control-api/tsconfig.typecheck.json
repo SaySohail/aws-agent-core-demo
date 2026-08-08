@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../../",
+    "paths": {
+      "@agent-launchpad/schemas": ["packages/schemas/src/index.ts"],
+      "@agent-launchpad/shared": ["packages/shared/src/index.ts"]
+    }
+  }
+}

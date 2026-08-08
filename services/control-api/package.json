@@ -1,0 +1,15 @@
+{
+  "name": "@agent-launchpad/control-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "clean": "tsc --build --clean"
+  },
+  "dependencies": {
+    "@agent-launchpad/schemas": "workspace:*",
+    "@agent-launchpad/shared": "workspace:*"
+  }
+}

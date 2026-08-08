@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - services/*
+  - agents/*
+  - packages/*
+  - infrastructure/*
+
+allowBuilds:
+  sharp: true

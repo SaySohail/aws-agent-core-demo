@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Environment files: examples are deliberately tracked
+.env
+.env.*
+!.env.example
+
+# Credentials and local cloud state
+*.pem
+*.key
+.aws/
+cdk.out/
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+
+# Editor/OS files
+.DS_Store
+.idea/
+.vscode/
+tasks/lessons.md
+tasks/todo.md

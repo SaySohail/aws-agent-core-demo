@@ -1,0 +1,9 @@
+{
+  "name": "@agent-launchpad/customer-bootstrap-infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "node --eval \"process.exit(0)\"",
+    "build": "node --eval \"process.exit(0)\""
+  }
+}
