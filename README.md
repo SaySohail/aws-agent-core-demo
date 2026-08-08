@@ -20,8 +20,9 @@ pnpm build
 pnpm dev
 ```
 
-Copy `.env.example` to `.env` before adding local configuration. The example has no secrets;
-environment parsing is centralized in `@agent-launchpad/shared`.
+Copy `.env.example` to `apps/web/.env.local` before adding local web configuration. Next.js runs
+from that workspace, so it does not load a root `.env` file. The example has no secrets; environment
+parsing is centralized in `@agent-launchpad/shared`.
 
 ## Commands
 

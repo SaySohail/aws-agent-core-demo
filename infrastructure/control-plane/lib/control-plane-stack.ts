@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -9,6 +10,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './environment-config';
 
@@ -80,9 +82,44 @@ export class ControlPlaneStack extends Stack {
       bundling: { minify: true, sourceMap: true, target: 'node22' }
     });
 
+    const userPool = new cognito.UserPool(this, 'UserPool', {
+      selfSignUpEnabled: false,
+      signInAliases: { email: true },
+      standardAttributes: {
+        email: { required: true, mutable: true }
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: persistentRemovalPolicy
+    });
+
+    const userPoolClient = userPool.addClient('WebClient', {
+      generateSecret: false,
+      authFlows: { userSrp: true },
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
+        callbackUrls: ['http://localhost:3000/auth/callback'],
+        logoutUrls: ['http://localhost:3000/login']
+      },
+      preventUserExistenceErrors: true
+    });
+
+    const userPoolDomain = userPool.addDomain('UserPoolDomain', {
+      cognitoDomain: {
+        domainPrefix: `agent-launchpad-${configuration.name}-${configuration.account}`
+      }
+    });
+
     const httpApi = new apigwv2.HttpApi(this, 'ControlPlaneHttpApi', {
       description: 'Control-plane HTTP API.'
     });
+    const jwtAuthorizer = new HttpJwtAuthorizer(
+      'CognitoJwtAuthorizer',
+      userPool.userPoolProviderUrl,
+      {
+        jwtAudience: [userPoolClient.userPoolClientId]
+      }
+    );
     httpApi.addRoutes({
       path: '/health',
       methods: [apigwv2.HttpMethod.GET],
@@ -91,8 +128,44 @@ export class ControlPlaneStack extends Stack {
       })
     });
 
+    const meLogGroup = new logs.LogGroup(this, 'MeLogGroup', {
+      retention: configuration.logRetentionDays,
+      removalPolicy: persistentRemovalPolicy
+    });
+    const meExecutionRole = new iam.Role(this, 'MeExecutionRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      description: 'Execution role for the authenticated control-plane profile endpoint.'
+    });
+    meExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+        resources: [meLogGroup.logGroupArn]
+      })
+    );
+    const meFunction = new NodejsFunction(this, 'MeFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(__dirname, '..', 'lambda', 'me.ts'),
+      handler: 'handler',
+      environment: { ENVIRONMENT: configuration.name },
+      role: meExecutionRole,
+      logGroup: meLogGroup,
+      bundling: { minify: true, sourceMap: true, target: 'node22' }
+    });
+    httpApi.addRoutes({
+      path: '/me',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new HttpLambdaIntegration('MeIntegration', meFunction, {
+        payloadFormatVersion: apigwv2.PayloadFormatVersion.VERSION_2_0
+      }),
+      authorizer: jwtAuthorizer
+    });
+
     new cdk.CfnOutput(this, 'ApiEndpoint', { value: httpApi.apiEndpoint });
     new cdk.CfnOutput(this, 'ControlPlaneTableName', { value: controlPlaneTable.tableName });
     new cdk.CfnOutput(this, 'ArtifactBucketName', { value: artifactBucket.bucketName });
+    new cdk.CfnOutput(this, 'CognitoUserPoolId', { value: userPool.userPoolId });
+    new cdk.CfnOutput(this, 'CognitoWebClientId', { value: userPoolClient.userPoolClientId });
+    new cdk.CfnOutput(this, 'CognitoIssuer', { value: userPool.userPoolProviderUrl });
+    new cdk.CfnOutput(this, 'CognitoDomain', { value: userPoolDomain.baseUrl() });
   }
 }

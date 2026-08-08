@@ -15,8 +15,10 @@ the active AWS profile. Set the pair for the environment you will operate:
 ```sh
 export CONTROL_PLANE_DEV_ACCOUNT=123456789012
 export CONTROL_PLANE_DEV_REGION=ap-south-1
+export CONTROL_PLANE_DEV_WEB_ORIGIN=http://localhost:3000
 export CONTROL_PLANE_PROD_ACCOUNT=210987654321
 export CONTROL_PLANE_PROD_REGION=ap-south-1
+export CONTROL_PLANE_PROD_WEB_ORIGIN=https://app.example.com
 ```
 
 ## Deployment workflow
@@ -49,7 +51,10 @@ configured in both environments.
 
 ## Resources and outputs
 
-The stack provisions an HTTP API with `GET /health`, a Node.js 22 TypeScript Lambda and restricted
-CloudWatch Logs role, a pay-per-request DynamoDB table using generic `pk`/`sk` keys, and an artifact
-bucket. Outputs expose the API endpoint, table name, and bucket name. Every supported resource is
-tagged with `Project`, `Environment`, `ManagedBy`, and `Plane`.
+The stack provisions an HTTP API with public `GET /health` and JWT-protected `GET /me`, Node.js 22
+TypeScript Lambdas and restricted CloudWatch Logs roles, a pay-per-request DynamoDB table using generic
+`pk`/`sk` keys, and an artifact bucket. It also provisions a Cognito User Pool with public sign-up
+disabled, a browser-safe Authorization Code + PKCE client (no client secret), and a Cognito domain.
+The configured browser origin is the only callback and logout origin. Outputs expose the API endpoint,
+table name, bucket name, and Cognito values required by the web app. Every supported resource is tagged
+with `Project`, `Environment`, `ManagedBy`, and `Plane`.
