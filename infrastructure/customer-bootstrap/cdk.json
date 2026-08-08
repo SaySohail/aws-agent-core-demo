@@ -1,0 +1,6 @@
+{
+  "app": "tsx bin/customer-bootstrap.ts",
+  "context": {
+    "@aws-cdk/core:checkSecretUsage": true
+  }
+}

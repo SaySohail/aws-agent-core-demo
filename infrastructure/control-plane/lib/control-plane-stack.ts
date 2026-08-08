@@ -146,37 +146,80 @@ export class ControlPlaneStack extends Stack {
       })
     });
 
-    const meLogGroup = new logs.LogGroup(this, 'MeLogGroup', {
+    const controlApiLogGroup = new logs.LogGroup(this, 'ControlApiLogGroup', {
       retention: configuration.logRetentionDays,
       removalPolicy: persistentRemovalPolicy
     });
-    const meExecutionRole = new iam.Role(this, 'MeExecutionRole', {
+    const controlApiExecutionRole = new iam.Role(this, 'ControlApiExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Execution role for the authenticated control-plane profile endpoint.'
+      description: 'Execution role for authenticated control-plane API routes.'
     });
-    meExecutionRole.addToPolicy(
+    controlApiExecutionRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
-        resources: [meLogGroup.logGroupArn]
+        resources: [controlApiLogGroup.logGroupArn]
       })
     );
-    const meFunction = new NodejsFunction(this, 'MeFunction', {
+    controlApiExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:BatchGetItem',
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:Query'
+        ],
+        resources: [controlPlaneTable.tableArn, `${controlPlaneTable.tableArn}/index/*`]
+      })
+    );
+    const controlApiFunction = new NodejsFunction(this, 'ControlApiFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
-      entry: path.join(__dirname, '..', 'lambda', 'me.ts'),
+      entry: path.join(__dirname, '..', '..', '..', 'services', 'control-api', 'src', 'lambda.ts'),
       handler: 'handler',
-      environment: { ENVIRONMENT: configuration.name },
-      role: meExecutionRole,
-      logGroup: meLogGroup,
+      environment: {
+        ENVIRONMENT: configuration.name,
+        CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName
+      },
+      role: controlApiExecutionRole,
+      logGroup: controlApiLogGroup,
       bundling: { minify: true, sourceMap: true, target: 'node22' }
     });
-    httpApi.addRoutes({
-      path: '/me',
-      methods: [apigwv2.HttpMethod.GET],
-      integration: new HttpLambdaIntegration('MeIntegration', meFunction, {
-        payloadFormatVersion: apigwv2.PayloadFormatVersion.VERSION_2_0
-      }),
-      authorizer: jwtAuthorizer
-    });
+    const controlIntegration = new HttpLambdaIntegration(
+      'ControlApiIntegration',
+      controlApiFunction,
+      { payloadFormatVersion: apigwv2.PayloadFormatVersion.VERSION_2_0 }
+    );
+    const authenticatedRoutes: Array<{ path: string; methods: apigwv2.HttpMethod[] }> = [
+      { path: '/me', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants/{tenantId}', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/agent-templates', methods: [apigwv2.HttpMethod.GET] },
+      {
+        path: '/agent-templates/{templateId}/versions/{version}',
+        methods: [apigwv2.HttpMethod.GET]
+      },
+      {
+        path: '/tenants/{tenantId}/agents',
+        methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST]
+      },
+      {
+        path: '/tenants/{tenantId}/agents/{agentId}',
+        methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.PATCH]
+      },
+      {
+        path: '/tenants/{tenantId}/agents/{agentId}/deployments',
+        methods: [apigwv2.HttpMethod.GET]
+      },
+      { path: '/tenants/{tenantId}/aws-connections', methods: [apigwv2.HttpMethod.GET] },
+      {
+        path: '/tenants/{tenantId}/aws-connections/{connectionId}',
+        methods: [apigwv2.HttpMethod.GET]
+      },
+      { path: '/tenants/{tenantId}/deployments', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants/{tenantId}/deployments/{deploymentId}', methods: [apigwv2.HttpMethod.GET] }
+    ];
+    for (const route of authenticatedRoutes)
+      httpApi.addRoutes({ ...route, integration: controlIntegration, authorizer: jwtAuthorizer });
 
     new cdk.CfnOutput(this, 'ApiEndpoint', { value: httpApi.apiEndpoint });
     new cdk.CfnOutput(this, 'ControlPlaneTableName', { value: controlPlaneTable.tableName });

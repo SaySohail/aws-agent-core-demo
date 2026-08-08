@@ -3,7 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "typecheck": "node --eval \"process.exit(0)\"",
-    "build": "node --eval \"process.exit(0)\""
+    "build": "tsc --noEmit",
+    "cdk": "cdk",
+    "synth": "cdk synth AgentLaunchpadCustomerBootstrap --quiet",
+    "template": "pnpm run synth && node scripts/export-template.mjs && pnpm exec prettier --write customer-bootstrap.template.json",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.263.0",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1135.1",
+    "tsx": "4.20.6"
   }
 }

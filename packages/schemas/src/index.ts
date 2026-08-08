@@ -18,6 +18,33 @@ export const deploymentIdSchema = prefixedIdSchema('dep_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
 export const agentTemplateIdSchema = prefixedIdSchema('tpl_');
 
+/** HTTP inputs deliberately exclude all server-owned persistence fields. */
+export const pageQuerySchema = z
+  .object({
+    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    nextToken: z.string().min(1).max(4096).optional()
+  })
+  .strict();
+
+export const createAgentRequestSchema = z
+  .object({
+    name: nonEmptyString.max(200),
+    templateId: agentTemplateIdSchema,
+    templateVersion: nonEmptyString.max(100),
+    model: nonEmptyString.max(512),
+    region: nonEmptyString.max(64)
+  })
+  .strict();
+
+export const updateAgentRequestSchema = z
+  .object({
+    name: nonEmptyString.max(200).optional(),
+    model: nonEmptyString.max(512).optional(),
+    region: nonEmptyString.max(64).optional()
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'At least one editable field is required.');
+
 export const tenantStatusSchema = z.enum(['ACTIVE', 'SUSPENDED']);
 export const membershipRoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
 export const awsConnectionStatusSchema = z.enum(['PENDING', 'VERIFIED', 'FAILED', 'DISCONNECTED']);
@@ -134,6 +161,9 @@ export type AwsConnectionStatus = z.infer<typeof awsConnectionStatusSchema>;
 export type AgentTemplateStatus = z.infer<typeof agentTemplateStatusSchema>;
 export type AgentStatus = z.infer<typeof agentStatusSchema>;
 export type DeploymentStatus = z.infer<typeof deploymentStatusSchema>;
+export type CreateAgentRequest = z.infer<typeof createAgentRequestSchema>;
+export type UpdateAgentRequest = z.infer<typeof updateAgentRequestSchema>;
+export type PageQuery = z.infer<typeof pageQuerySchema>;
 
 function generateId(prefix: string): string {
   return `${prefix}${crypto.randomUUID()}`;

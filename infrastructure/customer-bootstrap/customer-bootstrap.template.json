@@ -1,0 +1,849 @@
+{
+  "Description": "Agent Launchpad customer-account bootstrap contract v1",
+  "Parameters": {
+    "TrustedControlPlanePrincipalArn": {
+      "Type": "String",
+      "Description": "Exact Agent Launchpad control-plane IAM principal ARN allowed to assume the deployment role.",
+      "MinLength": 20
+    },
+    "ExternalId": {
+      "Type": "String",
+      "Description": "Unique Agent Launchpad AWS connection identifier used for STS confused-deputy protection.",
+      "MinLength": 1,
+      "NoEcho": true
+    }
+  },
+  "Resources": {
+    "ArtifactKey8D84C5F0": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "Encrypts Agent Launchpad deployment artifacts in this customer account.",
+        "EnableKeyRotation": true,
+        "KeyPolicy": {
+          "Statement": [
+            {
+              "Action": "kms:*",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "AgentLaunchpad"
+          },
+          {
+            "Key": "Plane",
+            "Value": "DataPlane"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "CustomerBootstrap"
+          }
+        ]
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain",
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/ArtifactKey/Resource"
+      }
+    },
+    "ArtifactKeyAliasB27DA94F": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/agent-launchpad-artifacts",
+        "TargetKeyId": {
+          "Fn::GetAtt": ["ArtifactKey8D84C5F0", "Arn"]
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/ArtifactKey/Alias/Resource"
+      }
+    },
+    "ArtifactBucket7410C9EF": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "KMSMasterKeyID": {
+                  "Fn::GetAtt": ["ArtifactKey8D84C5F0", "Arn"]
+                },
+                "SSEAlgorithm": "aws:kms"
+              }
+            }
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "AbortIncompleteMultipartUpload": {
+                "DaysAfterInitiation": 7
+              },
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 90
+              },
+              "Status": "Enabled"
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "AgentLaunchpad"
+          },
+          {
+            "Key": "Plane",
+            "Value": "DataPlane"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "CustomerBootstrap"
+          }
+        ],
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain",
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/ArtifactBucket/Resource"
+      }
+    },
+    "ArtifactBucketPolicy4B4B7752": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ArtifactBucket7410C9EF"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/ArtifactBucket/Policy/Resource"
+      }
+    },
+    "RuntimeExecutionRoleFBC63B09": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId"
+                  }
+                },
+                "ArnLike": {
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":bedrock-agentcore:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":",
+                        {
+                          "Ref": "AWS::AccountId"
+                        },
+                        ":*"
+                      ]
+                    ]
+                  }
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "bedrock-agentcore.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Execution role assumed only by Amazon Bedrock AgentCore runtime workloads.",
+        "RoleName": "AgentLaunchpadRuntimeExecutionRole",
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "AgentLaunchpad"
+          },
+          {
+            "Key": "Plane",
+            "Value": "DataPlane"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "CustomerBootstrap"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/RuntimeExecutionRole/Resource"
+      }
+    },
+    "RuntimeExecutionRoleDefaultPolicy78973604": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": ["logs:CreateLogGroup", "logs:DescribeLogStreams"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":logs:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":log-group:/aws/bedrock-agentcore/runtimes/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":logs:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":log-group:/aws/bedrock-agentcore/runtimes/*:log-stream:*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": "logs:DescribeLogGroups",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":logs:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":log-group:*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": [
+                "xray:PutTraceSegments",
+                "xray:PutTelemetryRecords",
+                "xray:GetSamplingRules",
+                "xray:GetSamplingTargets"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": "cloudwatch:PutMetricData",
+              "Condition": {
+                "StringEquals": {
+                  "cloudwatch:namespace": "bedrock-agentcore"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "::foundation-model/*"
+                  ]
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "RuntimeExecutionRoleDefaultPolicy78973604",
+        "Roles": [
+          {
+            "Ref": "RuntimeExecutionRoleFBC63B09"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/RuntimeExecutionRole/DefaultPolicy/Resource"
+      }
+    },
+    "DeploymentRoleC7BBCF2C": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": {
+                    "Ref": "ExternalId"
+                  }
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Ref": "TrustedControlPlanePrincipalArn"
+                }
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "Cross-account role used by Agent Launchpad to manage only its customer-account resources.",
+        "RoleName": "AgentLaunchpadDeploymentRole",
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "AgentLaunchpad"
+          },
+          {
+            "Key": "Plane",
+            "Value": "DataPlane"
+          },
+          {
+            "Key": "Purpose",
+            "Value": "CustomerBootstrap"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/DeploymentRole/Resource"
+      }
+    },
+    "DeploymentRoleDefaultPolicyB30A6D11": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+              }
+            },
+            {
+              "Action": ["s3:DeleteObject", "s3:GetObject", "s3:PutObject"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+                    },
+                    "/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": ["kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*"],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": ["ArtifactKey8D84C5F0", "Arn"]
+              }
+            },
+            {
+              "Action": "iam:PassRole",
+              "Condition": {
+                "StringEquals": {
+                  "iam:PassedToService": "bedrock-agentcore.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": ["RuntimeExecutionRoleFBC63B09", "Arn"]
+              }
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:CreateAgentRuntime",
+                "bedrock-agentcore:ListAgentRuntimes"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  }
+                },
+                "ForAllValues:StringEquals": {
+                  "aws:TagKeys": ["ManagedBy", "Plane", "Purpose"]
+                },
+                "ForAllValues:StringEqualsIfExists": {
+                  "aws:RequestTag/ManagedBy": "AgentLaunchpad",
+                  "aws:RequestTag/Plane": "DataPlane",
+                  "aws:RequestTag/Purpose": "CustomerBootstrap"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:DeleteAgentRuntime",
+                "bedrock-agentcore:GetAgentRuntime",
+                "bedrock-agentcore:UpdateAgentRuntime"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "aws:ResourceTag/ManagedBy": "AgentLaunchpad"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":runtime/*"
+                  ]
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "DeploymentRoleDefaultPolicyB30A6D11",
+        "Roles": [
+          {
+            "Ref": "DeploymentRoleC7BBCF2C"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/DeploymentRole/DefaultPolicy/Resource"
+      }
+    },
+    "CDKMetadata": {
+      "Type": "AWS::CDK::Metadata",
+      "Properties": {
+        "Analytics": "v2:deflate64:H4sIAAAAAAAA/0WKTQ6CMBBGz8K+jKYk7tWlCwkewNQyJkNbIEwrIU3vbgokrN77fiTISwXnQs1c6taUlj4QX15pI+7fvlaTcuhxEmrmdzSOIT5wyVPG1ZLiHFZJgiuIt6AN+lzutqEeLOnlqLecBCkHsRks5mnl8dw/Kfsz+DH4JPqhRej49JMSZAWy6JionELvySE0G//BznFb1QAAAA=="
+      },
+      "Metadata": {
+        "aws:cdk:path": "AgentLaunchpadCustomerBootstrap/CDKMetadata/Default"
+      },
+      "Condition": "CDKMetadataAvailable"
+    }
+  },
+  "Outputs": {
+    "DeploymentRoleArn": {
+      "Value": {
+        "Fn::GetAtt": ["DeploymentRoleC7BBCF2C", "Arn"]
+      }
+    },
+    "RuntimeExecutionRoleArn": {
+      "Value": {
+        "Fn::GetAtt": ["RuntimeExecutionRoleFBC63B09", "Arn"]
+      }
+    },
+    "ArtifactBucketName": {
+      "Value": {
+        "Ref": "ArtifactBucket7410C9EF"
+      }
+    },
+    "ArtifactBucketArn": {
+      "Value": {
+        "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+      }
+    },
+    "KmsKeyArn": {
+      "Value": {
+        "Fn::GetAtt": ["ArtifactKey8D84C5F0", "Arn"]
+      }
+    },
+    "BootstrapVersion": {
+      "Value": "1"
+    }
+  },
+  "Conditions": {
+    "CDKMetadataAvailable": {
+      "Fn::Or": [
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "af-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-northeast-3"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-south-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-3"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ap-southeast-4"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ca-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "ca-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "cn-northwest-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-central-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-north-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-south-2"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Or": [
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "eu-west-3"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "il-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "me-central-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "me-south-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "sa-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-1"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-east-2"
+              ]
+            },
+            {
+              "Fn::Equals": [
+                {
+                  "Ref": "AWS::Region"
+                },
+                "us-west-1"
+              ]
+            }
+          ]
+        },
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "AWS::Region"
+            },
+            "us-west-2"
+          ]
+        }
+      ]
+    }
+  }
+}

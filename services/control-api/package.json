@@ -6,10 +6,21 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "tsx --test src/**/*.test.ts",
+    "local:setup": "tsx src/local.ts setup",
+    "local:serve": "tsx src/local.ts serve",
+    "local:reset": "tsx src/local.ts reset",
     "clean": "tsc --build --clean"
   },
   "dependencies": {
+    "@agent-launchpad/aws": "workspace:*",
     "@agent-launchpad/schemas": "workspace:*",
-    "@agent-launchpad/shared": "workspace:*"
+    "@agent-launchpad/shared": "workspace:*",
+    "@aws-sdk/client-dynamodb": "3.969.0",
+    "@aws-sdk/lib-dynamodb": "3.969.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.156",
+    "tsx": "4.20.6"
   }
 }

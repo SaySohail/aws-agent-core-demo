@@ -52,6 +52,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@agent-launchpad/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@astryxdesign/core':
         specifier: 0.3.0
         version: 0.3.0(@stylexjs/stylex@0.19.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -111,7 +114,21 @@ importers:
         specifier: 4.20.6
         version: 4.20.6
 
-  infrastructure/customer-bootstrap: {}
+  infrastructure/customer-bootstrap:
+    dependencies:
+      aws-cdk-lib:
+        specifier: 2.263.0
+        version: 2.263.0(constructs@10.8.1)
+      constructs:
+        specifier: 10.8.1
+        version: 10.8.1
+    devDependencies:
+      aws-cdk:
+        specifier: 2.1135.1
+        version: 2.1135.1
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
 
   packages/aws:
     dependencies:
@@ -150,12 +167,28 @@ importers:
 
   services/control-api:
     dependencies:
+      '@agent-launchpad/aws':
+        specifier: workspace:*
+        version: link:../../packages/aws
       '@agent-launchpad/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
       '@agent-launchpad/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@aws-sdk/client-dynamodb':
+        specifier: 3.969.0
+        version: 3.969.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: 3.969.0
+        version: 3.969.0(@aws-sdk/client-dynamodb@3.969.0)
+    devDependencies:
+      '@types/aws-lambda':
+        specifier: 8.10.156
+        version: 8.10.156
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
 
   services/deployment-worker:
     dependencies:

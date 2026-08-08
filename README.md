@@ -51,3 +51,40 @@ See [`infrastructure/control-plane/README.md`](infrastructure/control-plane/READ
 bootstrap, synth, diff, deploy, and destroy workflow. Customer bootstrap and agent-template
 infrastructure remain separate placeholders. The AWS package does not expose browser-compatible
 credential helpers.
+
+## Local control-plane API
+
+Docker Desktop can run the complete persistence and HTTP boundary locally; AWS credentials and a
+Cognito account are not required. The local adapter is deliberately separate from the Lambda handler
+and only starts when `LOCAL_CONTROL_API=1`. It listens on loopback and uses `X-Local-User-Id` strictly
+as a development identity substitute; deployed routes still require API Gateway's validated JWT.
+
+```powershell
+docker compose up -d dynamodb-local
+pnpm --filter @agent-launchpad/control-api local:reset
+$env:LOCAL_CONTROL_API = '1'
+$env:CONTROL_API_PORT = '4000'
+pnpm --filter @agent-launchpad/control-api local:serve
+```
+
+The reset command creates the same DynamoDB table/index shape as CDK and seeds two active tenants,
+an active template, and one same-ID draft agent in each tenant. It is safe to run repeatedly and
+only affects Docker's `dynamodb-local-data` volume.
+
+In a second PowerShell window, exercise the API:
+
+```powershell
+$base = 'http://127.0.0.1:4000'
+$tenantA = 'tnt_00000000-0000-4000-8000-000000000001'
+$tenantB = 'tnt_00000000-0000-4000-8000-000000000002'
+
+curl.exe "$base/health"
+curl.exe "$base/tenants" -H 'X-Local-User-Id: user-a'
+curl.exe "$base/tenants/$tenantA/agents" -H 'X-Local-User-Id: user-a'
+curl.exe "$base/tenants/$tenantB/agents" -H 'X-Local-User-Id: user-a'
+```
+
+The final request returns `403` and exposes no Tenant B data. `user-a` is an ADMIN of Tenant A;
+`user-b` is a MEMBER of Tenant B. To reset local state, run `local:reset`; to stop only the database,
+run `docker compose down`. Run `docker compose down -v` only when you intentionally want to delete
+the local DynamoDB data volume.
