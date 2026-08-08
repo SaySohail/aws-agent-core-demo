@@ -2,10 +2,20 @@
   "name": "@agent-launchpad/customer-support-agent",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/app.ts",
+    "build": "node scripts/build.mjs",
+    "start": "node dist/app.js",
+    "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "clean": "tsc --build --clean"
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "tsx": "4.20.6"
   }
 }
