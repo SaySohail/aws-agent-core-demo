@@ -77,7 +77,9 @@ test('resource schemas require tenant ownership and exclude credentials', () => 
     roleArn: 'arn:aws:iam::123456789012:role/AgentLaunchpad',
     externalId: 'external-id',
     status: 'VERIFIED' as const,
-    createdAt: timestamp
+    createdBy: 'cognito-sub',
+    createdAt: timestamp,
+    updatedAt: timestamp
   };
   const parsed = awsConnectionSchema.parse({ ...awsConnection, accessKeyId: 'not-retained' });
 

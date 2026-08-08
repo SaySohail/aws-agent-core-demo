@@ -160,6 +160,13 @@ export class ControlPlaneStack extends Stack {
         resources: [controlApiLogGroup.logGroupArn]
       })
     );
+    // Customer bootstrap v1 creates exactly this cross-account role; customer trust still enforces ExternalId.
+    controlApiExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/AgentLaunchpadDeploymentRole']
+      })
+    );
     controlApiExecutionRole.addToPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -178,7 +185,10 @@ export class ControlPlaneStack extends Stack {
       handler: 'handler',
       environment: {
         ENVIRONMENT: configuration.name,
-        CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName
+        CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName,
+        CUSTOMER_BOOTSTRAP_TEMPLATE_URL: configuration.customerBootstrapTemplateUrl,
+        CONTROL_API_EXECUTION_ROLE_ARN: controlApiExecutionRole.roleArn,
+        CUSTOMER_CONNECTION_ALLOWED_REGIONS: configuration.region
       },
       role: controlApiExecutionRole,
       logGroup: controlApiLogGroup,
@@ -210,10 +220,17 @@ export class ControlPlaneStack extends Stack {
         path: '/tenants/{tenantId}/agents/{agentId}/deployments',
         methods: [apigwv2.HttpMethod.GET]
       },
-      { path: '/tenants/{tenantId}/aws-connections', methods: [apigwv2.HttpMethod.GET] },
+      {
+        path: '/tenants/{tenantId}/aws-connections',
+        methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST]
+      },
       {
         path: '/tenants/{tenantId}/aws-connections/{connectionId}',
         methods: [apigwv2.HttpMethod.GET]
+      },
+      {
+        path: '/tenants/{tenantId}/aws-connections/{connectionId}/verify',
+        methods: [apigwv2.HttpMethod.POST]
       },
       { path: '/tenants/{tenantId}/deployments', methods: [apigwv2.HttpMethod.GET] },
       { path: '/tenants/{tenantId}/deployments/{deploymentId}', methods: [apigwv2.HttpMethod.GET] }

@@ -1,4 +1,6 @@
+import { createHash, randomUUID } from 'node:crypto';
 import {
+  createAwsConnectionRequestSchema,
   agentIdSchema,
   agentTemplateIdSchema,
   awsConnectionIdSchema,
@@ -10,15 +12,22 @@ import {
   tenantIdSchema,
   updateAgentRequestSchema,
   type Agent,
+  type AwsConnection,
   type MembershipRole,
   type TenantContext
 } from '@agent-launchpad/schemas';
 import {
+  buildCustomerBootstrapQuickCreateUrl,
+  customerArtifactBucketName,
+  customerDeploymentRoleArn,
+  CUSTOMER_BOOTSTRAP_VERSION,
+  CUSTOMER_DEPLOYMENT_ROLE_NAME,
   ControlPlaneRepository,
   decodePageToken,
   type ListOptions,
   type Page
 } from '@agent-launchpad/aws';
+import type { CustomerRoleAssumer } from '@agent-launchpad/aws';
 
 export interface AuthenticatedUser {
   readonly id: string;
@@ -40,6 +49,22 @@ export interface HttpResponse {
   readonly body: string;
   readonly headers: Record<string, string>;
 }
+
+export interface AwsConnectionOnboardingResponse extends Omit<AwsConnection, 'externalId'> {
+  readonly quickCreateUrl: string;
+}
+
+export interface AwsConnectionConfiguration {
+  readonly templateUrl: string;
+  readonly trustedControlPlanePrincipalArn: string;
+  readonly allowedRegions: readonly string[];
+}
+
+const defaultConnectionConfiguration: AwsConnectionConfiguration = {
+  templateUrl: 'https://example.invalid/agent-launchpad/customer-bootstrap.template.json',
+  trustedControlPlanePrincipalArn: 'arn:aws:iam::123456789012:role/AgentLaunchpadControlApiRole',
+  allowedRegions: ['us-east-1', 'us-west-2', 'eu-west-1']
+};
 
 export class ApiError extends Error {
   public constructor(
@@ -145,7 +170,9 @@ function asConflict(cause: unknown): never {
 export class ControlApi {
   public constructor(
     private readonly repository: ControlPlaneRepository,
-    private readonly clock: () => Date = () => new Date()
+    private readonly clock: () => Date = () => new Date(),
+    private readonly connections: AwsConnectionConfiguration = defaultConnectionConfiguration,
+    private readonly customerRoleAssumer?: CustomerRoleAssumer
   ) {}
 
   async handle(request: HttpRequest): Promise<HttpResponse> {
@@ -249,16 +276,24 @@ export class ControlApi {
       return this.updateAgent(context, request);
     if (request.route === 'GET /tenants/{tenantId}/aws-connections') {
       const listed = await this.repository.listAwsConnections(context.tenantId, listOptions());
-      return success(listed.items, 200, listed);
+      return success(
+        listed.items.map((connection) => this.onboarding(connection)),
+        200,
+        listed
+      );
     }
+    if (request.route === 'POST /tenants/{tenantId}/aws-connections')
+      return this.createAwsConnection(context, request);
     if (request.route === 'GET /tenants/{tenantId}/aws-connections/{connectionId}') {
       const connection = await this.repository.getAwsConnection(
         context.tenantId,
         parseAwsConnectionId(request.pathParameters?.connectionId)
       );
       if (!connection) throw new ApiError(404, 'NOT_FOUND', 'The AWS connection was not found.');
-      return success(connection);
+      return success(this.onboarding(connection));
     }
+    if (request.route === 'POST /tenants/{tenantId}/aws-connections/{connectionId}/verify')
+      return this.verifyAwsConnection(context, request);
     if (request.route === 'GET /tenants/{tenantId}/deployments') {
       const listed = await this.repository.listDeployments(context.tenantId, listOptions());
       return success(listed.items, 200, listed);
@@ -283,6 +318,144 @@ export class ControlApi {
       return success(listed.items, 200, listed);
     }
     throw new ApiError(404, 'NOT_FOUND', 'The requested route was not found.');
+  }
+
+  private onboarding(connection: AwsConnection): AwsConnectionOnboardingResponse {
+    return {
+      id: connection.id,
+      tenantId: connection.tenantId,
+      accountId: connection.accountId,
+      region: connection.region,
+      roleArn: connection.roleArn,
+      status: connection.status,
+      ...(connection.bootstrapVersion ? { bootstrapVersion: connection.bootstrapVersion } : {}),
+      createdBy: connection.createdBy,
+      createdAt: connection.createdAt,
+      updatedAt: connection.updatedAt,
+      ...(connection.verifiedAt ? { verifiedAt: connection.verifiedAt } : {}),
+      ...(connection.lastVerifiedAt ? { lastVerifiedAt: connection.lastVerifiedAt } : {}),
+      ...(connection.lastVerificationErrorCode
+        ? { lastVerificationErrorCode: connection.lastVerificationErrorCode }
+        : {}),
+      quickCreateUrl: buildCustomerBootstrapQuickCreateUrl({
+        region: connection.region,
+        templateUrl: this.connections.templateUrl,
+        trustedControlPlanePrincipalArn: this.connections.trustedControlPlanePrincipalArn,
+        externalId: connection.externalId
+      })
+    };
+  }
+
+  private async createAwsConnection(
+    context: TenantContext,
+    request: HttpRequest
+  ): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const input = parse(createAwsConnectionRequestSchema, body(request));
+    if (!this.connections.allowedRegions.includes(input.region))
+      throw new ApiError(400, 'VALIDATION_ERROR', 'The selected AWS region is not supported.');
+    const now = this.clock().toISOString();
+    // Deterministic ID plus conditional creation makes concurrent duplicate submits reuse one ExternalId.
+    const id = stableConnectionId(context.tenantId, input.accountId, input.region);
+    const connection: AwsConnection = {
+      id,
+      tenantId: context.tenantId,
+      accountId: input.accountId,
+      region: input.region,
+      roleArn: customerDeploymentRoleArn(input.accountId),
+      externalId: randomUUID(),
+      status: 'PENDING',
+      bootstrapVersion: CUSTOMER_BOOTSTRAP_VERSION,
+      createdBy: context.userId,
+      createdAt: now,
+      updatedAt: now
+    };
+    try {
+      await this.repository.createAwsConnection(connection);
+      await this.repository.appendAuditEvent({
+        id: createAuditEventId(),
+        tenantId: context.tenantId,
+        actorId: context.userId,
+        action: 'AWS_CONNECTION_CREATED',
+        resourceType: 'AWS_CONNECTION',
+        resourceId: id,
+        metadata: { accountId: input.accountId, region: input.region },
+        createdAt: now
+      });
+      return success(this.onboarding(connection), 201);
+    } catch (cause) {
+      if (!isConditional(cause)) throw cause;
+      const existing = await this.repository.getAwsConnection(context.tenantId, id);
+      if (!existing) asConflict(cause);
+      return success(this.onboarding(existing));
+    }
+  }
+
+  private async verifyAwsConnection(
+    context: TenantContext,
+    request: HttpRequest
+  ): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const id = parseAwsConnectionId(request.pathParameters?.connectionId);
+    const connection = await this.repository.getAwsConnection(context.tenantId, id);
+    if (!connection) throw new ApiError(404, 'NOT_FOUND', 'The AWS connection was not found.');
+    if (!this.customerRoleAssumer)
+      throw new ApiError(503, 'CONNECTION_NOT_READY', 'AWS verification is not configured.');
+    validateConnectionRole(connection);
+    const startedAt = this.clock().toISOString();
+    try {
+      await this.repository.startAwsConnectionVerification(context.tenantId, id, startedAt);
+    } catch (cause) {
+      if (isConditional(cause))
+        throw new ApiError(409, 'CONFLICT', 'AWS connection verification is already in progress.');
+      throw cause;
+    }
+    try {
+      await verifyCustomerBootstrap(this.customerRoleAssumer, connection);
+      const now = this.clock().toISOString();
+      const verified: AwsConnection = {
+        ...connection,
+        status: 'VERIFIED',
+        updatedAt: now,
+        verifiedAt: connection.verifiedAt ?? now,
+        lastVerifiedAt: now
+      };
+      await this.repository.completeAwsConnectionVerification(context.tenantId, id, verified);
+      await this.repository.appendAuditEvent({
+        id: createAuditEventId(),
+        tenantId: context.tenantId,
+        actorId: context.userId,
+        action: 'AWS_CONNECTION_VERIFIED',
+        resourceType: 'AWS_CONNECTION',
+        resourceId: id,
+        metadata: { accountId: connection.accountId, region: connection.region },
+        createdAt: now
+      });
+      return success(this.onboarding(verified));
+    } catch (cause) {
+      const code = verificationErrorCode(cause);
+      const now = this.clock().toISOString();
+      await this.repository.completeAwsConnectionVerification(context.tenantId, id, {
+        status: 'FAILED',
+        updatedAt: now,
+        lastVerificationErrorCode: code
+      });
+      await this.repository.appendAuditEvent({
+        id: createAuditEventId(),
+        tenantId: context.tenantId,
+        actorId: context.userId,
+        action: 'AWS_CONNECTION_VERIFICATION_FAILED',
+        resourceType: 'AWS_CONNECTION',
+        resourceId: id,
+        metadata: { accountId: connection.accountId, region: connection.region, errorCode: code },
+        createdAt: now
+      });
+      throw new ApiError(
+        422,
+        code,
+        'AWS bootstrap could not be verified. Check the stack and retry.'
+      );
+    }
   }
 
   private async agent(context: TenantContext, request: HttpRequest): Promise<Agent> {
@@ -370,4 +543,88 @@ function parseVersion(value: unknown): string {
 }
 function parseAwsConnectionId(value: unknown): string {
   return parse(awsConnectionIdSchema, value);
+}
+
+function stableConnectionId(tenantId: string, accountId: string, region: string): string {
+  const hex = createHash('sha1').update(`${tenantId}:${accountId}:${region}`).digest('hex');
+  return `awc_${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+function isConditional(cause: unknown): boolean {
+  return (
+    cause instanceof Error &&
+    /ConditionalCheckFailed|ConditionalCheckFailedException/.test(cause.name + cause.message)
+  );
+}
+
+function validateConnectionRole(connection: AwsConnection): void {
+  const expected = customerDeploymentRoleArn(connection.accountId);
+  if (connection.roleArn !== expected)
+    throw new ApiError(422, 'CONNECTION_NOT_READY', 'AWS connection metadata is invalid.');
+}
+
+async function verifyCustomerBootstrap(
+  assumer: CustomerRoleAssumer,
+  connection: AwsConnection
+): Promise<void> {
+  const credentials = await withRetry(() =>
+    assumer.assumeCustomerRole({
+      roleArn: connection.roleArn,
+      externalId: connection.externalId,
+      sessionName: `agent-launchpad-verify-${connection.id.slice(-12)}`
+    })
+  );
+  const identity = await assumer.getCallerIdentity(credentials);
+  if (identity.account !== connection.accountId) throw new VerificationFailure('ACCOUNT_MISMATCH');
+  const expectedArn = new RegExp(
+    `^arn:aws:sts::${connection.accountId}:assumed-role/${CUSTOMER_DEPLOYMENT_ROLE_NAME}/[^/]+$`
+  );
+  if (!identity.arn || !expectedArn.test(identity.arn))
+    throw new VerificationFailure('ROLE_IDENTITY_MISMATCH');
+  try {
+    await assumer.headArtifactBucket(
+      credentials,
+      customerArtifactBucketName(connection.accountId, connection.region),
+      connection.region
+    );
+  } catch (cause) {
+    if (isAccessDenied(cause)) throw new VerificationFailure('BOOTSTRAP_ACCESS_DENIED');
+    throw new VerificationFailure('BOOTSTRAP_RESOURCE_MISSING');
+  }
+}
+
+class VerificationFailure extends Error {
+  public constructor(readonly code: string) {
+    super(code);
+  }
+}
+
+async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (const delay of [0, 100, 300]) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      return await operation();
+    } catch (cause) {
+      last = cause;
+      if (!isTransient(cause)) throw cause;
+    }
+  }
+  throw last;
+}
+
+function isAccessDenied(cause: unknown): boolean {
+  return cause instanceof Error && /AccessDenied|Forbidden/.test(cause.name + cause.message);
+}
+function isTransient(cause: unknown): boolean {
+  return (
+    cause instanceof Error &&
+    /Timeout|Networking|ServiceUnavailable|Throttl|RequestLimit/.test(cause.name + cause.message)
+  );
+}
+function verificationErrorCode(cause: unknown): string {
+  if (cause instanceof VerificationFailure) return cause.code;
+  if (isAccessDenied(cause)) return 'ASSUME_ROLE_DENIED';
+  if (isTransient(cause)) return 'AWS_TEMPORARY_ERROR';
+  return 'CONNECTION_NOT_READY';
 }

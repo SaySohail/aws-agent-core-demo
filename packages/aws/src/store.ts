@@ -35,6 +35,8 @@ export interface UpdateInput {
   readonly key: Record<string, string>;
   readonly updates: Record<string, unknown>;
   readonly condition?: string;
+  readonly conditionNames?: Record<string, string>;
+  readonly conditionValues?: Record<string, unknown>;
 }
 
 /** Concrete server-side adapter; repositories accept the narrow port above for testability. */
@@ -63,7 +65,7 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
     );
   }
 
-  async update({ key, updates, condition }: UpdateInput) {
+  async update({ key, updates, condition, conditionNames, conditionValues }: UpdateInput) {
     const names: Record<string, string> = {};
     const values: Record<string, unknown> = {};
     const assignments = Object.entries(updates).map(([field, value], index) => {
@@ -78,9 +80,10 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
         TableName: this.tableName,
         Key: key,
         UpdateExpression: `SET ${assignments.join(', ')}`,
-        ExpressionAttributeNames: names,
+        ExpressionAttributeNames: { ...names, ...conditionNames },
         ExpressionAttributeValues: values,
-        ConditionExpression: condition
+        ConditionExpression: condition,
+        ...(conditionValues ? { ExpressionAttributeValues: { ...values, ...conditionValues } } : {})
       })
     );
   }

@@ -95,6 +95,21 @@
             }
           ]
         },
+        "BucketName": {
+          "Fn::Join": [
+            "",
+            [
+              "agent-launchpad-artifacts-",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "-",
+              {
+                "Ref": "AWS::Region"
+              }
+            ]
+          ]
+        },
         "LifecycleConfiguration": {
           "Rules": [
             {

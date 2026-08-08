@@ -16,9 +16,11 @@ the active AWS profile. Set the pair for the environment you will operate:
 export CONTROL_PLANE_DEV_ACCOUNT=123456789012
 export CONTROL_PLANE_DEV_REGION=ap-south-1
 export CONTROL_PLANE_DEV_WEB_ORIGIN=http://localhost:3000
+export CONTROL_PLANE_DEV_CUSTOMER_BOOTSTRAP_TEMPLATE_URL=https://assets.example.com/agent-launchpad/customer-bootstrap.template.json
 export CONTROL_PLANE_PROD_ACCOUNT=210987654321
 export CONTROL_PLANE_PROD_REGION=ap-south-1
 export CONTROL_PLANE_PROD_WEB_ORIGIN=https://app.example.com
+export CONTROL_PLANE_PROD_CUSTOMER_BOOTSTRAP_TEMPLATE_URL=https://assets.example.com/agent-launchpad/customer-bootstrap.template.json
 ```
 
 ## Deployment workflow
@@ -62,3 +64,9 @@ Cognito User Pool with public sign-up disabled, a browser-safe Authorization Cod
 The configured browser origin is the only callback and logout origin. Outputs expose the API endpoint,
 table name, bucket name, and Cognito values required by the web app. Every supported resource is tagged
 with `Project`, `Environment`, `ManagedBy`, and `Plane`.
+
+The bootstrap template URL is a deployment-time trusted value. The API creates its Quick Create URL
+from that setting, the control API execution-role ARN, and a server-generated per-connection ExternalId;
+it never accepts a template location or role ARN from the browser. The API role can assume only the
+customer bootstrap role pattern `AgentLaunchpadDeploymentRole`; the customer role independently checks
+the exact principal and ExternalId.

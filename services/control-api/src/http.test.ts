@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ControlPlaneRepository } from '@agent-launchpad/aws';
-import type { Agent, AgentTemplate, TenantContext } from '@agent-launchpad/schemas';
+import type { Agent, AgentTemplate, AwsConnection, TenantContext } from '@agent-launchpad/schemas';
+import type { CustomerRoleAssumer } from '@agent-launchpad/aws';
 import { ControlApi, type HttpRequest } from './http.js';
 
 const tenantA = 'tnt_00000000-0000-4000-8000-000000000001';
 const tenantB = 'tnt_00000000-0000-4000-8000-000000000002';
 const agentId = 'agt_00000000-0000-4000-8000-000000000001';
+const timestamp = '2026-01-01T00:00:00.000Z';
 const template: AgentTemplate = {
   templateId: 'tpl_00000000-0000-4000-8000-000000000001',
   version: '1',
@@ -181,4 +183,105 @@ test('repository conflicts and unexpected errors are mapped without implementati
   );
   assert.equal(response.statusCode, 500);
   assert.doesNotMatch(response.body, /DynamoDB secret details/);
+});
+
+test('AWS connection creation owns ExternalId and duplicate requests reuse its pending connection', async () => {
+  let saved: AwsConnection | undefined;
+  const api = new ControlApi(
+    repository({
+      createAwsConnection: async (value) => {
+        if (saved) throw new Error('ConditionalCheckFailed');
+        saved = value;
+      },
+      getAwsConnection: async (_tenantId, id) => (saved?.id === id ? saved : undefined)
+    }),
+    () => new Date(timestamp),
+    {
+      templateUrl: 'https://assets.example.test/bootstrap.json',
+      trustedControlPlanePrincipalArn: 'arn:aws:iam::111111111111:role/ControlApi',
+      allowedRegions: ['us-east-1']
+    }
+  );
+  const input = JSON.stringify({ accountId: '123456789012', region: 'us-east-1' });
+  const first = await api.handle(
+    request('POST /tenants/{tenantId}/aws-connections', {
+      pathParameters: { tenantId: tenantA },
+      body: input
+    })
+  );
+  const second = await api.handle(
+    request('POST /tenants/{tenantId}/aws-connections', {
+      pathParameters: { tenantId: tenantA },
+      body: input
+    })
+  );
+  assert.equal(first.statusCode, 201);
+  assert.equal(second.statusCode, 200);
+  assert.equal(saved?.status, 'PENDING');
+  assert.ok(saved?.externalId);
+  assert.doesNotMatch(
+    first.body.replace(/quickCreateUrl":"[^"]+/, ''),
+    new RegExp(saved!.externalId)
+  );
+  assert.match(first.body, /console\.aws\.amazon\.com/);
+  const injected = await api.handle(
+    request('POST /tenants/{tenantId}/aws-connections', {
+      pathParameters: { tenantId: tenantA },
+      body: JSON.stringify({ accountId: '123456789012', region: 'us-east-1', status: 'VERIFIED' })
+    })
+  );
+  assert.equal(injected.statusCode, 400);
+});
+
+test('verification uses assumed credentials in memory, validates identity, and writes verified audit state', async () => {
+  const connection: AwsConnection = {
+    id: 'awc_00000000-0000-5000-a000-000000000001',
+    tenantId: tenantA,
+    accountId: '123456789012',
+    region: 'us-east-1',
+    roleArn: 'arn:aws:iam::123456789012:role/AgentLaunchpadDeploymentRole',
+    externalId: 'external-id',
+    status: 'PENDING',
+    bootstrapVersion: '1',
+    createdBy: 'user-a',
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+  const updates: unknown[] = [];
+  const assumer: CustomerRoleAssumer = {
+    assumeCustomerRole: async () => ({
+      accessKeyId: 'temporary',
+      secretAccessKey: 'temporary',
+      sessionToken: 'temporary'
+    }),
+    getCallerIdentity: async () => ({
+      account: connection.accountId,
+      arn: 'arn:aws:sts::123456789012:assumed-role/AgentLaunchpadDeploymentRole/session'
+    }),
+    headArtifactBucket: async () => undefined
+  };
+  const api = new ControlApi(
+    repository({
+      getAwsConnection: async () => connection,
+      startAwsConnectionVerification: async () => {
+        updates.push('start');
+      },
+      completeAwsConnectionVerification: async (_tenant, _id, value) => {
+        updates.push(value);
+      }
+    }),
+    () => new Date(timestamp),
+    undefined,
+    assumer
+  );
+  const response = await api.handle(
+    request('POST /tenants/{tenantId}/aws-connections/{connectionId}/verify', {
+      pathParameters: { tenantId: tenantA, connectionId: connection.id },
+      body: '{}'
+    })
+  );
+  assert.equal(response.statusCode, 200);
+  assert.match(response.body, /VERIFIED/);
+  assert.doesNotMatch(response.body, /temporary/);
+  assert.equal((updates.at(-1) as AwsConnection).status, 'VERIFIED');
 });

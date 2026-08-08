@@ -9,6 +9,7 @@ export interface EnvironmentConfig {
   readonly pointInTimeRecovery: boolean;
   readonly removalPolicy: 'destroy' | 'retain';
   readonly webOrigin: string;
+  readonly customerBootstrapTemplateUrl: string;
 }
 
 const VALID_ENVIRONMENTS: readonly EnvironmentName[] = ['dev', 'prod'];
@@ -38,6 +39,16 @@ function requiredWebOrigin(environment: EnvironmentName): string {
   return origin.origin;
 }
 
+function requiredHttpsSetting(
+  environment: EnvironmentName,
+  setting: 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL'
+): string {
+  const value = process.env[`CONTROL_PLANE_${environment.toUpperCase()}_${setting}`];
+  if (!value || new URL(value).protocol !== 'https:')
+    throw new Error(`CONTROL_PLANE_${environment.toUpperCase()}_${setting} must be an HTTPS URL.`);
+  return value;
+}
+
 export function resolveEnvironmentConfig(environment: string): EnvironmentConfig {
   if (!VALID_ENVIRONMENTS.includes(environment as EnvironmentName)) {
     throw new Error(`Unsupported control-plane environment "${environment}". Use dev or prod.`);
@@ -51,6 +62,7 @@ export function resolveEnvironmentConfig(environment: string): EnvironmentConfig
     noncurrentVersionRetentionDays: name === 'prod' ? 365 : 30,
     pointInTimeRecovery: name === 'prod',
     removalPolicy: name === 'prod' ? 'retain' : 'destroy',
-    webOrigin: requiredWebOrigin(name)
+    webOrigin: requiredWebOrigin(name),
+    customerBootstrapTemplateUrl: requiredHttpsSetting(name, 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL')
   };
 }

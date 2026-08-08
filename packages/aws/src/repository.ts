@@ -21,6 +21,10 @@ export interface ListOptions {
 
 const createCondition = 'attribute_not_exists(pk) AND attribute_not_exists(sk)';
 const existingCondition = 'attribute_exists(pk) AND attribute_exists(sk)';
+const verifyingCondition =
+  'attribute_exists(pk) AND attribute_exists(sk) AND #connectionStatus IN (:pending, :failed, :verified)';
+const finishVerificationCondition =
+  'attribute_exists(pk) AND attribute_exists(sk) AND #connectionStatus = :verifying';
 
 /** Server-only boundary. Every tenant-owned lookup starts with the caller's tenant partition. */
 export class ControlPlaneRepository {
@@ -104,6 +108,32 @@ export class ControlPlaneRepository {
       options,
       fromPersistence.awsConnection
     );
+  }
+  async startAwsConnectionVerification(
+    tenantId: string,
+    id: string,
+    updatedAt: string
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.awsConnection(tenantId, id),
+      updates: { status: 'VERIFYING', updatedAt },
+      condition: verifyingCondition,
+      conditionNames: { '#connectionStatus': 'status' },
+      conditionValues: { ':pending': 'PENDING', ':failed': 'FAILED', ':verified': 'VERIFIED' }
+    });
+  }
+  async completeAwsConnectionVerification(
+    tenantId: string,
+    id: string,
+    changes: Pick<AwsConnection, 'status' | 'updatedAt'> & Partial<AwsConnection>
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.awsConnection(tenantId, id),
+      updates: awsConnectionChanges(changes),
+      condition: finishVerificationCondition,
+      conditionNames: { '#connectionStatus': 'status' },
+      conditionValues: { ':verifying': 'VERIFYING' }
+    });
   }
 
   async createAgent(value: Agent): Promise<void> {
@@ -248,4 +278,18 @@ export class ControlPlaneRepository {
     const result = await this.store.query(input);
     return page(result.items.map(mapper), encodePageToken(result.nextKey));
   }
+}
+
+function awsConnectionChanges(
+  value: Pick<AwsConnection, 'status' | 'updatedAt'> & Partial<AwsConnection>
+): Record<string, unknown> {
+  return {
+    status: value.status,
+    updatedAt: value.updatedAt,
+    ...(value.verifiedAt ? { verifiedAt: value.verifiedAt } : {}),
+    ...(value.lastVerifiedAt ? { lastVerifiedAt: value.lastVerifiedAt } : {}),
+    ...(value.lastVerificationErrorCode
+      ? { lastVerificationErrorCode: value.lastVerificationErrorCode }
+      : {})
+  };
 }

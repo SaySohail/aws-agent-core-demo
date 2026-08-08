@@ -38,6 +38,7 @@ export class CustomerBootstrapStack extends Stack {
     });
 
     const artifactBucket = new s3.Bucket(this, 'ArtifactBucket', {
+      bucketName: `agent-launchpad-artifacts-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: artifactKey,

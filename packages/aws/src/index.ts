@@ -5,3 +5,4 @@ export * from './mappers.js';
 export * from './pagination.js';
 export * from './repository.js';
 export * from './store.js';
+export * from './customer-connection.js';

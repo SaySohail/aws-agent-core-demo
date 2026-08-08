@@ -183,6 +183,11 @@ export async function currentSession(): Promise<UserSession | null> {
   return token ? verifyIdToken(token) : null;
 }
 
+/** Server-only forwarding token for the same authenticated control-plane request. */
+export async function currentIdToken(): Promise<string | null> {
+  return (await cookies()).get(ID_TOKEN_COOKIE)?.value ?? null;
+}
+
 export async function finishLogin(): Promise<string> {
   const store = await cookies();
   const returnTo = safeReturnPath(store.get(RETURN_TO_COOKIE)?.value);

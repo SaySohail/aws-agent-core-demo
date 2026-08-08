@@ -47,7 +47,13 @@ export const updateAgentRequestSchema = z
 
 export const tenantStatusSchema = z.enum(['ACTIVE', 'SUSPENDED']);
 export const membershipRoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
-export const awsConnectionStatusSchema = z.enum(['PENDING', 'VERIFIED', 'FAILED', 'DISCONNECTED']);
+export const awsConnectionStatusSchema = z.enum([
+  'PENDING',
+  'VERIFYING',
+  'VERIFIED',
+  'FAILED',
+  'DISCONNECTED'
+]);
 export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED']);
 export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'FAILED', 'ARCHIVED']);
 export const deploymentStatusSchema = z.enum([
@@ -87,9 +93,21 @@ export const awsConnectionSchema = z.object({
   roleArn: nonEmptyString.max(2048),
   externalId: nonEmptyString.max(1024),
   status: awsConnectionStatusSchema,
+  bootstrapVersion: nonEmptyString.max(32).optional(),
+  createdBy: nonEmptyString.max(256),
   createdAt: timestampSchema,
-  verifiedAt: timestampSchema.optional()
+  updatedAt: timestampSchema,
+  verifiedAt: timestampSchema.optional(),
+  lastVerifiedAt: timestampSchema.optional(),
+  lastVerificationErrorCode: nonEmptyString.max(128).optional()
 });
+
+export const createAwsConnectionRequestSchema = z
+  .object({
+    accountId: z.string().regex(/^\d{12}$/, 'Expected a 12-digit AWS account ID'),
+    region: z.string().regex(/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/, 'Expected an AWS region')
+  })
+  .strict();
 
 /** Global catalog item. Templates deliberately have no tenantId. */
 export const agentTemplateSchema = z.object({
@@ -164,6 +182,7 @@ export type DeploymentStatus = z.infer<typeof deploymentStatusSchema>;
 export type CreateAgentRequest = z.infer<typeof createAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof updateAgentRequestSchema>;
 export type PageQuery = z.infer<typeof pageQuerySchema>;
+export type CreateAwsConnectionRequest = z.infer<typeof createAwsConnectionRequestSchema>;
 
 function generateId(prefix: string): string {
   return `${prefix}${crypto.randomUUID()}`;

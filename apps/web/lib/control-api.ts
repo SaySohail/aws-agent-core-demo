@@ -2,6 +2,7 @@ import type {
   Agent,
   AgentTemplate,
   AwsConnection,
+  CreateAwsConnectionRequest as SharedCreateAwsConnectionRequest,
   CreateAgentRequest as SharedCreateAgentRequest,
   Deployment,
   MembershipRole,
@@ -68,6 +69,10 @@ export type TenantSummary = Tenant & {
 /** Strict mutation inputs shared with the API boundary; server-owned fields are excluded. */
 export type CreateAgentRequest = SharedCreateAgentRequest;
 export type UpdateAgentRequest = SharedUpdateAgentRequest;
+export type CreateAwsConnectionRequest = SharedCreateAwsConnectionRequest;
+export type AwsConnectionOnboarding = Omit<AwsConnection, 'externalId'> & {
+  readonly quickCreateUrl: string;
+};
 
 export interface ControlApiClientOptions {
   /** Control-plane API origin, for example https://api.example.com. */
@@ -179,12 +184,22 @@ export function createControlApiClient(options: ControlApiClientOptions) {
     },
     awsConnections: {
       list: (tenantId: string, query?: PageQuery) =>
-        requestPage<AwsConnection>(
+        requestPage<AwsConnectionOnboarding>(
           `/tenants/${segment(tenantId)}/aws-connections${queryString(query)}`
         ),
       get: (tenantId: string, connectionId: string) =>
-        request<AwsConnection>(
+        request<AwsConnectionOnboarding>(
           `/tenants/${segment(tenantId)}/aws-connections/${segment(connectionId)}`
+        ),
+      create: (tenantId: string, input: CreateAwsConnectionRequest) =>
+        request<AwsConnectionOnboarding>(`/tenants/${segment(tenantId)}/aws-connections`, {
+          method: 'POST',
+          body: input
+        }),
+      verify: (tenantId: string, connectionId: string) =>
+        request<AwsConnectionOnboarding>(
+          `/tenants/${segment(tenantId)}/aws-connections/${segment(connectionId)}/verify`,
+          { method: 'POST', body: {} }
         )
     },
     deployments: {
