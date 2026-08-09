@@ -3,6 +3,7 @@ import {
   agentTemplateIdSchema,
   auditEventIdSchema,
   agentArtifactIdSchema,
+  runtimeVersionIdSchema,
   awsConnectionIdSchema,
   deploymentIdSchema,
   tenantIdSchema
@@ -52,6 +53,10 @@ export const controlPlaneKeys = {
     gsi2pk: `TENANT#${tenantIdSchema.parse(tenantId)}#AGENT#${agentIdSchema.parse(agentId)}`,
     gsi2sk: `ARTIFACT#${sha256}`
   }),
+  runtimeVersion: (tenantId: string, id: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `RUNTIME_VERSION#${runtimeVersionIdSchema.parse(id)}`
+  }),
   audit: (tenantId: string, createdAt: string, id: string) => ({
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `AUDIT#${createdAt}#${auditEventIdSchema.parse(id)}`
@@ -74,6 +79,7 @@ export const sortKeyPrefixes = {
   deployments: 'DEPLOYMENT#',
   deploymentEvents: 'DEPLOYMENT_EVENT#',
   artifacts: 'ARTIFACT#',
+  runtimeVersions: 'RUNTIME_VERSION#',
   audits: 'AUDIT#'
 } as const;
 

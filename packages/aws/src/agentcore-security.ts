@@ -117,6 +117,7 @@ export interface AgentRuntimeInvocationClient {
     readonly runtimeArn: string;
     readonly payload: unknown;
     readonly sessionId?: string;
+    readonly qualifier?: string;
     readonly credentials: AssumedCustomerRoleCredentials;
     readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
   }): Promise<string>;
@@ -141,6 +142,7 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
     readonly runtimeArn: string;
     readonly payload: unknown;
     readonly sessionId?: string;
+    readonly qualifier?: string;
     readonly credentials: AssumedCustomerRoleCredentials;
     readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
   }): Promise<string> {
@@ -156,7 +158,7 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
           runtimeSessionId: input.sessionId ?? crypto.randomUUID(),
           payload: JSON.stringify(input.payload),
           contentType: 'application/json',
-          qualifier: 'DEFAULT'
+          qualifier: input.qualifier ?? 'DEFAULT'
         })
       );
       return (await response.response?.transformToString()) ?? '';

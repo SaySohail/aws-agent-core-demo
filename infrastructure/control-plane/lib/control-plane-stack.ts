@@ -256,54 +256,50 @@ export class ControlPlaneStack extends Stack {
       'WAITING_FOR_DEPENDENCIES',
       'DEPLOYING_RUNTIME',
       'WAITING_FOR_RUNTIME',
-      'HEALTH_CHECKING'
+      'HEALTH_CHECKING',
+      'PROMOTING_ENDPOINT',
+      'WAITING_FOR_ENDPOINT'
     ];
-    const tasks = stages.map(invoke) as [
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke,
-      sfnTasks.LambdaInvoke
-    ];
+    const tasks = stages.map(invoke);
     const dependencyWait = new sfn.Wait(this, 'DependencyWait', {
       time: sfn.WaitTime.duration(Duration.seconds(20))
     });
     const runtimeWait = new sfn.Wait(this, 'RuntimeWait', {
       time: sfn.WaitTime.duration(Duration.seconds(20))
     });
+    const endpointWait = new sfn.Wait(this, 'EndpointWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
     const ready = new sfn.Succeed(this, 'DeploymentReady');
     const dependencyChoice = new sfn.Choice(this, 'DependenciesReady?')
-      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[9])
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[9]!)
       .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
       .otherwise(dependencyWait);
     const runtimeChoice = new sfn.Choice(this, 'RuntimeReady?')
-      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[11])
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[11]!)
       .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
       .otherwise(runtimeWait);
-    dependencyWait.next(tasks[9]);
-    runtimeWait.next(tasks[11]);
-    tasks[0]
-      .next(tasks[1])
-      .next(tasks[2])
-      .next(tasks[3])
-      .next(tasks[4])
-      .next(tasks[5])
-      .next(tasks[6])
-      .next(tasks[7])
-      .next(tasks[8])
+    const endpointChoice = new sfn.Choice(this, 'ProductionEndpointReady?')
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), ready)
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
+      .otherwise(endpointWait);
+    dependencyWait.next(tasks[9]!);
+    runtimeWait.next(tasks[11]!);
+    endpointWait.next(tasks[14]!);
+    tasks[0]!
+      .next(tasks[1]!)
+      .next(tasks[2]!)
+      .next(tasks[3]!)
+      .next(tasks[4]!)
+      .next(tasks[5]!)
+      .next(tasks[6]!)
+      .next(tasks[7]!)
+      .next(tasks[8]!)
       .next(dependencyChoice);
-    tasks[9].next(tasks[10]).next(runtimeChoice);
-    tasks[11].next(tasks[12]).next(ready);
+    tasks[9]!.next(tasks[10]!).next(runtimeChoice);
+    tasks[11]!.next(tasks[12]!).next(tasks[13]!).next(tasks[14]!).next(endpointChoice);
     const deploymentStateMachine = new sfn.StateMachine(this, 'DeploymentStateMachine', {
-      definitionBody: sfn.DefinitionBody.fromChainable(tasks[0]),
+      definitionBody: sfn.DefinitionBody.fromChainable(tasks[0]!),
       stateMachineType: sfn.StateMachineType.STANDARD,
       timeout: Duration.hours(2),
       tracingEnabled: true,

@@ -6,11 +6,18 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "tsx --test src/**/*.test.ts",
     "clean": "tsc --build --clean"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-agentcore-control": "3.1106.0",
+    "@aws-sdk/client-dynamodb": "3.969.0",
+    "@aws-sdk/lib-dynamodb": "3.969.0",
     "@agent-launchpad/aws": "workspace:*",
     "@agent-launchpad/schemas": "workspace:*",
     "@agent-launchpad/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.20.6"
   }
 }

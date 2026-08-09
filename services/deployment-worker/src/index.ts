@@ -42,6 +42,12 @@ export interface RuntimeDeploymentPort {
     context: DeploymentCommandInput
   ): Promise<'PENDING' | 'READY' | 'FAILED'>;
   checkRuntimeHealth(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  promoteProductionEndpoint(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getProductionEndpointStatus(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
 export interface DependencyProvisioner {
@@ -126,6 +132,10 @@ export class DeploymentWorker {
             | 'READY'
             | 'FAILED'
         };
+      case 'PROMOTING_ENDPOINT':
+        return { status: await this.dependencies.runtime.promoteProductionEndpoint(input) };
+      case 'WAITING_FOR_ENDPOINT':
+        return { status: await this.dependencies.runtime.getProductionEndpointStatus(input) };
       case 'READY':
       case 'FAILED':
       case 'QUEUED':

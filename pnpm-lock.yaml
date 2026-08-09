@@ -196,6 +196,9 @@ importers:
       '@aws-sdk/client-bedrock-agentcore':
         specifier: 3.1106.0
         version: 3.1106.0
+      '@aws-sdk/client-bedrock-agentcore-control':
+        specifier: 3.1106.0
+        version: 3.1106.0
       '@aws-sdk/client-dynamodb':
         specifier: 3.969.0
         version: 3.969.0
@@ -271,6 +274,19 @@ importers:
       '@agent-launchpad/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@aws-sdk/client-bedrock-agentcore-control':
+        specifier: 3.1106.0
+        version: 3.1106.0
+      '@aws-sdk/client-dynamodb':
+        specifier: 3.969.0
+        version: 3.969.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: 3.969.0
+        version: 3.969.0(@aws-sdk/client-dynamodb@3.969.0)
+    devDependencies:
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
 
 packages:
 
@@ -341,6 +357,10 @@ packages:
 
   '@aws-crypto/util@5.2.0':
     resolution: {integrity: sha512-4RkU9EsI6ZpBve5fseQlGNUWKMa1RLPQ1dnjnQoe07ldfIzcsGb5hC5W0Dm7u423KWzawlrpbjXBrXCEv9zazQ==}
+
+  '@aws-sdk/client-bedrock-agentcore-control@3.1106.0':
+    resolution: {integrity: sha512-jhs4jyApl3REd2BP/YBw5aXTOZ0NvTdvF7WjBc1KVmKXIin2JDczyechrYqpBth59CkUblxKPtVbwmZ3FQxCkw==}
+    engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-bedrock-agentcore@3.1106.0':
     resolution: {integrity: sha512-agFzXcryRkjm9xFY31+LSmYcXQy6DyckKd1y51MwSF2ijjeXoimwtRLktJbqgk9Cp9SpjdIEqxo28mmCT6j4Xw==}
@@ -2549,6 +2569,17 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.974.2
       '@smithy/util-utf8': 2.3.0
+      tslib: 2.8.1
+
+  '@aws-sdk/client-bedrock-agentcore-control@3.1106.0':
+    dependencies:
+      '@aws-sdk/core': 3.977.6
+      '@aws-sdk/credential-provider-node': 3.972.78
+      '@aws-sdk/types': 3.974.2
+      '@smithy/core': 3.31.1
+      '@smithy/fetch-http-handler': 5.6.13
+      '@smithy/node-http-handler': 4.9.13
+      '@smithy/types': 4.16.1
       tslib: 2.8.1
 
   '@aws-sdk/client-bedrock-agentcore@3.1106.0':

@@ -3,6 +3,7 @@ import { AssumeRoleCommand, GetCallerIdentityCommand, STSClient } from '@aws-sdk
 
 export const CUSTOMER_BOOTSTRAP_VERSION = '1';
 export const CUSTOMER_DEPLOYMENT_ROLE_NAME = 'AgentLaunchpadDeploymentRole';
+export const CUSTOMER_RUNTIME_EXECUTION_ROLE_NAME = 'AgentLaunchpadRuntimeExecutionRole';
 export const CUSTOMER_BOOTSTRAP_STACK_NAME = 'AgentLaunchpadBootstrap';
 
 export function customerDeploymentRoleArn(accountId: string, partition = 'aws'): string {
@@ -10,6 +11,13 @@ export function customerDeploymentRoleArn(accountId: string, partition = 'aws'):
     throw new Error('AWS account ID must contain exactly 12 digits.');
   if (partition !== 'aws') throw new Error('Only the commercial AWS partition is supported.');
   return `arn:aws:iam::${accountId}:role/${CUSTOMER_DEPLOYMENT_ROLE_NAME}`;
+}
+
+/** Fixed bootstrap v1 execution role; callers still validate the target account before use. */
+export function customerRuntimeExecutionRoleArn(accountId: string, partition = 'aws'): string {
+  if (!/^\d{12}$/.test(accountId) || partition !== 'aws')
+    throw new Error('Invalid customer runtime execution role coordinates.');
+  return `arn:${partition}:iam::${accountId}:role/${CUSTOMER_RUNTIME_EXECUTION_ROLE_NAME}`;
 }
 
 /** Matches the deterministic bucket name exported by customer bootstrap contract v1. */

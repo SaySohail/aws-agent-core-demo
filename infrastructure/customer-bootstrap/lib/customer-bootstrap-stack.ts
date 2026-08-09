@@ -252,7 +252,11 @@ export class CustomerBootstrapStack extends Stack {
     // Create/List cannot be scoped to a runtime ARN by AgentCore IAM; request tags bind creation to this product.
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['bedrock-agentcore:CreateAgentRuntime', 'bedrock-agentcore:ListAgentRuntimes'],
+        actions: [
+          'bedrock-agentcore:CreateAgentRuntime',
+          'bedrock-agentcore:ListAgentRuntimes',
+          'bedrock-agentcore:CreateAgentRuntimeEndpoint'
+        ],
         resources: ['*'],
         conditions: {
           StringEquals: { 'aws:RequestedRegion': cdk.Aws.REGION },
@@ -270,14 +274,17 @@ export class CustomerBootstrapStack extends Stack {
         actions: [
           'bedrock-agentcore:DeleteAgentRuntime',
           'bedrock-agentcore:GetAgentRuntime',
-          'bedrock-agentcore:UpdateAgentRuntime'
+          'bedrock-agentcore:UpdateAgentRuntime',
+          'bedrock-agentcore:GetAgentRuntimeEndpoint',
+          'bedrock-agentcore:UpdateAgentRuntimeEndpoint'
         ],
         resources: [
           Stack.of(this).formatArn({
             service: 'bedrock-agentcore',
             resource: 'runtime',
             resourceName: '*'
-          })
+          }),
+          `arn:${cdk.Aws.PARTITION}:bedrock-agentcore:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:runtime/*/runtime-endpoint/*`
         ],
         conditions: { StringEquals: { 'aws:ResourceTag/ManagedBy': 'AgentLaunchpad' } }
       })

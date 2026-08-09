@@ -17,6 +17,7 @@ export const agentIdSchema = prefixedIdSchema('agt_');
 export const deploymentIdSchema = prefixedIdSchema('dep_');
 export const deploymentEventIdSchema = prefixedIdSchema('dpe_');
 export const agentArtifactIdSchema = prefixedIdSchema('art_');
+export const runtimeVersionIdSchema = prefixedIdSchema('rtv_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
 /** Platform template IDs are stable, human-readable product identifiers. */
 export const agentTemplateIdSchema = z.string().regex(/^(?:customer-support|tpl_[0-9a-f-]+)$/i);
@@ -212,6 +213,8 @@ export const deploymentStageSchema = z.enum([
   'DEPLOYING_RUNTIME',
   'WAITING_FOR_RUNTIME',
   'HEALTH_CHECKING',
+  'PROMOTING_ENDPOINT',
+  'WAITING_FOR_ENDPOINT',
   'READY',
   'FAILED'
 ]);
@@ -334,8 +337,10 @@ export const agentSchema = z.object({
   revision: z.number().int().positive(),
   status: agentStatusSchema,
   runtimeArn: nonEmptyString.max(2048).optional(),
+  runtimeId: nonEmptyString.max(512).optional(),
   runtimeVersion: nonEmptyString.max(100).optional(),
   runtimeEndpoint: nonEmptyString.max(2048).optional(),
+  runtimeEndpointName: nonEmptyString.max(128).optional(),
   /** Trusted AgentCore deployment response only; never browser-provided. */
   runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   gatewayArn: nonEmptyString.max(2048).optional(),
@@ -366,6 +371,8 @@ export const deploymentSchema = z.object({
       accountId: z.string().regex(/^\d{12}$/),
       region: nonEmptyString.max(64),
       modelId: nonEmptyString.max(512),
+      /** Server-resolved dependency output; never supplied by the browser. */
+      gatewayUrl: z.string().url().max(2048).optional(),
       capabilities: z.array(agentCapabilitySchema).max(20),
       guardrails: z.object({ refunds: refundGuardrailSchema }).strict()
     })
@@ -374,6 +381,9 @@ export const deploymentSchema = z.object({
   requestHash: z.string().regex(/^[a-f0-9]{64}$/),
   executionArn: nonEmptyString.max(2048).optional(),
   runtimeVersion: nonEmptyString.max(100).optional(),
+  runtimeId: nonEmptyString.max(512).optional(),
+  runtimeEndpointArn: nonEmptyString.max(2048).optional(),
+  runtimeEndpointName: nonEmptyString.max(128).optional(),
   runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   gatewayArn: nonEmptyString.max(2048).optional(),
   gatewayWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
@@ -419,6 +429,30 @@ export const agentArtifactSchema = z.object({
   errorCode: nonEmptyString.max(128).optional()
 });
 
+/** Immutable record for an AgentCore Runtime candidate; later deployments only append. */
+export const runtimeVersionSchema = z
+  .object({
+    id: runtimeVersionIdSchema,
+    tenantId: tenantIdSchema,
+    agentId: agentIdSchema,
+    deploymentId: deploymentIdSchema,
+    runtimeId: nonEmptyString.max(512),
+    runtimeArn: nonEmptyString.max(2048),
+    runtimeVersion: nonEmptyString.max(100),
+    artifactId: agentArtifactIdSchema,
+    artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    configurationRevision: z.number().int().positive(),
+    workloadIdentityArn: nonEmptyString.max(2048),
+    state: z.enum(['CREATING', 'UPDATING', 'READY', 'FAILED']),
+    endpointName: nonEmptyString.max(128).optional(),
+    endpointArn: nonEmptyString.max(2048).optional(),
+    endpointTargetVersion: nonEmptyString.max(100).optional(),
+    endpointLiveVersion: nonEmptyString.max(100).optional(),
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema
+  })
+  .strict();
+
 export const auditEventSchema = z.object({
   id: auditEventIdSchema,
   tenantId: tenantIdSchema,
@@ -448,6 +482,7 @@ export type Agent = z.infer<typeof agentSchema>;
 export type Deployment = z.infer<typeof deploymentSchema>;
 export type DeploymentEvent = z.infer<typeof deploymentEventSchema>;
 export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
+export type RuntimeVersion = z.infer<typeof runtimeVersionSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;
 export type TenantStatus = z.infer<typeof tenantStatusSchema>;
@@ -556,6 +591,7 @@ export const createAgentId = (): string => generateId('agt_');
 export const createDeploymentId = (): string => generateId('dep_');
 export const createDeploymentEventId = (): string => generateId('dpe_');
 export const createAgentArtifactId = (): string => generateId('art_');
+export const createRuntimeVersionId = (): string => generateId('rtv_');
 export const createAuditEventId = (): string => generateId('evt_');
 export const createAgentTemplateId = (): string => generateId('tpl_');
 

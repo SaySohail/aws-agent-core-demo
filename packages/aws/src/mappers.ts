@@ -6,6 +6,7 @@ import {
   awsConnectionSchema,
   deploymentSchema,
   deploymentEventSchema,
+  runtimeVersionSchema,
   tenantMembershipSchema,
   tenantSchema,
   type Agent,
@@ -15,6 +16,7 @@ import {
   type AwsConnection,
   type Deployment,
   type DeploymentEvent,
+  type RuntimeVersion,
   type Tenant,
   type TenantMembership
 } from '@agent-launchpad/schemas';
@@ -44,6 +46,8 @@ export const fromPersistence = {
   deployment: (item: Item): Deployment => domain(deploymentSchema, item, 'deployment'),
   deploymentEvent: (item: Item): DeploymentEvent =>
     domain(deploymentEventSchema, item, 'deployment event'),
+  runtimeVersion: (item: Item): RuntimeVersion =>
+    domain(runtimeVersionSchema, item, 'runtime version'),
   auditEvent: (item: Item): AuditEvent => domain(auditEventSchema, item, 'audit event'),
   agentTemplate: (item: Item): AgentTemplate => domain(agentTemplateSchema, item, 'agent template')
 };
@@ -85,6 +89,13 @@ export const toPersistence = {
       ...controlPlaneKeys.artifact(value.tenantId, value.id),
       ...controlPlaneKeys.artifactDigest(value.tenantId, value.agentId, value.sha256),
       entityType: 'AGENT_ARTIFACT'
+    };
+  },
+  runtimeVersion(value: RuntimeVersion): Item {
+    return {
+      ...runtimeVersionSchema.parse(value),
+      ...controlPlaneKeys.runtimeVersion(value.tenantId, value.id),
+      entityType: 'RUNTIME_VERSION'
     };
   },
   deployment(value: Deployment): Item {

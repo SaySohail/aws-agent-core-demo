@@ -7,6 +7,7 @@ import {
   type AwsConnection,
   type Deployment,
   type DeploymentEvent,
+  type RuntimeVersion,
   type Tenant,
   type TenantContext,
   type TenantMembership
@@ -184,6 +185,60 @@ export class ControlPlaneRepository {
     await this.store.update({
       key: controlPlaneKeys.artifact(tenantId, id),
       updates: changes,
+      condition: existingCondition
+    });
+  }
+  async createRuntimeVersion(value: RuntimeVersion): Promise<void> {
+    if (!(await this.getAgent(value.tenantId, value.agentId)))
+      throw new Error('Cannot create a runtime version for a missing tenant agent.');
+    await this.store.put(toPersistence.runtimeVersion(value), createCondition);
+  }
+  async getRuntimeVersion(tenantId: string, id: string): Promise<RuntimeVersion | undefined> {
+    return this.get(controlPlaneKeys.runtimeVersion(tenantId, id), fromPersistence.runtimeVersion);
+  }
+  async listRuntimeVersions(tenantId: string, agentId: string): Promise<readonly RuntimeVersion[]> {
+    const result = await this.list(
+      undefined,
+      'pk',
+      controlPlaneKeys.tenant(tenantId).pk,
+      sortKeyPrefixes.runtimeVersions,
+      {},
+      fromPersistence.runtimeVersion
+    );
+    return result.items.filter((item) => item.agentId === agentId);
+  }
+  /** Mutable operational status only; immutable identity/artifact fields cannot be replaced. */
+  async updateRuntimeVersionStatus(
+    tenantId: string,
+    id: string,
+    changes: Pick<RuntimeVersion, 'state' | 'updatedAt'> &
+      Partial<
+        Pick<
+          RuntimeVersion,
+          'endpointName' | 'endpointArn' | 'endpointTargetVersion' | 'endpointLiveVersion'
+        >
+      >
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.runtimeVersion(tenantId, id),
+      updates: changes,
+      condition: existingCondition
+    });
+  }
+  async promoteAgentRuntime(input: {
+    tenantId: string;
+    agentId: string;
+    runtimeId: string;
+    runtimeArn: string;
+    runtimeVersion: string;
+    runtimeEndpoint: string;
+    runtimeEndpointName: string;
+    runtimeWorkloadIdentityArn: string;
+    updatedAt: string;
+  }): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.agent(input.tenantId, input.agentId),
+      updates: input,
       condition: existingCondition
     });
   }
