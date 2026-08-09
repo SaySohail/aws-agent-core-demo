@@ -1,5 +1,6 @@
 import {
   agentSchema,
+  type AgentArtifact,
   type Agent,
   type AgentTemplate,
   type AuditEvent,
@@ -151,6 +152,39 @@ export class ControlPlaneRepository {
       options,
       fromPersistence.agent
     );
+  }
+  async createAgentArtifact(value: AgentArtifact): Promise<void> {
+    if (!(await this.getAgent(value.tenantId, value.agentId)))
+      throw new Error('Cannot create an artifact for a missing tenant agent.');
+    await this.store.put(toPersistence.agentArtifact(value), createCondition);
+  }
+  async getAgentArtifact(tenantId: string, id: string): Promise<AgentArtifact | undefined> {
+    return this.get(controlPlaneKeys.artifact(tenantId, id), fromPersistence.agentArtifact);
+  }
+  async listAgentArtifacts(
+    tenantId: string,
+    options: ListOptions = {}
+  ): Promise<Page<AgentArtifact>> {
+    return this.list(
+      undefined,
+      'pk',
+      controlPlaneKeys.tenant(tenantId).pk,
+      sortKeyPrefixes.artifacts,
+      options,
+      fromPersistence.agentArtifact
+    );
+  }
+  async updateAgentArtifact(
+    tenantId: string,
+    id: string,
+    changes: Pick<AgentArtifact, 'status' | 'updatedAt'> &
+      Partial<Pick<AgentArtifact, 'bucket' | 'objectKey' | 's3VersionId' | 'errorCode'>>
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.artifact(tenantId, id),
+      updates: changes,
+      condition: existingCondition
+    });
   }
   async updateAgent(
     context: TenantContext,

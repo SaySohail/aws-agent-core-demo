@@ -7,3 +7,4 @@ export * from './repository.js';
 export * from './store.js';
 export * from './customer-connection.js';
 export * from './agentcore-security.js';
+export * from './agent-artifact.js';

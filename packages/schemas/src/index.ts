@@ -15,6 +15,7 @@ export const tenantIdSchema = prefixedIdSchema('tnt_');
 export const awsConnectionIdSchema = prefixedIdSchema('awc_');
 export const agentIdSchema = prefixedIdSchema('agt_');
 export const deploymentIdSchema = prefixedIdSchema('dep_');
+export const agentArtifactIdSchema = prefixedIdSchema('art_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
 /** Platform template IDs are stable, human-readable product identifiers. */
 export const agentTemplateIdSchema = z.string().regex(/^(?:customer-support|tpl_[0-9a-f-]+)$/i);
@@ -207,6 +208,7 @@ export const deploymentStatusSchema = z.enum([
   'READY',
   'FAILED'
 ]);
+export const agentArtifactStatusSchema = z.enum(['BUILDING', 'UPLOADING', 'READY', 'FAILED']);
 
 export const tenantSchema = z.object({
   id: tenantIdSchema,
@@ -351,6 +353,28 @@ export const deploymentSchema = z.object({
   errorMessage: nonEmptyString.max(4096).optional()
 });
 
+/** Immutable content-addressed package produced from one exact draft revision. */
+export const agentArtifactSchema = z.object({
+  id: agentArtifactIdSchema,
+  tenantId: tenantIdSchema,
+  agentId: agentIdSchema,
+  templateId: agentTemplateIdSchema,
+  templateVersion: nonEmptyString.max(100),
+  configurationVersion: z.number().int().positive(),
+  runtime: z.literal('NODE_22'),
+  entryPoint: z.literal('dist/app.js'),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  sizeBytes: z.number().int().nonnegative(),
+  bucket: nonEmptyString.max(255).optional(),
+  objectKey: nonEmptyString.max(1024).optional(),
+  s3VersionId: nonEmptyString.max(1024).optional(),
+  status: agentArtifactStatusSchema,
+  createdBy: nonEmptyString.max(256),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+  errorCode: nonEmptyString.max(128).optional()
+});
+
 export const auditEventSchema = z.object({
   id: auditEventIdSchema,
   tenantId: tenantIdSchema,
@@ -378,6 +402,7 @@ export type AgentCapability = z.infer<typeof agentCapabilitySchema>;
 export type BedrockModelCatalogEntry = z.infer<typeof bedrockModelCatalogEntrySchema>;
 export type Agent = z.infer<typeof agentSchema>;
 export type Deployment = z.infer<typeof deploymentSchema>;
+export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;
 export type TenantStatus = z.infer<typeof tenantStatusSchema>;
@@ -483,6 +508,7 @@ export const createTenantId = (): string => generateId('tnt_');
 export const createAwsConnectionId = (): string => generateId('awc_');
 export const createAgentId = (): string => generateId('agt_');
 export const createDeploymentId = (): string => generateId('dep_');
+export const createAgentArtifactId = (): string => generateId('art_');
 export const createAuditEventId = (): string => generateId('evt_');
 export const createAgentTemplateId = (): string => generateId('tpl_');
 

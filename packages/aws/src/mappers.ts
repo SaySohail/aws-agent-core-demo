@@ -1,5 +1,6 @@
 import {
   agentSchema,
+  agentArtifactSchema,
   agentTemplateSchema,
   auditEventSchema,
   awsConnectionSchema,
@@ -7,6 +8,7 @@ import {
   tenantMembershipSchema,
   tenantSchema,
   type Agent,
+  type AgentArtifact,
   type AgentTemplate,
   type AuditEvent,
   type AwsConnection,
@@ -36,6 +38,7 @@ export const fromPersistence = {
   membership: (item: Item): TenantMembership => domain(tenantMembershipSchema, item, 'membership'),
   awsConnection: (item: Item): AwsConnection => domain(awsConnectionSchema, item, 'AWS connection'),
   agent: (item: Item): Agent => domain(agentSchema, item, 'agent'),
+  agentArtifact: (item: Item): AgentArtifact => domain(agentArtifactSchema, item, 'agent artifact'),
   deployment: (item: Item): Deployment => domain(deploymentSchema, item, 'deployment'),
   auditEvent: (item: Item): AuditEvent => domain(auditEventSchema, item, 'audit event'),
   agentTemplate: (item: Item): AgentTemplate => domain(agentTemplateSchema, item, 'agent template')
@@ -70,6 +73,14 @@ export const toPersistence = {
       ...agentSchema.parse(value),
       ...controlPlaneKeys.agent(value.tenantId, value.id),
       entityType: 'AGENT'
+    };
+  },
+  agentArtifact(value: AgentArtifact): Item {
+    return {
+      ...agentArtifactSchema.parse(value),
+      ...controlPlaneKeys.artifact(value.tenantId, value.id),
+      ...controlPlaneKeys.artifactDigest(value.tenantId, value.agentId, value.sha256),
+      entityType: 'AGENT_ARTIFACT'
     };
   },
   deployment(value: Deployment): Item {
