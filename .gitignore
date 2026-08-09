@@ -26,3 +26,4 @@ terraform.tfstate.*
 tasks/lessons.md
 tasks/todo.md
 AGENTS.md
+docs/demo-script.md
