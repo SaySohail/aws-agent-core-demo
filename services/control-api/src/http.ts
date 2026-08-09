@@ -1497,23 +1497,11 @@ export class ControlApi {
       agent.id,
       idempotencyKeyHash
     );
-    const artifact = (
-      await this.repository.listAgentArtifacts(context.tenantId, { limit: 100 })
-    ).items
-      .filter(
-        (value) =>
-          value.agentId === agent.id &&
-          value.configurationVersion === agent.revision &&
-          value.status === 'READY'
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     const requestHash = hash(
       JSON.stringify({
         tenantId: context.tenantId,
         agentId: agent.id,
         configurationRevision: agent.revision,
-        artifactId: artifact?.id,
-        artifactSha256: artifact?.sha256,
         target: agent.configuration.deploymentTarget
       })
     );
@@ -1556,7 +1544,6 @@ export class ControlApi {
       snapshot: {
         templateId: agent.templateId,
         templateVersion: agent.templateVersion,
-        ...(artifact ? { artifactId: artifact.id, artifactSha256: artifact.sha256 } : {}),
         awsConnectionId: agent.configuration.deploymentTarget.awsConnectionId,
         accountId: agent.configuration.deploymentTarget.accountId,
         region: agent.configuration.deploymentTarget.region,
@@ -1623,8 +1610,7 @@ export class ControlApi {
         deploymentId,
         tenantId: context.tenantId,
         agentId: agent.id,
-        configurationRevision: agent.revision,
-        ...(artifact ? { artifactId: artifact.id } : {})
+        configurationRevision: agent.revision
       });
       await this.repository.setDeploymentExecutionArn(
         context.tenantId,

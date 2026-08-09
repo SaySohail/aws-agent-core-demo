@@ -11,8 +11,11 @@ import {
   ADOT_PACKAGE_VERSION,
   AGENT_ARTIFACT_ENTRY_POINT,
   AgentArtifactBuilder,
+  AgentArtifactError,
+  AgentArtifactUploader,
   sha256
 } from './agent-artifact.js';
+import { customerArtifactKmsKeyArn } from './customer-connection.js';
 
 const tenantId = 'tnt_12345678-1234-4234-8234-123456789abc';
 const agentId = 'agt_12345678-1234-4234-8234-123456789abc';
@@ -100,6 +103,85 @@ test('build is byte reproducible and configuration changes affect the digest', a
           path
         )
     )
+  );
+});
+
+test('uploader requires VersionId, explicitly selects the bootstrap KMS key, and resumes an uploaded object', async () => {
+  const writes: unknown[] = [];
+  const uploader = new AgentArtifactUploader(
+    {
+      assumeCustomerRole: async () => ({
+        accessKeyId: 'a',
+        secretAccessKey: 'b',
+        sessionToken: 'c'
+      }),
+      getCallerIdentity: async () => ({ account: connection.accountId }),
+      headArtifactBucket: async () => undefined
+    },
+    () => ({
+      head: async () => {
+        throw new Error('NotFound');
+      },
+      put: async (input) => {
+        writes.push(input);
+        return { versionId: 'version-1', etag: 'etag-1' };
+      }
+    })
+  );
+  const result = await uploader.upload({
+    tenantId,
+    agentId,
+    sha256: 'a'.repeat(64),
+    configurationVersion: 1,
+    templateVersion: '1',
+    bytes: Buffer.from('zip'),
+    connection
+  });
+  assert.equal(result.versionId, 'version-1');
+  assert.deepEqual(writes, [
+    {
+      bucket: 'agent-launchpad-artifacts-123456789012-us-east-1',
+      key: `agents/${agentId}/artifacts/${'a'.repeat(64)}/agent.zip`,
+      expectedOwner: connection.accountId,
+      bytes: Buffer.from('zip'),
+      kmsKeyId: customerArtifactKmsKeyArn(connection.accountId, connection.region),
+      metadata: {
+        sha256: 'a'.repeat(64),
+        agentid: agentId,
+        templateversion: '1',
+        configurationversion: '1'
+      }
+    }
+  ]);
+  const noVersion = new AgentArtifactUploader(
+    {
+      assumeCustomerRole: async () => ({
+        accessKeyId: 'a',
+        secretAccessKey: 'b',
+        sessionToken: 'c'
+      }),
+      getCallerIdentity: async () => ({ account: connection.accountId }),
+      headArtifactBucket: async () => undefined
+    },
+    () => ({
+      head: async () => {
+        throw new Error('NotFound');
+      },
+      put: async () => ({})
+    })
+  );
+  await assert.rejects(
+    noVersion.upload({
+      tenantId,
+      agentId,
+      sha256: 'b'.repeat(64),
+      configurationVersion: 1,
+      templateVersion: '1',
+      bytes: Buffer.from('zip'),
+      connection
+    }),
+    (cause: unknown) =>
+      cause instanceof AgentArtifactError && cause.code === 'S3_VERSION_ID_REQUIRED'
   );
 });
 

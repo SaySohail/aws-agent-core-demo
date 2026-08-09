@@ -3,12 +3,15 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
   ControlPlaneRepository,
   DynamoDbPersistenceClient,
-  StsCustomerRoleAssumer
+  StsCustomerRoleAssumer,
+  AgentArtifactBuilder,
+  AgentArtifactUploader
 } from '@agent-launchpad/aws';
 import type { DeploymentStage } from '@agent-launchpad/schemas';
 import { AgentCoreRuntimeDeploymentPort } from './agentcore-runtime.js';
 import {
   CatalogBedrockPreflightChecker,
+  DeploymentArtifactPipeline,
   DeploymentWorker,
   type DeploymentCommandInput
 } from './index.js';
@@ -30,6 +33,14 @@ const worker = new DeploymentWorker({
     getStatus: async () => 'READY',
     compensate: async () => {}
   },
+  artifactPipeline: new DeploymentArtifactPipeline({
+    repository,
+    builder: new AgentArtifactBuilder(
+      process.env.AGENT_RUNTIME_SOURCE_PATH ?? '/var/task/runtime-source/app.ts'
+    ),
+    uploader: new AgentArtifactUploader(assumer),
+    now: () => new Date()
+  }),
   runtime: new AgentCoreRuntimeDeploymentPort(repository, assumer),
   undeployRuntime: new AgentCoreRuntimeDeploymentPort(repository, assumer)
 });

@@ -27,6 +27,13 @@ export function customerArtifactBucketName(accountId: string, region: string): s
   return `agent-launchpad-artifacts-${accountId}-${region}`;
 }
 
+/** Fixed customer-bootstrap v1 KMS alias used for every artifact object write. */
+export function customerArtifactKmsKeyArn(accountId: string, region: string): string {
+  if (!/^\d{12}$/.test(accountId) || !/^[a-z]{2}-[a-z]+-\d$/.test(region))
+    throw new Error('Invalid customer bootstrap resource coordinates.');
+  return `arn:aws:kms:${region}:${accountId}:alias/agent-launchpad-artifacts`;
+}
+
 export function buildCustomerBootstrapQuickCreateUrl(input: {
   readonly region: string;
   readonly templateUrl: string;

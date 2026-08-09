@@ -1,4 +1,9 @@
 import {
+  AGENT_ARTIFACT_ENTRY_POINT,
+  AGENTCORE_RUNTIME,
+  AgentArtifactBuilder,
+  AgentArtifactError,
+  AgentArtifactUploader,
   CUSTOMER_BOOTSTRAP_VERSION,
   customerArtifactBucketName,
   type ControlPlaneRepository,
@@ -6,6 +11,7 @@ import {
 } from '@agent-launchpad/aws';
 import {
   bedrockModelCatalog,
+  createAgentArtifactId,
   validateAgentDefinitionForDeployment,
   type Deployment,
   type DeploymentStage
@@ -48,17 +54,25 @@ export interface RuntimeDeploymentPort {
   getProductionEndpointStatus(
     context: DeploymentCommandInput
   ): Promise<'PENDING' | 'READY' | 'FAILED'>;
-  rollbackProductionEndpoint(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  rollbackProductionEndpoint(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
   getRollbackStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
   checkRollbackHealth(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
 /** Teardown only receives a trusted operation context, never browser-selected AWS identifiers. */
 export interface UndeployRuntimePort {
-  deleteProductionEndpoint(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
-  getProductionEndpointDeletionStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  deleteProductionEndpoint(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getProductionEndpointDeletionStatus(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
   deleteRuntime(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
-  getRuntimeDeletionStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getRuntimeDeletionStatus(
+    context: DeploymentCommandInput
+  ): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
 export interface DependencyProvisioner {
@@ -91,8 +105,166 @@ export interface DeploymentWorkerDependencies {
   readonly bedrock: BedrockPreflightChecker;
   readonly dependencies: DependencyProvisioner;
   readonly runtime: RuntimeDeploymentPort;
+  readonly artifactPipeline: DeploymentArtifactPipeline;
   readonly undeployRuntime?: UndeployRuntimePort;
   readonly now?: () => Date;
+}
+
+export interface DeploymentArtifactPipeline {
+  ensure(deployment: Deployment): Promise<{ artifactId: string; sha256: string }>;
+}
+
+/** Creates one immutable package for the deployment's captured configuration, and resumes safely after retries. */
+export class DeploymentArtifactPipeline implements DeploymentArtifactPipeline {
+  public constructor(
+    private readonly dependencies: {
+      repository: ControlPlaneRepository;
+      builder: AgentArtifactBuilder;
+      uploader: AgentArtifactUploader;
+      now?: () => Date;
+    }
+  ) {}
+
+  async ensure(deployment: Deployment): Promise<{ artifactId: string; sha256: string }> {
+    const [agent, template, connection] = await Promise.all([
+      this.dependencies.repository.getAgent(deployment.tenantId, deployment.agentId),
+      this.dependencies.repository.getAgentTemplate(
+        deployment.snapshot.templateId,
+        deployment.snapshot.templateVersion
+      ),
+      this.dependencies.repository.getAwsConnection(
+        deployment.tenantId,
+        deployment.snapshot.awsConnectionId
+      )
+    ]);
+    if (!agent || !connection)
+      throw new DeploymentError(
+        'DEPLOYMENT_SNAPSHOT_INVALID',
+        'ENSURING_ARTIFACT',
+        false,
+        'The captured artifact inputs are unavailable.'
+      );
+    const snapshotAgent = {
+      ...agent,
+      templateId: deployment.snapshot.templateId,
+      templateVersion: deployment.snapshot.templateVersion,
+      revision: deployment.configurationRevision,
+      configuration: {
+        ...agent.configuration,
+        template: {
+          id: deployment.snapshot.templateId,
+          version: deployment.snapshot.templateVersion
+        },
+        deploymentTarget: {
+          awsConnectionId: deployment.snapshot.awsConnectionId,
+          accountId: deployment.snapshot.accountId,
+          region: deployment.snapshot.region
+        },
+        model: { modelId: deployment.snapshot.modelId },
+        capabilities: deployment.snapshot.capabilities,
+        guardrails: deployment.snapshot.guardrails
+      }
+    };
+    let built;
+    try {
+      built = await this.dependencies.builder.build({ agent: snapshotAgent, template, connection });
+    } catch (cause) {
+      throw artifactDeploymentError(cause, 'BUILDING');
+    }
+    let artifact = await this.dependencies.repository.findAgentArtifactByDigest(
+      deployment.tenantId,
+      deployment.agentId,
+      built.sha256
+    );
+    const now = () => (this.dependencies.now?.() ?? new Date()).toISOString();
+    if (!artifact) {
+      const candidate = {
+        id: createAgentArtifactId(),
+        tenantId: deployment.tenantId,
+        agentId: deployment.agentId,
+        templateId: deployment.snapshot.templateId,
+        templateVersion: deployment.snapshot.templateVersion,
+        configurationVersion: deployment.configurationRevision,
+        runtime: AGENTCORE_RUNTIME,
+        entryPoint: [...AGENT_ARTIFACT_ENTRY_POINT] as ['opentelemetry-instrument', 'dist/app.js'],
+        sha256: built.sha256,
+        sizeBytes: built.sizeBytes,
+        status: 'BUILDING' as const,
+        createdBy: deployment.requestedBy,
+        createdAt: now(),
+        updatedAt: now()
+      };
+      try {
+        await this.dependencies.repository.createAgentArtifact(candidate);
+        artifact = candidate;
+      } catch (cause) {
+        artifact = await this.dependencies.repository.findAgentArtifactByDigest(
+          deployment.tenantId,
+          deployment.agentId,
+          built.sha256
+        );
+        if (!artifact) throw cause;
+      }
+    }
+    if (artifact.status !== 'READY') {
+      await this.dependencies.repository.updateAgentArtifact(deployment.tenantId, artifact.id, {
+        status: 'UPLOADING',
+        updatedAt: now(),
+        errorCode: undefined
+      });
+      let uploaded;
+      try {
+        uploaded = await this.dependencies.uploader.upload({
+          tenantId: deployment.tenantId,
+          agentId: deployment.agentId,
+          sha256: built.sha256,
+          configurationVersion: deployment.configurationRevision,
+          templateVersion: deployment.snapshot.templateVersion,
+          bytes: built.bytes,
+          connection
+        });
+      } catch (cause) {
+        await this.dependencies.repository
+          .updateAgentArtifact(deployment.tenantId, artifact.id, {
+            status: 'FAILED',
+            updatedAt: now(),
+            errorCode: cause instanceof AgentArtifactError ? cause.code : 'ARTIFACT_UPLOAD_FAILED'
+          })
+          .catch(() => undefined);
+        throw artifactDeploymentError(cause, 'UPLOADING');
+      }
+      // If this write fails after S3 accepted the object, the next retry HEADs the same content-addressed
+      // key, validates KMS/version metadata, and completes this record without creating another package.
+      await this.dependencies.repository.updateAgentArtifact(deployment.tenantId, artifact.id, {
+        status: 'READY',
+        bucket: uploaded.bucket,
+        objectKey: uploaded.key,
+        s3VersionId: uploaded.versionId,
+        updatedAt: now(),
+        errorCode: undefined
+      });
+      artifact = { ...artifact, status: 'READY', sha256: built.sha256 };
+    }
+    await this.dependencies.repository.attachDeploymentArtifact(
+      deployment.tenantId,
+      deployment.id,
+      artifact.id,
+      built.sha256
+    );
+    return { artifactId: artifact.id, sha256: built.sha256 };
+  }
+}
+
+function artifactDeploymentError(
+  cause: unknown,
+  status: 'BUILDING' | 'UPLOADING'
+): DeploymentError {
+  return new DeploymentError(
+    cause instanceof AgentArtifactError ? cause.code : 'ARTIFACT_BUILD_FAILED',
+    'ENSURING_ARTIFACT',
+    false,
+    `Artifact ${status.toLowerCase()} failed.`
+  );
 }
 
 export class DeploymentWorker {
@@ -183,30 +355,52 @@ export class DeploymentWorker {
   private async undeploy(stage: DeploymentStage, input: DeploymentCommandInput) {
     const runtime = this.dependencies.undeployRuntime;
     if (!runtime)
-      throw new DeploymentError('UNDEPLOY_NOT_CONFIGURED', stage, false, 'Teardown processing is not configured.');
+      throw new DeploymentError(
+        'UNDEPLOY_NOT_CONFIGURED',
+        stage,
+        false,
+        'Teardown processing is not configured.'
+      );
     switch (stage) {
       case 'UNDEPLOY_VALIDATING':
       case 'UNDEPLOY_DISABLING_INVOCATION':
         return { status: 'READY' as const };
-      case 'UNDEPLOY_DELETING_ENDPOINT': return { status: await runtime.deleteProductionEndpoint(input) };
-      case 'UNDEPLOY_WAITING_ENDPOINT': return { status: await runtime.getProductionEndpointDeletionStatus(input) };
-      case 'UNDEPLOY_DELETING_RUNTIME': return { status: await runtime.deleteRuntime(input) };
-      case 'UNDEPLOY_WAITING_RUNTIME': return { status: await runtime.getRuntimeDeletionStatus(input) };
+      case 'UNDEPLOY_DELETING_ENDPOINT':
+        return { status: await runtime.deleteProductionEndpoint(input) };
+      case 'UNDEPLOY_WAITING_ENDPOINT':
+        return { status: await runtime.getProductionEndpointDeletionStatus(input) };
+      case 'UNDEPLOY_DELETING_RUNTIME':
+        return { status: await runtime.deleteRuntime(input) };
+      case 'UNDEPLOY_WAITING_RUNTIME':
+        return { status: await runtime.getRuntimeDeletionStatus(input) };
       case 'UNDEPLOY_DELETING_DEPENDENCIES':
       case 'UNDEPLOY_WAITING_DEPENDENCIES':
       case 'UNDEPLOY_DELETING_ARTIFACTS':
       case 'UNDEPLOY_VERIFYING':
-        throw new DeploymentError('UNDEPLOY_PLAN_INCOMPLETE', stage, false, 'Trusted dependency cleanup metadata is unavailable.');
+        throw new DeploymentError(
+          'UNDEPLOY_PLAN_INCOMPLETE',
+          stage,
+          false,
+          'Trusted dependency cleanup metadata is unavailable.'
+        );
       default:
-        throw new DeploymentError('INVALID_STAGE', stage, false, 'Terminal stages are not worker commands.');
+        throw new DeploymentError(
+          'INVALID_STAGE',
+          stage,
+          false,
+          'Terminal stages are not worker commands.'
+        );
     }
   }
 
   private async rollback(stage: DeploymentStage, input: DeploymentCommandInput) {
     switch (stage) {
-      case 'DEPLOYING_RUNTIME': return { status: await this.dependencies.runtime.rollbackProductionEndpoint(input) };
-      case 'WAITING_FOR_RUNTIME': return { status: await this.dependencies.runtime.getRollbackStatus(input) };
-      case 'HEALTH_CHECKING': return { status: await this.dependencies.runtime.checkRollbackHealth(input) };
+      case 'DEPLOYING_RUNTIME':
+        return { status: await this.dependencies.runtime.rollbackProductionEndpoint(input) };
+      case 'WAITING_FOR_RUNTIME':
+        return { status: await this.dependencies.runtime.getRollbackStatus(input) };
+      case 'HEALTH_CHECKING':
+        return { status: await this.dependencies.runtime.checkRollbackHealth(input) };
       case 'VALIDATING':
       case 'VERIFYING_CUSTOMER_ACCESS':
       case 'PREFLIGHT_REGION':
@@ -221,7 +415,12 @@ export class DeploymentWorker {
       case 'WAITING_FOR_ENDPOINT':
         return { status: 'READY' as const };
       default:
-        throw new DeploymentError('INVALID_STAGE', stage, false, 'Terminal stages are not worker commands.');
+        throw new DeploymentError(
+          'INVALID_STAGE',
+          stage,
+          false,
+          'Terminal stages are not worker commands.'
+        );
     }
   }
 
@@ -376,14 +575,14 @@ export class DeploymentWorker {
     return { status: 'READY' as const };
   }
   private async ensureArtifact(deployment: Deployment) {
-    if (!deployment.snapshot.artifactId)
-      throw new DeploymentError(
-        'ARTIFACT_NOT_READY',
-        'ENSURING_ARTIFACT',
-        false,
-        'No immutable artifact is available for this deployment.'
-      );
-    return this.preflightStorage(deployment);
+    await this.dependencies.artifactPipeline.ensure(deployment);
+    const resolved = await this.deployment({
+      deploymentId: deployment.id,
+      tenantId: deployment.tenantId,
+      agentId: deployment.agentId,
+      configurationRevision: deployment.configurationRevision
+    });
+    return this.preflightStorage(resolved);
   }
 }
 

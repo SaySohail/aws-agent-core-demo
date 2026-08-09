@@ -227,8 +227,28 @@ export class ControlPlaneStack extends Stack {
       role: deploymentWorkerRole,
       logGroup: deploymentWorkerLogGroup,
       timeout: Duration.minutes(1),
-      environment: { CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName },
-      bundling: { minify: true, sourceMap: true, target: 'node22' }
+      environment: {
+        CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName,
+        AGENT_RUNTIME_SOURCE_PATH: '/var/task/runtime-source/app.ts'
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        target: 'node22',
+        commandHooks: {
+          afterBundling(inputDir: string, outputDir: string): string[] {
+            return [
+              `node -e "require('node:fs').cpSync(process.argv[1], process.argv[2], { recursive: true })" "${inputDir}/agents/customer-support/src" "${outputDir}/runtime-source"`
+            ];
+          },
+          beforeBundling(): string[] {
+            return [];
+          },
+          beforeInstall(): string[] {
+            return [];
+          }
+        }
+      }
     });
     const metricsWorkerLogGroup = new logs.LogGroup(this, 'MetricsWorkerLogGroup', {
       retention: configuration.logRetentionDays,
@@ -238,21 +258,36 @@ export class ControlPlaneStack extends Stack {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description: 'Scheduled, read-only customer CloudWatch metrics collector.'
     });
-    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
-      resources: [metricsWorkerLogGroup.logGroupArn]
-    }));
-    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query'],
-      resources: [controlPlaneTable.tableArn, `${controlPlaneTable.tableArn}/index/*`]
-    }));
-    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['sts:AssumeRole'],
-      resources: ['arn:aws:iam::*:role/AgentLaunchpadDeploymentRole']
-    }));
+    metricsWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+        resources: [metricsWorkerLogGroup.logGroupArn]
+      })
+    );
+    metricsWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query'],
+        resources: [controlPlaneTable.tableArn, `${controlPlaneTable.tableArn}/index/*`]
+      })
+    );
+    metricsWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/AgentLaunchpadDeploymentRole']
+      })
+    );
     const metricsWorkerFunction = new NodejsFunction(this, 'MetricsWorkerFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
-      entry: path.join(__dirname, '..', '..', '..', 'services', 'metrics-worker', 'src', 'lambda.ts'),
+      entry: path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'services',
+        'metrics-worker',
+        'src',
+        'lambda.ts'
+      ),
       handler: 'handler',
       role: metricsWorkerRole,
       logGroup: metricsWorkerLogGroup,
@@ -426,7 +461,10 @@ export class ControlPlaneStack extends Stack {
       { path: '/tenants/{tenantId}/agents/{agentId}/undeploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/invoke', methods: [apigwv2.HttpMethod.POST] },
-      { path: '/tenants/{tenantId}/agents/{agentId}/executions', methods: [apigwv2.HttpMethod.GET] },
+      {
+        path: '/tenants/{tenantId}/agents/{agentId}/executions',
+        methods: [apigwv2.HttpMethod.GET]
+      },
       { path: '/tenants/{tenantId}/agents/{agentId}/metrics', methods: [apigwv2.HttpMethod.GET] },
       { path: '/tenants/{tenantId}/audit-events', methods: [apigwv2.HttpMethod.GET] },
       {

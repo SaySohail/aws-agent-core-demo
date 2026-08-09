@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -16,6 +16,7 @@ import {
 } from '@agent-launchpad/schemas';
 import {
   customerArtifactBucketName,
+  customerArtifactKmsKeyArn,
   type AssumedCustomerRoleCredentials,
   type CustomerRoleAssumer
 } from './customer-connection.js';
@@ -243,12 +244,82 @@ export interface AgentArtifactUploaderInput {
 export interface UploadedAgentArtifact {
   readonly bucket: string;
   readonly key: string;
-  readonly versionId?: string;
+  readonly versionId: string;
   readonly etag?: string;
+}
+export interface ArtifactObjectStorage {
+  head(input: { bucket: string; key: string; expectedOwner: string }): Promise<{
+    versionId?: string;
+    contentLength?: number;
+    metadata?: Record<string, string>;
+    serverSideEncryption?: string;
+    sseKmsKeyId?: string;
+  }>;
+  put(input: {
+    bucket: string;
+    key: string;
+    expectedOwner: string;
+    bytes: Buffer;
+    kmsKeyId: string;
+    metadata: Record<string, string>;
+  }): Promise<{ versionId?: string; etag?: string }>;
+}
+
+class S3ArtifactObjectStorage implements ArtifactObjectStorage {
+  public constructor(private readonly client: S3Client) {}
+  async head(input: { bucket: string; key: string; expectedOwner: string }) {
+    const response = await this.client.send(
+      new HeadObjectCommand({
+        Bucket: input.bucket,
+        Key: input.key,
+        ExpectedBucketOwner: input.expectedOwner
+      })
+    );
+    return {
+      ...(response.VersionId ? { versionId: response.VersionId } : {}),
+      ...(response.ContentLength !== undefined ? { contentLength: response.ContentLength } : {}),
+      ...(response.Metadata ? { metadata: response.Metadata } : {}),
+      ...(response.ServerSideEncryption
+        ? { serverSideEncryption: response.ServerSideEncryption }
+        : {}),
+      ...(response.SSEKMSKeyId ? { sseKmsKeyId: response.SSEKMSKeyId } : {})
+    };
+  }
+  async put(input: {
+    bucket: string;
+    key: string;
+    expectedOwner: string;
+    bytes: Buffer;
+    kmsKeyId: string;
+    metadata: Record<string, string>;
+  }) {
+    const response = await this.client.send(
+      new PutObjectCommand({
+        Bucket: input.bucket,
+        Key: input.key,
+        Body: input.bytes,
+        ExpectedBucketOwner: input.expectedOwner,
+        ContentType: 'application/zip',
+        ServerSideEncryption: 'aws:kms',
+        SSEKMSKeyId: input.kmsKeyId,
+        Metadata: input.metadata
+      })
+    );
+    return {
+      ...(response.VersionId ? { versionId: response.VersionId } : {}),
+      ...(response.ETag ? { etag: response.ETag } : {})
+    };
+  }
 }
 /** Uses a fresh customer role session. Bucket and KMS selection are derived only from trusted connection metadata. */
 export class AgentArtifactUploader {
-  public constructor(private readonly assumer: CustomerRoleAssumer) {}
+  public constructor(
+    private readonly assumer: CustomerRoleAssumer,
+    private readonly storageFor: (input: {
+      region: string;
+      credentials: AssumedCustomerRoleCredentials;
+    }) => ArtifactObjectStorage = (input) => new S3ArtifactObjectStorage(new S3Client(input))
+  ) {}
   async upload(input: AgentArtifactUploaderInput): Promise<UploadedAgentArtifact> {
     if (input.connection.tenantId !== input.tenantId || input.connection.status !== 'VERIFIED')
       throw new AgentArtifactError(
@@ -268,29 +339,51 @@ export class AgentArtifactUploader {
         'Assumed role account did not match connection.'
       );
     const key = `agents/${input.agentId}/artifacts/${input.sha256}/agent.zip`;
-    const response = await new S3Client({
-      region: input.connection.region,
-      credentials: credentials as AssumedCustomerRoleCredentials
-    }).send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: input.bytes,
-        ExpectedBucketOwner: input.connection.accountId,
-        ContentType: 'application/zip',
-        Metadata: {
-          sha256: input.sha256,
-          agentid: input.agentId,
-          templateversion: input.templateVersion,
-          configurationversion: String(input.configurationVersion)
-        }
-      })
-    );
+    const metadata = {
+      sha256: input.sha256,
+      agentid: input.agentId,
+      templateversion: input.templateVersion,
+      configurationversion: String(input.configurationVersion)
+    };
+    const storage = this.storageFor({ region: input.connection.region, credentials });
+    let response: { versionId?: string; etag?: string };
+    try {
+      const existing = await storage.head({
+        bucket,
+        key,
+        expectedOwner: input.connection.accountId
+      });
+      if (
+        existing.versionId &&
+        existing.contentLength === input.bytes.length &&
+        existing.metadata?.sha256 === input.sha256 &&
+        existing.serverSideEncryption === 'aws:kms' &&
+        existing.sseKmsKeyId ===
+          customerArtifactKmsKeyArn(input.connection.accountId, input.connection.region)
+      )
+        return { bucket, key, versionId: existing.versionId };
+    } catch (cause) {
+      if (!(cause instanceof Error) || !/NotFound|NoSuchKey|404/.test(cause.name + cause.message))
+        throw cause;
+    }
+    response = await storage.put({
+      bucket,
+      key,
+      expectedOwner: input.connection.accountId,
+      bytes: input.bytes,
+      kmsKeyId: customerArtifactKmsKeyArn(input.connection.accountId, input.connection.region),
+      metadata
+    });
+    if (!response.versionId)
+      throw new AgentArtifactError(
+        'S3_VERSION_ID_REQUIRED',
+        'The customer artifact bucket must return an S3 VersionId.'
+      );
     return {
       bucket,
       key,
-      ...(response.VersionId ? { versionId: response.VersionId } : {}),
-      ...(response.ETag ? { etag: response.ETag } : {})
+      versionId: response.versionId,
+      ...(response.etag ? { etag: response.etag } : {})
     };
   }
 }

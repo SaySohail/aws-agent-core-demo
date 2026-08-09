@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type {
   Agent,
+  AgentArtifact,
   AuditEvent,
   Deployment,
   Tenant,
@@ -260,6 +261,49 @@ test('deployments and audit events are chronological and malformed persistence i
   );
   await repo.createDeployment(
     deployment('dep_00000000-0000-4000-8000-000000000001', '2026-01-01T00:00:00.000Z')
+  );
+  const artifact: AgentArtifact = {
+    id: 'art_00000000-0000-4000-8000-000000000001',
+    tenantId: tenantA.id,
+    agentId,
+    templateId: 'tpl_00000000-0000-4000-8000-000000000001',
+    templateVersion: '1',
+    configurationVersion: 1,
+    runtime: 'NODE_22',
+    entryPoint: ['opentelemetry-instrument', 'dist/app.js'],
+    sha256: 'c'.repeat(64),
+    sizeBytes: 12,
+    bucket: 'agent-launchpad-artifacts-123456789012-us-east-1',
+    objectKey: `agents/${agentId}/artifacts/${'c'.repeat(64)}/agent.zip`,
+    s3VersionId: 'version-1',
+    status: 'READY',
+    createdBy: 'user-a',
+    createdAt: at,
+    updatedAt: at
+  };
+  await repo.createAgentArtifact(artifact);
+  assert.equal(
+    (await repo.findAgentArtifactByDigest(tenantA.id, agentId, artifact.sha256))?.id,
+    artifact.id
+  );
+  await repo.attachDeploymentArtifact(
+    tenantA.id,
+    'dep_00000000-0000-4000-8000-000000000001',
+    artifact.id,
+    artifact.sha256
+  );
+  assert.deepEqual(
+    (await repo.getDeployment(tenantA.id, 'dep_00000000-0000-4000-8000-000000000001'))?.snapshot
+      .artifactId,
+    artifact.id
+  );
+  await assert.rejects(
+    repo.attachDeploymentArtifact(
+      tenantA.id,
+      'dep_00000000-0000-4000-8000-000000000001',
+      'art_00000000-0000-4000-8000-000000000002',
+      'd'.repeat(64)
+    )
   );
   assert.deepEqual(
     (await repo.listDeploymentsForAgent(tenantA.id, agentId)).items.map((value) => value.id),

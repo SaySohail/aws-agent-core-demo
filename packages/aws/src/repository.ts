@@ -201,6 +201,47 @@ export class ControlPlaneRepository {
       condition: existingCondition
     });
   }
+  async findAgentArtifactByDigest(
+    tenantId: string,
+    agentId: string,
+    sha256: string
+  ): Promise<AgentArtifact | undefined> {
+    let nextToken: string | undefined;
+    do {
+      const artifacts = await this.listAgentArtifacts(tenantId, { limit: 100, nextToken });
+      const found = artifacts.items.find(
+        (artifact) => artifact.agentId === agentId && artifact.sha256 === sha256
+      );
+      if (found) return found;
+      nextToken = artifacts.nextToken;
+    } while (nextToken);
+    return undefined;
+  }
+  /** The artifact reference is derived once by ENSURING_ARTIFACT and cannot be replaced. */
+  async attachDeploymentArtifact(
+    tenantId: string,
+    deploymentId: string,
+    artifactId: string,
+    artifactSha256: string
+  ): Promise<void> {
+    const deployment = await this.getDeployment(tenantId, deploymentId);
+    if (!deployment) throw new Error('Cannot attach an artifact to a missing deployment.');
+    if (deployment.snapshot.artifactId) {
+      if (
+        deployment.snapshot.artifactId === artifactId &&
+        deployment.snapshot.artifactSha256 === artifactSha256
+      )
+        return;
+      throw new Error('Deployment already references a different immutable artifact.');
+    }
+    await this.store.update({
+      key: controlPlaneKeys.deployment(tenantId, deploymentId),
+      updates: { snapshot: { ...deployment.snapshot, artifactId, artifactSha256 } },
+      condition:
+        'attribute_exists(pk) AND attribute_exists(sk) AND attribute_not_exists(#snapshot.#artifactId)',
+      conditionNames: { '#snapshot': 'snapshot', '#artifactId': 'artifactId' }
+    });
+  }
   async createRuntimeVersion(value: RuntimeVersion): Promise<void> {
     if (!(await this.getAgent(value.tenantId, value.agentId)))
       throw new Error('Cannot create a runtime version for a missing tenant agent.');
@@ -263,9 +304,9 @@ export class ControlPlaneRepository {
     runtimeArn: string;
     runtimeVersion: string;
     runtimeEndpoint: string;
-      runtimeEndpointName: string;
-      runtimeWorkloadIdentityArn: string;
-      updatedAt: string;
+    runtimeEndpointName: string;
+    runtimeWorkloadIdentityArn: string;
+    updatedAt: string;
   }): Promise<void> {
     await this.store.update({
       key: controlPlaneKeys.agent(input.tenantId, input.agentId),
@@ -291,11 +332,18 @@ export class ControlPlaneRepository {
     await this.store.update({
       key: controlPlaneKeys.agent(tenantId, agentId),
       updates: {
-        status: 'UNDEPLOYED', updatedAt,
-        runtimeArn: undefined, runtimeId: undefined, runtimeVersion: undefined,
-        runtimeEndpoint: undefined, runtimeEndpointName: undefined,
-        runtimeWorkloadIdentityArn: undefined, gatewayArn: undefined,
-        gatewayWorkloadIdentityArn: undefined, gsi3pk: undefined, gsi3sk: undefined
+        status: 'UNDEPLOYED',
+        updatedAt,
+        runtimeArn: undefined,
+        runtimeId: undefined,
+        runtimeVersion: undefined,
+        runtimeEndpoint: undefined,
+        runtimeEndpointName: undefined,
+        runtimeWorkloadIdentityArn: undefined,
+        gatewayArn: undefined,
+        gatewayWorkloadIdentityArn: undefined,
+        gsi3pk: undefined,
+        gsi3sk: undefined
       },
       condition: existingCondition
     });
@@ -519,7 +567,10 @@ export class ControlPlaneRepository {
     tenantId: string,
     agentId: string
   ): Promise<AgentMetricsSnapshot | undefined> {
-    return this.get(controlPlaneKeys.metricsSnapshot(tenantId, agentId), fromPersistence.agentMetricsSnapshot);
+    return this.get(
+      controlPlaneKeys.metricsSnapshot(tenantId, agentId),
+      fromPersistence.agentMetricsSnapshot
+    );
   }
   /** Immutable execution IDs make retries safe and cannot overwrite a prior execution record. */
   async createAgentExecutionSummary(value: AgentExecutionSummary): Promise<void> {
