@@ -123,7 +123,7 @@ export const toPersistence = {
       ...deploymentSchema.parse(value),
       ...controlPlaneKeys.deployment(value.tenantId, value.id),
       ...controlPlaneKeys.agentDeployments(value.tenantId, value.agentId),
-      gsi2sk: `${value.createdAt}#${value.id}`,
+      gsi2sk: `DEPLOYMENT#${value.createdAt}#${value.id}`,
       entityType: 'DEPLOYMENT'
     };
   },

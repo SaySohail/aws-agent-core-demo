@@ -12,11 +12,6 @@
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@agent-launchpad/schemas": ["packages/schemas/src/index.ts"],
-      "@agent-launchpad/shared": ["packages/shared/src/index.ts"],
-      "@agent-launchpad/aws": ["packages/aws/src/index.ts"]
-    }
+    "baseUrl": "."
   }
 }

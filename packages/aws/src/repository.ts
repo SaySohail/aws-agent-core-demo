@@ -585,7 +585,7 @@ export class ControlPlaneRepository {
       'DeploymentsByAgent',
       'gsi2pk',
       controlPlaneKeys.agentDeployments(tenantId, agentId).gsi2pk,
-      undefined,
+      sortKeyPrefixes.deployments,
       options,
       fromPersistence.deployment
     );

@@ -69,6 +69,29 @@ const membership = (tenantId: string, userId: string): TenantMembership => ({
   role: 'MEMBER',
   createdAt: at
 });
+const deployment = (id: string, createdAt: string): Deployment => ({
+  id,
+  tenantId: tenantA.id,
+  agentId,
+  operationType: 'DEPLOY',
+  status: 'QUEUED',
+  stage: 'QUEUED',
+  requestedBy: 'user-a',
+  configurationRevision: 1,
+  snapshot: {
+    templateId: 'tpl_00000000-0000-4000-8000-000000000001',
+    templateVersion: '1',
+    awsConnectionId: 'awc_00000000-0000-4000-8000-000000000001',
+    accountId: '123456789012',
+    region: 'us-east-1',
+    modelId: 'amazon.nova-lite-v1:0',
+    capabilities: ['ORDER_LOOKUP'],
+    guardrails: { refunds: { enabled: false } }
+  },
+  idempotencyKeyHash: 'a'.repeat(64),
+  requestHash: 'b'.repeat(64),
+  createdAt
+});
 
 class MemoryStore implements PersistenceClient {
   readonly records = new Map<string, Record<string, unknown>>();
@@ -234,28 +257,6 @@ test('creates are conditional, lists paginate, and normal access never scans', a
 test('deployments and audit events are chronological and malformed persistence is rejected', async () => {
   const { repo } = await repository();
   await repo.createAgent(agent(tenantA.id));
-  const deployment = (id: string, createdAt: string): Deployment => ({
-    id,
-    tenantId: tenantA.id,
-    agentId,
-    status: 'QUEUED',
-    stage: 'QUEUED',
-    requestedBy: 'user-a',
-    configurationRevision: 1,
-    snapshot: {
-      templateId: 'tpl_00000000-0000-4000-8000-000000000001',
-      templateVersion: '1',
-      awsConnectionId: 'awc_00000000-0000-4000-8000-000000000001',
-      accountId: '123456789012',
-      region: 'us-east-1',
-      modelId: 'amazon.nova-lite-v1:0',
-      capabilities: ['ORDER_LOOKUP'],
-      guardrails: { refunds: { enabled: false } }
-    },
-    idempotencyKeyHash: 'a'.repeat(64),
-    requestHash: 'b'.repeat(64),
-    createdAt
-  });
   await repo.createDeployment(
     deployment('dep_00000000-0000-4000-8000-000000000002', '2026-01-02T00:00:00.000Z')
   );
