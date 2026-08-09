@@ -1,6 +1,9 @@
 import type {
   Agent,
+  AgentExecutionSummary,
+  AgentMetricsSnapshot,
   AgentTemplate,
+  AuditEvent,
   AwsConnection,
   CreateAwsConnectionRequest as SharedCreateAwsConnectionRequest,
   CreateAgentRequest as SharedCreateAgentRequest,
@@ -183,6 +186,14 @@ export function createControlApiClient(options: ControlApiClientOptions) {
         request<PlaygroundInvokeResponse>(
           `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/invoke`,
           { method: 'POST', body: input }
+        ),
+      executions: (tenantId: string, agentId: string, query?: PageQuery) =>
+        requestPage<AgentExecutionSummary>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/executions${queryString(query)}`
+        ),
+      metrics: (tenantId: string, agentId: string) =>
+        request<AgentMetricsSnapshot | { readonly availability: 'UNAVAILABLE' }>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/metrics`
         )
     },
     awsConnections: {
@@ -221,6 +232,10 @@ export function createControlApiClient(options: ControlApiClientOptions) {
         requestPage<Deployment>(
           `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/deployments${queryString(query)}`
         )
+    },
+    auditEvents: {
+      list: (tenantId: string, query?: PageQuery) =>
+        requestPage<AuditEvent>(`/tenants/${segment(tenantId)}/audit-events${queryString(query)}`)
     }
   };
 }

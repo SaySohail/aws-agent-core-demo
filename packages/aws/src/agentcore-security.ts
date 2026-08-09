@@ -145,13 +145,15 @@ export interface AgentRuntimeInvocationClient {
     readonly qualifier?: string;
     readonly credentials: AssumedCustomerRoleCredentials;
     readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
-  }): Promise<RuntimeResponse>;
+  }): Promise<RuntimeResponse & { readonly traceId?: string; readonly runtimeSessionId?: string }>;
 }
 
 interface RuntimeDataPlaneClient {
   send(command: InvokeAgentRuntimeCommand, options?: { abortSignal?: AbortSignal }): Promise<{
     response?: unknown;
     contentType?: string;
+    traceId?: string;
+    runtimeSessionId?: string;
   }>;
 }
 
@@ -203,7 +205,15 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
       }
       const validated = runtimeResponseSchema.safeParse(parsed);
       if (!validated.success) throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
-      return validated.data;
+      // AgentCore returns tracing identifiers as operational correlation metadata. They are
+      // retained server-side by callers and are deliberately not part of the runtime payload.
+      return {
+        ...validated.data,
+        ...(safeCorrelationId(response.traceId) ? { traceId: response.traceId } : {}),
+        ...(safeCorrelationId(response.runtimeSessionId)
+          ? { runtimeSessionId: response.runtimeSessionId }
+          : {})
+      };
     } catch (cause) {
       if (cause instanceof RuntimeInvocationError) throw cause;
       if (controller.signal.aborted) throw new RuntimeInvocationError('RUNTIME_TIMEOUT');
@@ -217,6 +227,10 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
       clearTimeout(timeout);
     }
   }
+}
+
+function safeCorrelationId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 512;
 }
 
 export async function readRuntimeResponse(body: unknown, maximumBytes = MAX_RUNTIME_RESPONSE_BYTES): Promise<string> {

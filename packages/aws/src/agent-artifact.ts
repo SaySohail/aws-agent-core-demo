@@ -1,9 +1,10 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { lstat, mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises';
+import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
 import {
   agentConfigurationSchema,
   agentSchema,
@@ -20,7 +21,13 @@ import {
 } from './customer-connection.js';
 
 export const AGENTCORE_RUNTIME = 'NODE_22' as const;
-export const AGENT_ARTIFACT_ENTRY_POINT = 'dist/app.js' as const;
+export const AGENT_ARTIFACT_APPLICATION_ENTRY_POINT = 'dist/app.js' as const;
+export const AGENT_ARTIFACT_ENTRY_POINT = [
+  'opentelemetry-instrument',
+  AGENT_ARTIFACT_APPLICATION_ENTRY_POINT
+] as const;
+export const ADOT_PACKAGE = '@aws/aws-distro-opentelemetry-node-autoinstrumentation' as const;
+export const ADOT_PACKAGE_VERSION = '0.12.0' as const;
 export const AGENT_ARTIFACT_MAX_COMPRESSED_BYTES = 250 * 1024 * 1024;
 export const AGENT_ARTIFACT_MAX_UNCOMPRESSED_BYTES = 500 * 1024 * 1024;
 
@@ -44,7 +51,7 @@ export interface BuiltAgentArtifact {
   readonly sizeBytes: number;
   readonly uncompressedSizeBytes: number;
   readonly runtime: typeof AGENTCORE_RUNTIME;
-  readonly entryPoint: typeof AGENT_ARTIFACT_ENTRY_POINT;
+  readonly entryPoint: readonly [typeof AGENT_ARTIFACT_ENTRY_POINT[0], typeof AGENT_ARTIFACT_ENTRY_POINT[1]];
   readonly configurationVersion: number;
   readonly manifest: Readonly<Record<string, unknown>>;
 }
@@ -78,7 +85,7 @@ export class AgentArtifactBuilder {
         logLevel: 'silent'
       });
       const app = await readFile(appPath);
-      this.assertNoNativeDependencies([{ path: AGENT_ARTIFACT_ENTRY_POINT, data: app }]);
+      this.assertNoNativeDependencies([{ path: AGENT_ARTIFACT_APPLICATION_ENTRY_POINT, data: app }]);
       const config = canonicalJson(runtimeConfiguration(configuration));
       const manifest = {
         schemaVersion: 1,
@@ -88,12 +95,14 @@ export class AgentArtifactBuilder {
         configurationVersion: agent.revision,
         agentConfigurationSchemaVersion: configuration.configurationVersion,
         runtime: AGENTCORE_RUNTIME,
-        entryPoint: AGENT_ARTIFACT_ENTRY_POINT,
+        entryPoint: [...AGENT_ARTIFACT_ENTRY_POINT],
+        observability: { adotPackage: ADOT_PACKAGE, adotPackageVersion: ADOT_PACKAGE_VERSION },
         enabledCapabilities: [...configuration.capabilities].sort()
       };
       const entries = [
         { path: 'config/agent-config.json', data: Buffer.from(canonicalJson(config), 'utf8') },
-        { path: AGENT_ARTIFACT_ENTRY_POINT, data: app },
+        { path: AGENT_ARTIFACT_APPLICATION_ENTRY_POINT, data: app },
+        ...(await this.adotEntries()),
         { path: 'manifest.json', data: Buffer.from(canonicalJson(manifest), 'utf8') }
       ];
       const zip = deterministicZip(entries);
@@ -117,7 +126,7 @@ export class AgentArtifactBuilder {
         sizeBytes: zip.length,
         uncompressedSizeBytes,
         runtime: AGENTCORE_RUNTIME,
-        entryPoint: AGENT_ARTIFACT_ENTRY_POINT,
+        entryPoint: [...AGENT_ARTIFACT_ENTRY_POINT],
         configurationVersion: agent.revision,
         manifest
       };
@@ -128,15 +137,19 @@ export class AgentArtifactBuilder {
 
   private validatePackage(entries: readonly ZipEntry[], manifest: Record<string, unknown>): void {
     const paths = entries.map((entry) => entry.path);
-    const expected = ['config/agent-config.json', AGENT_ARTIFACT_ENTRY_POINT, 'manifest.json'];
-    if (paths.join('|') !== expected.join('|'))
+    if (
+      !paths.includes('config/agent-config.json') ||
+      !paths.includes(AGENT_ARTIFACT_APPLICATION_ENTRY_POINT) ||
+      !paths.includes('manifest.json') ||
+      !paths.includes('node_modules/.bin/opentelemetry-instrument') ||
+      !paths.includes(`node_modules/${ADOT_PACKAGE}/package.json`)
+    )
       throw new AgentArtifactError(
         'INVALID_PACKAGE_STRUCTURE',
-        'Artifact contains unexpected entries.'
+        'Artifact is missing the ADOT instrumentation executable or dependency.'
       );
     if (
-      !paths.includes(String(manifest.entryPoint)) ||
-      !String(manifest.entryPoint).endsWith('.js') ||
+      !isInstrumentedEntryPoint(manifest.entryPoint) ||
       manifest.runtime !== AGENTCORE_RUNTIME
     )
       throw new AgentArtifactError(
@@ -149,7 +162,7 @@ export class AgentArtifactBuilder {
     for (const entry of entries)
       if (
         /(^|\/)\.env|\.(pem|key)$/i.test(entry.path) ||
-        (entry.path !== AGENT_ARTIFACT_ENTRY_POINT &&
+        (entry.path !== AGENT_ARTIFACT_APPLICATION_ENTRY_POINT &&
           /AKIA[0-9A-Z]{16}|aws_secret_access_key|sessiontoken/i.test(entry.data.toString('utf8')))
       )
         throw new AgentArtifactError(
@@ -170,6 +183,50 @@ export class AgentArtifactBuilder {
         'Native dependencies are unsupported for Linux ARM64 direct code.'
       );
   }
+
+  private async adotEntries(): Promise<ArtifactFile[]> {
+    const runtimeRequire = createRequire(resolve(this.runtimeSourcePath));
+    let registerModule: string;
+    try {
+      registerModule = runtimeRequire.resolve(`${ADOT_PACKAGE}/register`);
+    } catch {
+      throw new AgentArtifactError(
+        'ADOT_DEPENDENCY_MISSING',
+        `The pinned ${ADOT_PACKAGE}@${ADOT_PACKAGE_VERSION} runtime dependency is unavailable.`
+      );
+    }
+    const packageRoot = await packageRootFor(registerModule);
+    const metadata = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as {
+      version?: string;
+    };
+    if (metadata.version !== ADOT_PACKAGE_VERSION)
+      throw new AgentArtifactError(
+        'ADOT_DEPENDENCY_VERSION_INVALID',
+        `Expected ${ADOT_PACKAGE}@${ADOT_PACKAGE_VERSION}.`
+      );
+    // pnpm stores the production dependency closure beside the resolved package. Copy that
+    // logical node_modules tree rather than the monorepo root or just ADOT itself: register()
+    // loads ADOT dependencies lazily after Runtime startup.
+    const files = await collectFiles(dirname(dirname(packageRoot)), 'node_modules');
+    files.push({
+      path: 'node_modules/.bin/opentelemetry-instrument',
+      data: Buffer.from(
+        '#!/bin/sh\nexec node --require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register "$@"\n',
+        'utf8'
+      ),
+      mode: 0o100755
+    });
+    return files;
+  }
+}
+
+function isInstrumentedEntryPoint(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value[0] === AGENT_ARTIFACT_ENTRY_POINT[0] &&
+    value[1] === AGENT_ARTIFACT_APPLICATION_ENTRY_POINT
+  );
 }
 
 export interface AgentArtifactUploaderInput {
@@ -299,18 +356,59 @@ export function sha256(value: Buffer): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-interface ZipEntry {
+interface ArtifactFile {
   readonly path: string;
   readonly data: Buffer;
+  readonly mode?: number;
+}
+interface ZipEntry extends ArtifactFile {
   readonly uncompressedSize: number;
 }
-function deterministicZip(source: readonly { path: string; data: Buffer }[]): Buffer {
+async function collectFiles(sourceRoot: string, destinationRoot: string): Promise<ArtifactFile[]> {
+  const files: ArtifactFile[] = [];
+  const visit = async (source: string, destination: string): Promise<void> => {
+    const stat = await lstat(source);
+    if (stat.isSymbolicLink()) {
+      await visit(await realpath(source), destination);
+      return;
+    }
+    if (stat.isDirectory()) {
+      for (const name of (await readdir(source)).sort((a, b) => a.localeCompare(b)))
+        await visit(join(source, name), `${destination}/${name}`);
+      return;
+    }
+    if (!stat.isFile()) return;
+    const normalized = relative(destinationRoot, destination).replaceAll('\\', '/');
+    if (normalized.startsWith('../') || normalized === '')
+      throw new AgentArtifactError('INVALID_PACKAGE_STRUCTURE', 'Unsafe dependency path.');
+    files.push({ path: destination, data: await readFile(source), mode: 0o100644 });
+  };
+  await visit(sourceRoot, destinationRoot);
+  return files;
+}
+async function packageRootFor(source: string): Promise<string> {
+  let current = dirname(source);
+  while (dirname(current) !== current) {
+    try {
+      await lstat(join(current, 'package.json'));
+      return await realpath(current);
+    } catch {
+      current = dirname(current);
+    }
+  }
+  throw new AgentArtifactError('ADOT_DEPENDENCY_MISSING', 'The ADOT package root is unavailable.');
+}
+function deterministicZip(source: readonly ArtifactFile[]): Buffer {
   const entries = [...source].sort((a, b) => a.path.localeCompare(b.path));
   const locals: Buffer[] = [];
   const central: Buffer[] = [];
   let offset = 0;
   for (const item of entries) {
-    if (!/^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._/-]+$/.test(item.path))
+    if (
+      !/^[A-Za-z0-9@._/-]+$/.test(item.path) ||
+      item.path.startsWith('/') ||
+      item.path.split('/').some((part) => part === '..' || part === '')
+    )
       throw new AgentArtifactError('INVALID_PACKAGE_STRUCTURE', 'Unsafe ZIP path.');
     const name = Buffer.from(item.path);
     const crc = crc32(item.data);
@@ -343,7 +441,7 @@ function deterministicZip(source: readonly { path: string; data: Buffer }[]): Bu
     c.writeUInt16LE(0, 32);
     c.writeUInt16LE(0, 34);
     c.writeUInt16LE(0, 36);
-    c.writeUInt32LE((0o100644 << 16) >>> 0, 38);
+    c.writeUInt32LE(((item.mode ?? 0o100644) << 16) >>> 0, 38);
     c.writeUInt32LE(offset, 42);
     central.push(c, name);
     offset += local.length + name.length + item.data.length;

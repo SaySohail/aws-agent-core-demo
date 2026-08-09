@@ -23,10 +23,6 @@ export class GatewayToolExecutor implements ToolExecutor {
     } catch (error) {
       const code = this.errorCode(error);
       if (code === 'POLICY_DENIED') {
-        const amountCents =
-          request.name === 'process_refund' && 'amountCents' in request.input
-            ? request.input.amountCents
-            : undefined;
         console.info(
           JSON.stringify({
             event: 'policy_decision',
@@ -34,8 +30,7 @@ export class GatewayToolExecutor implements ToolExecutor {
             tool: request.name,
             decision: 'DENY',
             reasonCode: 'POLICY_DENIED',
-            policyProfile: 'refund-auto-approval-v1',
-            ...(amountCents === undefined ? {} : { amountCents })
+            policyProfile: 'refund-auto-approval-v1'
           })
         );
       }

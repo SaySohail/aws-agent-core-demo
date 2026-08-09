@@ -2,6 +2,7 @@ import {
   agentIdSchema,
   agentTemplateIdSchema,
   auditEventIdSchema,
+  executionIdSchema,
   agentArtifactIdSchema,
   runtimeVersionIdSchema,
   awsConnectionIdSchema,
@@ -61,6 +62,15 @@ export const controlPlaneKeys = {
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `AUDIT#${createdAt}#${auditEventIdSchema.parse(id)}`
   }),
+  metricsSnapshot: (tenantId: string, agentId: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `METRICS#${agentIdSchema.parse(agentId)}`
+  }),
+  execution: (tenantId: string, agentId: string, startedAt: string, executionId: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `EXECUTION#${agentIdSchema.parse(agentId)}#${reverseTimestamp(startedAt)}#${executionIdSchema.parse(executionId)}`
+  }),
+  activeAgent: () => ({ gsi3pk: 'ACTIVE_AGENTS' }),
   template: (templateId: string, version: string) => ({
     pk: `TEMPLATE#${agentTemplateIdSchema.parse(templateId)}`,
     sk: `VERSION#${nonEmpty(version)}`
@@ -80,8 +90,15 @@ export const sortKeyPrefixes = {
   deploymentEvents: 'DEPLOYMENT_EVENT#',
   artifacts: 'ARTIFACT#',
   runtimeVersions: 'RUNTIME_VERSION#',
-  audits: 'AUDIT#'
+  audits: 'AUDIT#',
+  metrics: 'METRICS#'
 } as const;
+
+function reverseTimestamp(value: string): string {
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) throw new Error('Execution timestamp must be valid.');
+  return String(9_999_999_999_999 - time).padStart(13, '0');
+}
 
 function nonEmpty(value: string): string {
   if (!value.trim()) throw new Error('Key value must not be empty.');

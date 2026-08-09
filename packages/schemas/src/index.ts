@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export { auditActions, type AuditAction } from './audit-actions.js';
 
 const uuidSuffixPattern = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 
@@ -19,6 +20,7 @@ export const deploymentEventIdSchema = prefixedIdSchema('dpe_');
 export const agentArtifactIdSchema = prefixedIdSchema('art_');
 export const runtimeVersionIdSchema = prefixedIdSchema('rtv_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
+export const executionIdSchema = prefixedIdSchema('run_');
 /** Platform template IDs are stable, human-readable product identifiers. */
 export const agentTemplateIdSchema = z.string().regex(/^(?:customer-support|tpl_[0-9a-f-]+)$/i);
 
@@ -416,7 +418,7 @@ export const agentArtifactSchema = z.object({
   templateVersion: nonEmptyString.max(100),
   configurationVersion: z.number().int().positive(),
   runtime: z.literal('NODE_22'),
-  entryPoint: z.literal('dist/app.js'),
+  entryPoint: z.tuple([z.literal('opentelemetry-instrument'), z.literal('dist/app.js')]),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   sizeBytes: z.number().int().nonnegative(),
   bucket: nonEmptyString.max(255).optional(),
@@ -462,12 +464,16 @@ export const toolActivitySchema = z
   .object({
     tool: z.enum(['get_order', 'search_orders', 'create_support_ticket', 'process_refund']),
     status: z.enum(['SUCCEEDED', 'FAILED', 'DENIED']),
+    durationMs: z.number().int().nonnegative().optional(),
     reasonCode: z.enum(['POLICY_DENIED']).optional()
   })
   .strict();
 
 export const runtimeResponseSchema = z
-  .object({ result: z.string().trim().min(1).max(32_000), toolActivity: z.array(toolActivitySchema) })
+  .object({
+    result: z.string().trim().min(1).max(32_000),
+    toolActivity: z.array(toolActivitySchema)
+  })
   .strict();
 
 export const playgroundInvokeRequestSchema = z
@@ -477,7 +483,9 @@ export const playgroundInvokeRequestSchema = z
   })
   .strict();
 
-export const playgroundInvokeResponseSchema = runtimeResponseSchema.extend({ sessionId: z.string().uuid() });
+export const playgroundInvokeResponseSchema = runtimeResponseSchema.extend({
+  sessionId: z.string().uuid()
+});
 
 /** Safe control-plane view for the deployment lifecycle UI. Operational workflow internals stay server-side. */
 export const deploymentDetailSchema = z
@@ -519,6 +527,57 @@ export const auditEventSchema = z.object({
   createdAt: timestampSchema
 });
 
+/** A compact, product-facing aggregate; raw CloudWatch responses are never persisted. */
+export const agentMetricsSnapshotSchema = z
+  .object({
+    tenantId: tenantIdSchema,
+    agentId: agentIdSchema,
+    windowStart: timestampSchema,
+    windowEnd: timestampSchema,
+    invocationCount: z.number().nonnegative(),
+    errorCount: z.number().nonnegative(),
+    errorRate: z.number().min(0).max(1).optional(),
+    latencyAverageMs: z.number().nonnegative().optional(),
+    latencyP95Ms: z.number().nonnegative().optional(),
+    throttleCount: z.number().nonnegative(),
+    sessionCount: z.number().nonnegative().optional(),
+    policyAllowCount: z.number().nonnegative().optional(),
+    policyDenyCount: z.number().nonnegative().optional(),
+    availability: z.enum(['AVAILABLE', 'STALE', 'UNAVAILABLE']),
+    collectedAt: timestampSchema
+  })
+  .strict();
+
+/** Privacy-preserving operational record, deliberately not a prompt/response transcript. */
+export const agentExecutionSummarySchema = z
+  .object({
+    executionId: executionIdSchema,
+    tenantId: tenantIdSchema,
+    agentId: agentIdSchema,
+    deploymentId: deploymentIdSchema.optional(),
+    runtimeVersion: nonEmptyString.max(100).optional(),
+    endpointName: nonEmptyString.max(128).optional(),
+    requestedBy: nonEmptyString.max(256),
+    status: z.enum(['SUCCEEDED', 'FAILED']),
+    durationMs: z.number().int().nonnegative(),
+    toolActivity: z.array(
+      z
+        .object({
+          tool: z.enum(['get_order', 'search_orders', 'create_support_ticket', 'process_refund']),
+          status: z.enum(['SUCCEEDED', 'FAILED', 'DENIED']),
+          durationMs: z.number().int().nonnegative().optional(),
+          safeReasonCode: nonEmptyString.max(128).optional()
+        })
+        .strict()
+    ),
+    policyDenialCount: z.number().int().nonnegative(),
+    traceId: nonEmptyString.max(512).optional(),
+    errorCode: nonEmptyString.max(128).optional(),
+    startedAt: timestampSchema,
+    completedAt: timestampSchema
+  })
+  .strict();
+
 /** Trusted application context, resolved from a Cognito identity and stored membership. */
 export const tenantContextSchema = z.object({
   userId: nonEmptyString.max(256),
@@ -545,6 +604,8 @@ export type PlaygroundInvokeRequest = z.infer<typeof playgroundInvokeRequestSche
 export type PlaygroundInvokeResponse = z.infer<typeof playgroundInvokeResponseSchema>;
 export type DeploymentDetail = z.infer<typeof deploymentDetailSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
+export type AgentMetricsSnapshot = z.infer<typeof agentMetricsSnapshotSchema>;
+export type AgentExecutionSummary = z.infer<typeof agentExecutionSummarySchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;
 export type TenantStatus = z.infer<typeof tenantStatusSchema>;
 export type MembershipRole = z.infer<typeof membershipRoleSchema>;
@@ -654,6 +715,7 @@ export const createDeploymentEventId = (): string => generateId('dpe_');
 export const createAgentArtifactId = (): string => generateId('art_');
 export const createRuntimeVersionId = (): string => generateId('rtv_');
 export const createAuditEventId = (): string => generateId('evt_');
+export const createExecutionId = (): string => generateId('run_');
 export const createAgentTemplateId = (): string => generateId('tpl_');
 
 // Retained while the pre-SAY-93 control API contract still consumes it.

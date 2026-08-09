@@ -23,7 +23,7 @@ export interface PersistenceClient {
 
 export interface QueryInput {
   readonly indexName?: string | undefined;
-  readonly partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk';
+  readonly partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk' | 'gsi3pk';
   readonly partitionValue: string;
   readonly sortKeyPrefix?: string | undefined;
   readonly limit?: number | undefined;
@@ -115,7 +115,9 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
       names['#sk'] = input.indexName
         ? input.indexName === 'MembershipsByUser'
           ? 'gsi1sk'
-          : 'gsi2sk'
+          : input.indexName === 'DeploymentsByAgent'
+            ? 'gsi2sk'
+            : 'gsi3sk'
         : 'sk';
       values[':prefix'] = input.sortKeyPrefix;
       expression += ' AND begins_with(#sk, :prefix)';

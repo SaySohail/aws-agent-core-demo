@@ -422,3 +422,88 @@ test('verification uses assumed credentials in memory, validates identity, and w
   assert.doesNotMatch(response.body, /temporary/);
   assert.equal((updates.at(-1) as AwsConnection).status, 'VERIFIED');
 });
+
+test('invocation summaries and audit are safe and fail open after a successful runtime response', async () => {
+  const activeAgent = {
+    ...agent,
+    status: 'ACTIVE' as const,
+    runtimeArn: 'arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/runtime-1',
+    runtimeVersion: '1',
+    runtimeEndpointName: 'production',
+    runtimeEndpoint:
+      'arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/runtime-1/runtime-endpoint/production'
+  } as Agent;
+  const summaries: unknown[] = [];
+  const audits: unknown[] = [];
+  const api = new ControlApi(
+    repository({
+      getAgent: async () => activeAgent,
+      listDeploymentsForAgent: async () =>
+        ({
+          items: [
+            {
+              id: 'dep_00000000-0000-4000-8000-000000000001',
+              status: 'READY',
+              configurationRevision: 1,
+              snapshot: {
+                awsConnectionId: verifiedConnection.id,
+                accountId: verifiedConnection.accountId,
+                region: verifiedConnection.region
+              }
+            }
+          ]
+        }) as never,
+      listRuntimeVersions: async () =>
+        [
+          {
+            state: 'READY',
+            runtimeArn: activeAgent.runtimeArn,
+            runtimeVersion: '1',
+            deploymentId: 'dep_00000000-0000-4000-8000-000000000001',
+            endpointName: 'production',
+            endpointLiveVersion: '1'
+          }
+        ] as never,
+      createAgentExecutionSummary: async (value) => {
+        summaries.push(value);
+      },
+      appendAuditEvent: async (value) => {
+        audits.push(value);
+      }
+    }),
+    () => new Date(timestamp),
+    undefined,
+    {
+      assumeCustomerRole: async () => ({
+        accessKeyId: 'temporary',
+        secretAccessKey: 'temporary',
+        sessionToken: 'temporary'
+      }),
+      getCallerIdentity: async () => ({ account: verifiedConnection.accountId }),
+      headArtifactBucket: async () => undefined
+    },
+    undefined,
+    {
+      invoke: async () => ({
+        result: 'ok',
+        traceId: 'trace-1',
+        toolActivity: [
+          { tool: 'process_refund', status: 'DENIED', reasonCode: 'POLICY_DENIED', durationMs: 4 }
+        ]
+      })
+    }
+  );
+  const response = await api.handle(
+    request('POST /tenants/{tenantId}/agents/{agentId}/invoke', {
+      pathParameters: { tenantId: tenantA, agentId },
+      body: JSON.stringify({ prompt: 'private prompt' })
+    })
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(summaries.length, 1);
+  assert.match(JSON.stringify(summaries[0]), /trace-1/);
+  assert.doesNotMatch(JSON.stringify(summaries[0]), /private prompt|"ok"/);
+  assert.equal(audits.length, 2);
+  assert.match(JSON.stringify(audits), /AGENT_INVOKED/);
+  assert.match(JSON.stringify(audits), /POLICY_DENIED/);
+});

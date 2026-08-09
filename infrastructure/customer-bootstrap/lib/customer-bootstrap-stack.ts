@@ -156,6 +156,11 @@ export class CustomerBootstrapStack extends Stack {
         resources: [artifactBucket.bucketArn]
       })
     );
+    // CloudWatch does not support resource-level authorization for GetMetricData. This narrow
+    // read action is used only by the control-plane metrics worker after the existing STS trust.
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({ actions: ['cloudwatch:GetMetricData'], resources: ['*'] })
+    );
     const gatewayArn = Stack.of(this).formatArn({
       service: 'bedrock-agentcore',
       resource: 'gateway',

@@ -6,7 +6,13 @@ import test from 'node:test';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { customerSupportTemplate, type Agent, type AwsConnection } from '@agent-launchpad/schemas';
-import { AgentArtifactBuilder, sha256 } from './agent-artifact.js';
+import {
+  ADOT_PACKAGE,
+  ADOT_PACKAGE_VERSION,
+  AGENT_ARTIFACT_ENTRY_POINT,
+  AgentArtifactBuilder,
+  sha256
+} from './agent-artifact.js';
 
 const tenantId = 'tnt_12345678-1234-4234-8234-123456789abc';
 const agentId = 'agt_12345678-1234-4234-8234-123456789abc';
@@ -74,12 +80,17 @@ test('build is byte reproducible and configuration changes affect the digest', a
     connection
   });
   assert.notEqual(changed.sha256, first.sha256);
-  assert.deepEqual(zipPaths(first.bytes), [
-    'config/agent-config.json',
-    'dist/app.js',
-    'manifest.json'
-  ]);
-  assert.equal(first.manifest.entryPoint, 'dist/app.js');
+  const paths = zipPaths(first.bytes);
+  assert.ok(paths.includes('config/agent-config.json'));
+  assert.ok(paths.includes('dist/app.js'));
+  assert.ok(paths.includes('node_modules/.bin/opentelemetry-instrument'));
+  assert.ok(paths.includes(`node_modules/${ADOT_PACKAGE}/package.json`));
+  assert.deepEqual(first.entryPoint, AGENT_ARTIFACT_ENTRY_POINT);
+  assert.deepEqual(first.manifest.entryPoint, AGENT_ARTIFACT_ENTRY_POINT);
+  assert.deepEqual(first.manifest.observability, {
+    adotPackage: ADOT_PACKAGE,
+    adotPackageVersion: ADOT_PACKAGE_VERSION
+  });
   assert.equal(first.manifest.runtime, 'NODE_22');
   assert.ok(!first.bytes.toString('utf8').includes('not-packaged'));
 });
@@ -96,7 +107,10 @@ test('extracted package starts and responds to ping', async () => {
     await writeFile(join(directory, entry.path), entry.data);
   }
   const port = 51899;
-  const child = spawn(process.execPath, ['dist/app.js'], {
+  const child = spawn(
+    process.execPath,
+    ['--require', `${ADOT_PACKAGE}/register`, 'dist/app.js'],
+    {
     cwd: directory,
     env: {
       ...process.env,
@@ -105,8 +119,9 @@ test('extracted package starts and responds to ping', async () => {
       BEDROCK_MODEL_ID: 'test',
       AGENT_GATEWAY_URL: 'http://127.0.0.1:9'
     },
-    stdio: 'ignore'
-  });
+      stdio: 'ignore'
+    }
+  );
   try {
     await waitForPing(port);
   } finally {

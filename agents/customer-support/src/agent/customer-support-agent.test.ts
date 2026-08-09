@@ -10,6 +10,12 @@ import { loadCustomerSupportAgentConfig, type CustomerSupportAgentConfig } from 
 import { CustomerSupportAgentError } from './errors.js';
 import type { ModelClient } from './bedrock-model.js';
 import type { ToolExecutor } from '../tools/executor.js';
+import type {
+  AgentTelemetry,
+  AgentTelemetrySpan,
+  SafeTelemetryAttributes
+} from '../telemetry/agent-telemetry.js';
+import { safeTelemetryAttributes } from '../telemetry/agent-telemetry.js';
 
 const config: CustomerSupportAgentConfig = {
   region: 'us-east-1',
@@ -54,6 +60,35 @@ function silentLogger() {
   return { info: () => undefined, error: () => undefined };
 }
 
+class RecordingAgentTelemetry implements AgentTelemetry {
+  public readonly spans: Array<{ name: string; attributes: SafeTelemetryAttributes }> = [];
+
+  public async withSpan<T>(
+    name: string,
+    attributes: SafeTelemetryAttributes,
+    fn: (span: AgentTelemetrySpan) => Promise<T>
+  ): Promise<T> {
+    const recorded = { name, attributes: { ...attributes } };
+    this.spans.push(recorded);
+    return fn({ setAttributes: (next) => Object.assign(recorded.attributes, next) });
+  }
+}
+
+class FailingAgentTelemetry implements AgentTelemetry {
+  public async withSpan<T>(): Promise<T> {
+    throw new Error('telemetry exporter unavailable');
+  }
+}
+
+test('runtime telemetry attributes are allowlisted even for untyped callers', () => {
+  const attributes = safeTelemetryAttributes({
+    'tool.name': 'get_order',
+    'error.code': 'POLICY_DENIED',
+    ...({ prompt: 'private', authorization: 'secret' } as unknown as SafeTelemetryAttributes)
+  });
+  assert.deepEqual(attributes, { 'tool.name': 'get_order', 'error.code': 'POLICY_DENIED' });
+});
+
 test('configuration is validated and remains directly injectable for unit tests', () => {
   assert.throws(
     () => loadCustomerSupportAgentConfig({ AWS_REGION: 'us-east-1' }),
@@ -76,6 +111,22 @@ test('direct answer sends system/user prompt and does not execute tools', async 
   assert.equal(tools.calls.length, 0);
   assert.equal(model.requests[0]?.messages?.[0]?.content?.[0]?.text, 'I need help');
   assert.match(model.requests[0]?.system?.[0]?.text ?? '', /Never fabricate/);
+});
+
+test('emits safe invocation and model spans without prompt or response content', async () => {
+  const telemetry = new RecordingAgentTelemetry();
+  const agent = new CustomerSupportAgent(
+    config,
+    new QueueModel([assistant([{ text: 'Please share your order ID.' }])]),
+    new FakeTools({ status: 'success', data: {} }),
+    silentLogger(),
+    telemetry
+  );
+  await agent.invoke('My email is private@example.com');
+  assert.deepEqual(telemetry.spans, [
+    { name: 'agent.invoke', attributes: { 'agent.id': 'customer-support' } },
+    { name: 'bedrock.converse', attributes: { 'model.id': 'test.model' } }
+  ]);
 });
 
 test('single tool round validates input, sends structured result, and returns final text', async () => {
@@ -197,6 +248,121 @@ test('a policy-denied refund is passed safely to the model and is not retried', 
   const toolResult = model.requests[1]?.messages?.[2]?.content?.[0]?.toolResult?.content?.[0]?.text;
   assert.match(toolResult ?? '', /POLICY_DENIED/);
   assert.doesNotMatch(toolResult ?? '', /Cedar|arn:aws|policy-engine/i);
+});
+
+test('records tool timing and policy denial with only allowlisted attributes', async () => {
+  const telemetry = new RecordingAgentTelemetry();
+  const model = new QueueModel([
+    assistant([{ toolUse: { toolUseId: 'x', name: 'get_order', input: { orderId: 'ORD-1023' } } }]),
+    assistant([{ text: 'Here is the order.' }])
+  ]);
+  const agent = new CustomerSupportAgent(
+    config,
+    model,
+    new FakeTools({ status: 'success', data: { customerEmail: 'private@example.com' } }),
+    silentLogger(),
+    telemetry
+  );
+  const response = await agent.invokeWithActivity('Find ORD-1023');
+  assert.equal(response.toolActivity[0]?.status, 'SUCCEEDED');
+  assert.equal(typeof response.toolActivity[0]?.durationMs, 'number');
+  assert.deepEqual(telemetry.spans[2], {
+    name: 'tool.get_order',
+    attributes: {
+      'tool.name': 'get_order',
+      'tool.status': 'SUCCEEDED',
+      'duration.ms': response.toolActivity[0]?.durationMs
+    }
+  });
+  assert.doesNotMatch(JSON.stringify(telemetry.spans), /ORD-1023|private@example\.com/);
+});
+
+test('records denied tool status without exposing refund input', async () => {
+  const telemetry = new RecordingAgentTelemetry();
+  const model = new QueueModel([
+    assistant([
+      {
+        toolUse: {
+          toolUseId: 'refund-1',
+          name: 'process_refund',
+          input: {
+            orderId: 'ORD-1023',
+            amountCents: 10001,
+            currency: 'GBP',
+            reason: 'Private reason'
+          }
+        }
+      }
+    ]),
+    assistant([{ text: 'Manual approval is required.' }])
+  ]);
+  const agent = new CustomerSupportAgent(
+    config,
+    model,
+    new FakeTools({ status: 'error', code: 'POLICY_DENIED', message: 'Denied.' }),
+    silentLogger(),
+    telemetry
+  );
+  await agent.invoke('Refund £100.01');
+  assert.deepEqual(telemetry.spans[2], {
+    name: 'tool.process_refund',
+    attributes: {
+      'tool.name': 'process_refund',
+      'tool.status': 'DENIED',
+      'policy.decision': 'DENY',
+      'duration.ms': telemetry.spans[2]?.attributes['duration.ms']
+    }
+  });
+  assert.doesNotMatch(JSON.stringify(telemetry.spans), /ORD-1023|10001|Private reason/);
+});
+
+test('failing telemetry cannot prevent no-tool, successful tool, or denied policy invocations', async () => {
+  const noTool = new CustomerSupportAgent(
+    config,
+    new QueueModel([assistant([{ text: 'Hello.' }])]),
+    new FakeTools({ status: 'success', data: {} }),
+    silentLogger(),
+    new FailingAgentTelemetry()
+  );
+  assert.equal(await noTool.invoke('Hello'), 'Hello.');
+
+  const getOrderTools = new FakeTools({ status: 'success', data: { status: 'in_transit' } });
+  const getOrder = new CustomerSupportAgent(
+    config,
+    new QueueModel([
+      assistant([
+        { toolUse: { toolUseId: 'order', name: 'get_order', input: { orderId: 'ORD-1023' } } }
+      ]),
+      assistant([{ text: 'In transit.' }])
+    ]),
+    getOrderTools,
+    silentLogger(),
+    new FailingAgentTelemetry()
+  );
+  assert.equal(await getOrder.invoke('Order status'), 'In transit.');
+  assert.equal(getOrderTools.calls.length, 1);
+
+  const denied = new CustomerSupportAgent(
+    config,
+    new QueueModel([
+      assistant([
+        {
+          toolUse: {
+            toolUseId: 'refund',
+            name: 'process_refund',
+            input: { orderId: 'ORD-1023', amountCents: 10001, currency: 'GBP', reason: 'Damaged' }
+          }
+        }
+      ]),
+      assistant([{ text: 'Manual approval required.' }])
+    ]),
+    new FakeTools({ status: 'error', code: 'POLICY_DENIED', message: 'Denied.' }),
+    silentLogger(),
+    new FailingAgentTelemetry()
+  );
+  const response = await denied.invokeWithActivity('Refund £100.01');
+  assert.equal(response.result, 'Manual approval required.');
+  assert.deepEqual(response.toolActivity[0]?.status, 'DENIED');
 });
 
 test('a continuation failure after ticket creation does not restart and duplicate the side effect', async () => {

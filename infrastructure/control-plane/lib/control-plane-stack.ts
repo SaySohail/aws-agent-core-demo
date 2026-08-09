@@ -11,6 +11,8 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as sfnTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
@@ -49,6 +51,14 @@ export class ControlPlaneStack extends Stack {
       indexName: 'MembershipsByUser',
       partitionKey: { name: 'gsi1pk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'gsi1sk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL
+    });
+    // Sparse index: only deployed ACTIVE agents are projected, so scheduled metrics collection
+    // does not scan tenant partitions.
+    controlPlaneTable.addGlobalSecondaryIndex({
+      indexName: 'ActiveAgents',
+      partitionKey: { name: 'gsi3pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'gsi3sk', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL
     });
 
@@ -214,6 +224,40 @@ export class ControlPlaneStack extends Stack {
       environment: { CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName },
       bundling: { minify: true, sourceMap: true, target: 'node22' }
     });
+    const metricsWorkerLogGroup = new logs.LogGroup(this, 'MetricsWorkerLogGroup', {
+      retention: configuration.logRetentionDays,
+      removalPolicy: persistentRemovalPolicy
+    });
+    const metricsWorkerRole = new iam.Role(this, 'MetricsWorkerRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      description: 'Scheduled, read-only customer CloudWatch metrics collector.'
+    });
+    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+      resources: [metricsWorkerLogGroup.logGroupArn]
+    }));
+    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query'],
+      resources: [controlPlaneTable.tableArn, `${controlPlaneTable.tableArn}/index/*`]
+    }));
+    metricsWorkerRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['sts:AssumeRole'],
+      resources: ['arn:aws:iam::*:role/AgentLaunchpadDeploymentRole']
+    }));
+    const metricsWorkerFunction = new NodejsFunction(this, 'MetricsWorkerFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(__dirname, '..', '..', '..', 'services', 'metrics-worker', 'src', 'lambda.ts'),
+      handler: 'handler',
+      role: metricsWorkerRole,
+      logGroup: metricsWorkerLogGroup,
+      timeout: Duration.minutes(2),
+      environment: { CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName },
+      bundling: { minify: true, sourceMap: true, target: 'node22' }
+    });
+    new events.Rule(this, 'MetricsCollectionSchedule', {
+      schedule: events.Schedule.rate(Duration.minutes(15)),
+      targets: [new targets.LambdaFunction(metricsWorkerFunction)]
+    });
     const stateMachineLogGroup = new logs.LogGroup(this, 'DeploymentStateMachineLogGroup', {
       retention: configuration.logRetentionDays,
       removalPolicy: persistentRemovalPolicy
@@ -373,6 +417,9 @@ export class ControlPlaneStack extends Stack {
       },
       { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/invoke', methods: [apigwv2.HttpMethod.POST] },
+      { path: '/tenants/{tenantId}/agents/{agentId}/executions', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants/{tenantId}/agents/{agentId}/metrics', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants/{tenantId}/audit-events', methods: [apigwv2.HttpMethod.GET] },
       {
         path: '/tenants/{tenantId}/aws-connections',
         methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST]

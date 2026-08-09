@@ -60,7 +60,9 @@ async function createTable(): Promise<void> {
         { AttributeName: 'gsi1pk', AttributeType: 'S' },
         { AttributeName: 'gsi1sk', AttributeType: 'S' },
         { AttributeName: 'gsi2pk', AttributeType: 'S' },
-        { AttributeName: 'gsi2sk', AttributeType: 'S' }
+        { AttributeName: 'gsi2sk', AttributeType: 'S' },
+        { AttributeName: 'gsi3pk', AttributeType: 'S' },
+        { AttributeName: 'gsi3sk', AttributeType: 'S' }
       ],
       KeySchema: [
         { AttributeName: 'pk', KeyType: 'HASH' },
@@ -80,6 +82,14 @@ async function createTable(): Promise<void> {
           KeySchema: [
             { AttributeName: 'gsi2pk', KeyType: 'HASH' },
             { AttributeName: 'gsi2sk', KeyType: 'RANGE' }
+          ],
+          Projection: { ProjectionType: 'ALL' }
+        },
+        {
+          IndexName: 'ActiveAgents',
+          KeySchema: [
+            { AttributeName: 'gsi3pk', KeyType: 'HASH' },
+            { AttributeName: 'gsi3sk', KeyType: 'RANGE' }
           ],
           Projection: { ProjectionType: 'ALL' }
         }
@@ -176,6 +186,17 @@ function route(
       /^\/tenants\/([^/]+)\/agents\/([^/]+)\/invoke$/,
       ['tenantId', 'agentId']
     ],
+    [
+      'GET /tenants/{tenantId}/agents/{agentId}/executions',
+      /^\/tenants\/([^/]+)\/agents\/([^/]+)\/executions$/,
+      ['tenantId', 'agentId']
+    ],
+    [
+      'GET /tenants/{tenantId}/agents/{agentId}/metrics',
+      /^\/tenants\/([^/]+)\/agents\/([^/]+)\/metrics$/,
+      ['tenantId', 'agentId']
+    ],
+    ['GET /tenants/{tenantId}/audit-events', /^\/tenants\/([^/]+)\/audit-events$/, ['tenantId']],
     [
       'GET /tenants/{tenantId}/aws-connections',
       /^\/tenants\/([^/]+)\/aws-connections$/,

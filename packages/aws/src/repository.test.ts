@@ -106,7 +106,13 @@ class MemoryStore implements PersistenceClient {
   async query(input: QueryInput): Promise<QueryResult> {
     this.operations.push('query');
     const sort =
-      input.partitionKey === 'pk' ? 'sk' : input.partitionKey === 'gsi1pk' ? 'gsi1sk' : 'gsi2sk';
+      input.partitionKey === 'pk'
+        ? 'sk'
+        : input.partitionKey === 'gsi1pk'
+          ? 'gsi1sk'
+          : input.partitionKey === 'gsi2pk'
+            ? 'gsi2sk'
+            : 'gsi3sk';
     const rows = [...this.records.values()]
       .filter(
         (item) =>

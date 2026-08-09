@@ -1,6 +1,8 @@
 import {
   agentSchema,
   type AgentArtifact,
+  type AgentExecutionSummary,
+  type AgentMetricsSnapshot,
   type Agent,
   type AgentTemplate,
   type AuditEvent,
@@ -155,6 +157,17 @@ export class ControlPlaneRepository {
       fromPersistence.agent
     );
   }
+  /** Sparse index contains only deployed, active agents; metrics worker never scans tenants. */
+  async listActiveDeployedAgents(options: ListOptions = {}): Promise<Page<Agent>> {
+    return this.list(
+      'ActiveAgents',
+      'gsi3pk',
+      controlPlaneKeys.activeAgent().gsi3pk,
+      undefined,
+      options,
+      fromPersistence.agent
+    );
+  }
   async createAgentArtifact(value: AgentArtifact): Promise<void> {
     if (!(await this.getAgent(value.tenantId, value.agentId)))
       throw new Error('Cannot create an artifact for a missing tenant agent.');
@@ -232,13 +245,18 @@ export class ControlPlaneRepository {
     runtimeArn: string;
     runtimeVersion: string;
     runtimeEndpoint: string;
-    runtimeEndpointName: string;
-    runtimeWorkloadIdentityArn: string;
-    updatedAt: string;
+      runtimeEndpointName: string;
+      runtimeWorkloadIdentityArn: string;
+      updatedAt: string;
   }): Promise<void> {
     await this.store.update({
       key: controlPlaneKeys.agent(input.tenantId, input.agentId),
-      updates: input,
+      updates: {
+        ...input,
+        status: 'ACTIVE',
+        ...controlPlaneKeys.activeAgent(),
+        gsi3sk: `${input.updatedAt}#${input.agentId}`
+      },
       condition: existingCondition
     });
   }
@@ -451,6 +469,39 @@ export class ControlPlaneRepository {
     );
   }
 
+  /** Latest successful metrics write is intentionally an idempotent upsert. */
+  async putAgentMetricsSnapshot(value: AgentMetricsSnapshot): Promise<void> {
+    if (!(await this.getAgent(value.tenantId, value.agentId)))
+      throw new Error('Cannot store metrics for a missing tenant agent.');
+    await this.store.put(toPersistence.agentMetricsSnapshot(value));
+  }
+  async getAgentMetricsSnapshot(
+    tenantId: string,
+    agentId: string
+  ): Promise<AgentMetricsSnapshot | undefined> {
+    return this.get(controlPlaneKeys.metricsSnapshot(tenantId, agentId), fromPersistence.agentMetricsSnapshot);
+  }
+  /** Immutable execution IDs make retries safe and cannot overwrite a prior execution record. */
+  async createAgentExecutionSummary(value: AgentExecutionSummary): Promise<void> {
+    if (!(await this.getAgent(value.tenantId, value.agentId)))
+      throw new Error('Cannot store execution for a missing tenant agent.');
+    await this.store.put(toPersistence.agentExecutionSummary(value), createCondition);
+  }
+  async listAgentExecutionSummaries(
+    tenantId: string,
+    agentId: string,
+    options: ListOptions = {}
+  ): Promise<Page<AgentExecutionSummary>> {
+    return this.list(
+      undefined,
+      'pk',
+      controlPlaneKeys.tenant(tenantId).pk,
+      `EXECUTION#${agentId}#`,
+      options,
+      fromPersistence.agentExecutionSummary
+    );
+  }
+
   async createAgentTemplate(value: AgentTemplate): Promise<void> {
     await this.store.put(toPersistence.agentTemplate(value), createCondition);
   }
@@ -477,7 +528,7 @@ export class ControlPlaneRepository {
   }
   private async list<T>(
     indexName: string | undefined,
-    partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk',
+    partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk' | 'gsi3pk',
     partitionValue: string,
     sortKeyPrefix: string | undefined,
     options: ListOptions,

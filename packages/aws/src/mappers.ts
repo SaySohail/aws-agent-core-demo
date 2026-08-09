@@ -1,6 +1,8 @@
 import {
   agentSchema,
   agentArtifactSchema,
+  agentExecutionSummarySchema,
+  agentMetricsSnapshotSchema,
   agentTemplateSchema,
   auditEventSchema,
   awsConnectionSchema,
@@ -11,6 +13,8 @@ import {
   tenantSchema,
   type Agent,
   type AgentArtifact,
+  type AgentExecutionSummary,
+  type AgentMetricsSnapshot,
   type AgentTemplate,
   type AuditEvent,
   type AwsConnection,
@@ -49,6 +53,10 @@ export const fromPersistence = {
   runtimeVersion: (item: Item): RuntimeVersion =>
     domain(runtimeVersionSchema, item, 'runtime version'),
   auditEvent: (item: Item): AuditEvent => domain(auditEventSchema, item, 'audit event'),
+  agentMetricsSnapshot: (item: Item): AgentMetricsSnapshot =>
+    domain(agentMetricsSnapshotSchema, item, 'agent metrics snapshot'),
+  agentExecutionSummary: (item: Item): AgentExecutionSummary =>
+    domain(agentExecutionSummarySchema, item, 'agent execution summary'),
   agentTemplate: (item: Item): AgentTemplate => domain(agentTemplateSchema, item, 'agent template')
 };
 
@@ -80,6 +88,8 @@ export const toPersistence = {
     return {
       ...agentSchema.parse(value),
       ...controlPlaneKeys.agent(value.tenantId, value.id),
+      ...(value.status === 'ACTIVE' && value.runtimeId ? controlPlaneKeys.activeAgent() : {}),
+      ...(value.status === 'ACTIVE' && value.runtimeId ? { gsi3sk: `${value.updatedAt}#${value.id}` } : {}),
       entityType: 'AGENT'
     };
   },
@@ -123,6 +133,20 @@ export const toPersistence = {
       ...auditEventSchema.parse(value),
       ...controlPlaneKeys.audit(value.tenantId, value.createdAt, value.id),
       entityType: 'AUDIT_EVENT'
+    };
+  },
+  agentMetricsSnapshot(value: AgentMetricsSnapshot): Item {
+    return {
+      ...agentMetricsSnapshotSchema.parse(value),
+      ...controlPlaneKeys.metricsSnapshot(value.tenantId, value.agentId),
+      entityType: 'AGENT_METRICS_SNAPSHOT'
+    };
+  },
+  agentExecutionSummary(value: AgentExecutionSummary): Item {
+    return {
+      ...agentExecutionSummarySchema.parse(value),
+      ...controlPlaneKeys.execution(value.tenantId, value.agentId, value.startedAt, value.executionId),
+      entityType: 'AGENT_EXECUTION_SUMMARY'
     };
   },
   agentTemplate(value: AgentTemplate): Item {

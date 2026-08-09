@@ -34,6 +34,25 @@ The only wildcard resources are documented inline in the synthesized policies: A
 operations and X-Ray/CloudWatch metrics do not support a narrower resource ARN. Their action lists
 are deliberately small; metrics are constrained to the `bedrock-agentcore` namespace.
 
+## One-time CloudWatch Transaction Search setup
+
+AgentCore metrics continue to work without this setup, but Customer Support Runtime and Gateway
+spans are searchable only after a customer account administrator enables CloudWatch Transaction
+Search. This is deliberately not part of `AgentLaunchpadDeploymentRole` or the metrics-read path:
+enabling it is an account-wide administrative change.
+
+For a demo account, an administrator can use the CloudWatch console: **Application Signals / Transaction
+Search**, enable Transaction Search, enable structured-log span ingestion, and wait until ingestion
+is shown as enabled. Alternatively, after applying the required CloudWatch Logs resource policy,
+run `aws xray update-trace-segment-destination --destination CloudWatchLogs`; AWS documents the
+complete required policy and optional indexing rule. Use demo data only if application log delivery
+is enabled: service application logs can contain request or response payloads and are never copied
+into Agent Launchpad persistence or displayed to tenant users.
+
+The product treats this prerequisite as `SETUP_REQUIRED`, separately from `CHECK_FAILED` and from
+the normal `ENABLED` state; a missing trace is never interpreted as proof that no traces were
+generated.
+
 The deployment role has only `bedrock-agentcore:InvokeAgentRuntime` for Runtime data-plane calls;
 it has no user-delegation or broad AgentCore invocation grant. Before an immutable Runtime ARN is
 known, that grant is limited to Agent Launchpad-tagged Runtimes in this account and region. The

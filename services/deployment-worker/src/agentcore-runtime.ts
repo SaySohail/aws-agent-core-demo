@@ -9,6 +9,7 @@ import {
   type AgentRuntimeArtifact
 } from '@aws-sdk/client-bedrock-agentcore-control';
 import {
+  AGENT_ARTIFACT_ENTRY_POINT,
   AgentRuntimeInvoker,
   AgentCoreSecurityError,
   ControlPlaneRepository,
@@ -399,7 +400,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
           }
         },
         runtime: 'NODE_22',
-        entryPoint: [artifact.entryPoint]
+        entryPoint: artifact.entryPoint
       }
     };
   }
@@ -423,7 +424,8 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
       artifact.status !== 'READY' ||
       artifact.sha256 !== deployment.snapshot.artifactSha256 ||
       artifact.runtime !== 'NODE_22' ||
-      artifact.entryPoint !== 'dist/app.js' ||
+      artifact.entryPoint.length !== AGENT_ARTIFACT_ENTRY_POINT.length ||
+      artifact.entryPoint.some((value, index) => value !== AGENT_ARTIFACT_ENTRY_POINT[index]) ||
       !artifact.bucket ||
       !artifact.objectKey ||
       artifact.bucket !==

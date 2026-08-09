@@ -15,6 +15,12 @@ import {
 } from '../tools/definitions.js';
 import type { ToolExecutionResult, ToolExecutor } from '../tools/executor.js';
 import type { RuntimeResponse, ToolActivity } from '@agent-launchpad/schemas';
+import {
+  NoopAgentTelemetry,
+  type AgentTelemetry,
+  type AgentTelemetrySpan,
+  withFailOpenSpan
+} from '../telemetry/agent-telemetry.js';
 
 export interface AgentLogger {
   info(event: Record<string, unknown>): void;
@@ -31,7 +37,8 @@ export class CustomerSupportAgent {
     private readonly config: CustomerSupportAgentConfig,
     private readonly model: ModelClient,
     private readonly tools: ToolExecutor,
-    private readonly logger: AgentLogger = consoleLogger
+    private readonly logger: AgentLogger = consoleLogger,
+    private readonly telemetry: AgentTelemetry = new NoopAgentTelemetry()
   ) {}
 
   public async invoke(prompt: string): Promise<string> {
@@ -40,6 +47,16 @@ export class CustomerSupportAgent {
 
   /** Runtime-facing operation retains safe ordered tool activity without changing agent callers. */
   public async invokeWithActivity(prompt: string): Promise<RuntimeResponse> {
+    return withFailOpenSpan(
+      this.telemetry,
+      this.logger,
+      'agent.invoke',
+      { 'agent.id': 'customer-support' },
+      async () => this.invokeWithActivityInternal(prompt)
+    );
+  }
+
+  private async invokeWithActivityInternal(prompt: string): Promise<RuntimeResponse> {
     const startedAt = Date.now();
     const messages: Message[] = [{ role: 'user', content: [{ text: prompt }] }];
     const toolActivity: ToolActivity[] = [];
@@ -94,9 +111,12 @@ export class CustomerSupportAgent {
       }
     };
     try {
-      const response = await this.model.converse(
-        input,
-        AbortSignal.timeout(this.config.modelTimeoutMs)
+      const response = await withFailOpenSpan(
+        this.telemetry,
+        this.logger,
+        'bedrock.converse',
+        { 'model.id': this.config.modelId },
+        async () => this.model.converse(input, AbortSignal.timeout(this.config.modelTimeoutMs))
       );
       this.logger.info({ event: 'model_call_completed', messageCount: messages.length });
       return response;
@@ -119,17 +139,41 @@ export class CustomerSupportAgent {
     if (!toolUse.toolUseId || !toolUse.name)
       throw new CustomerSupportAgentError('INVALID_MODEL_RESPONSE');
     if (!isToolName(toolUse.name)) throw new CustomerSupportAgentError('UNKNOWN_TOOL');
-    const input = validateToolInput(toolUse.name, toolUse.input);
+    const toolName = toolUse.name;
+    const requestId = toolUse.toolUseId;
+    const input = validateToolInput(toolName, toolUse.input);
     if (!input) throw new CustomerSupportAgentError('TOOL_VALIDATION_ERROR');
 
-    this.logger.info({ event: 'tool_requested', toolName: toolUse.name });
+    this.logger.info({ event: 'tool_requested', toolName });
     let execution: ToolExecutionResult;
+    const toolStartedAt = Date.now();
     try {
-      execution = await this.tools.execute({
-        name: toolUse.name,
-        input,
-        requestId: toolUse.toolUseId
-      });
+      execution = await withFailOpenSpan(
+        this.telemetry,
+        this.logger,
+        `tool.${toolName}`,
+        { 'tool.name': toolName },
+        async (span: AgentTelemetrySpan) => {
+          const toolResult = await this.tools.execute({
+            name: toolName,
+            input,
+            requestId
+          });
+          span.setAttributes({
+            'tool.status':
+              toolResult.status === 'success'
+                ? 'SUCCEEDED'
+                : toolResult.code === 'POLICY_DENIED'
+                  ? 'DENIED'
+                  : 'FAILED',
+            ...(toolResult.status === 'error' && toolResult.code === 'POLICY_DENIED'
+              ? { 'policy.decision': 'DENY' }
+              : {}),
+            'duration.ms': Date.now() - toolStartedAt
+          });
+          return toolResult;
+        }
+      );
     } catch {
       execution = {
         status: 'error',
@@ -137,15 +181,16 @@ export class CustomerSupportAgent {
         message: 'The support service failed.'
       };
     }
-    this.logger.info({ event: 'tool_completed', toolName: toolUse.name, status: execution.status });
+    this.logger.info({ event: 'tool_completed', toolName, status: execution.status });
     toolActivity.push({
-      tool: toolUse.name,
+      tool: toolName,
       status:
         execution.status === 'success'
           ? 'SUCCEEDED'
           : execution.code === 'POLICY_DENIED'
             ? 'DENIED'
             : 'FAILED',
+      durationMs: Date.now() - toolStartedAt,
       ...(execution.status === 'error' && execution.code === 'POLICY_DENIED'
         ? { reasonCode: 'POLICY_DENIED' as const }
         : {})

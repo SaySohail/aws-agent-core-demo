@@ -6,6 +6,7 @@ import {
   awsConnectionIdSchema,
   createAgentRequestSchema,
   createAuditEventId,
+  createExecutionId,
   createDeploymentEventId,
   createDeploymentId,
   bedrockModelCatalog,
@@ -23,7 +24,9 @@ import {
   type Deployment,
   type DeploymentDetail,
   type MembershipRole,
-  type TenantContext
+  type TenantContext,
+  auditActions,
+  type AgentExecutionSummary
 } from '@agent-launchpad/schemas';
 import {
   buildCustomerBootstrapQuickCreateUrl,
@@ -195,19 +198,67 @@ function runtimeInvocationApiError(cause: unknown): ApiError {
       'The deployed agent can no longer be invoked with the configured AWS access.'
     );
   if (!(cause instanceof RuntimeInvocationError))
-    return new ApiError(503, 'RUNTIME_UNAVAILABLE', 'The deployed agent is temporarily unavailable.');
+    return new ApiError(
+      503,
+      'RUNTIME_UNAVAILABLE',
+      'The deployed agent is temporarily unavailable.'
+    );
   const mapped: Record<RuntimeInvocationError['code'], readonly [number, string, string]> = {
-    RUNTIME_INVALID_REQUEST: [400, 'RUNTIME_INVALID_REQUEST', 'The deployed agent rejected this request.'],
-    RUNTIME_QUOTA_EXCEEDED: [429, 'RUNTIME_QUOTA_EXCEEDED', 'The deployed agent is temporarily busy. Try again shortly.'],
-    RUNTIME_FORBIDDEN: [403, 'RUNTIME_FORBIDDEN', 'The deployed agent can no longer be invoked with the configured AWS access.'],
-    RUNTIME_NOT_FOUND: [404, 'RUNTIME_NOT_FOUND', 'The deployed Runtime could not be found. A redeployment may be required.'],
-    RUNTIME_CONFLICT: [409, 'RUNTIME_CONFLICT', 'The deployed agent is being updated. Try again shortly.'],
-    RUNTIME_CLIENT_ERROR: [502, 'RUNTIME_CLIENT_ERROR', 'The deployed agent could not complete the request.'],
-    RUNTIME_THROTTLED: [429, 'RUNTIME_THROTTLED', 'The deployed agent is temporarily busy. Try again shortly.'],
-    RUNTIME_UNAVAILABLE: [503, 'RUNTIME_UNAVAILABLE', 'The deployed agent is temporarily unavailable.'],
-    RUNTIME_TIMEOUT: [504, 'RUNTIME_TIMEOUT', 'The agent did not complete the request in time. The request may already have triggered a tool action, so verify the result before retrying.'],
-    INVALID_RUNTIME_RESPONSE: [502, 'INVALID_RUNTIME_RESPONSE', 'The deployed agent returned an invalid response.'],
-    RUNTIME_RESPONSE_TOO_LARGE: [502, 'RUNTIME_RESPONSE_TOO_LARGE', 'The deployed agent returned an invalid response.']
+    RUNTIME_INVALID_REQUEST: [
+      400,
+      'RUNTIME_INVALID_REQUEST',
+      'The deployed agent rejected this request.'
+    ],
+    RUNTIME_QUOTA_EXCEEDED: [
+      429,
+      'RUNTIME_QUOTA_EXCEEDED',
+      'The deployed agent is temporarily busy. Try again shortly.'
+    ],
+    RUNTIME_FORBIDDEN: [
+      403,
+      'RUNTIME_FORBIDDEN',
+      'The deployed agent can no longer be invoked with the configured AWS access.'
+    ],
+    RUNTIME_NOT_FOUND: [
+      404,
+      'RUNTIME_NOT_FOUND',
+      'The deployed Runtime could not be found. A redeployment may be required.'
+    ],
+    RUNTIME_CONFLICT: [
+      409,
+      'RUNTIME_CONFLICT',
+      'The deployed agent is being updated. Try again shortly.'
+    ],
+    RUNTIME_CLIENT_ERROR: [
+      502,
+      'RUNTIME_CLIENT_ERROR',
+      'The deployed agent could not complete the request.'
+    ],
+    RUNTIME_THROTTLED: [
+      429,
+      'RUNTIME_THROTTLED',
+      'The deployed agent is temporarily busy. Try again shortly.'
+    ],
+    RUNTIME_UNAVAILABLE: [
+      503,
+      'RUNTIME_UNAVAILABLE',
+      'The deployed agent is temporarily unavailable.'
+    ],
+    RUNTIME_TIMEOUT: [
+      504,
+      'RUNTIME_TIMEOUT',
+      'The agent did not complete the request in time. The request may already have triggered a tool action, so verify the result before retrying.'
+    ],
+    INVALID_RUNTIME_RESPONSE: [
+      502,
+      'INVALID_RUNTIME_RESPONSE',
+      'The deployed agent returned an invalid response.'
+    ],
+    RUNTIME_RESPONSE_TOO_LARGE: [
+      502,
+      'RUNTIME_RESPONSE_TOO_LARGE',
+      'The deployed agent returned an invalid response.'
+    ]
   };
   const [statusCode, code, message] = mapped[cause.code];
   return new ApiError(statusCode, code, message);
@@ -349,6 +400,12 @@ export class ControlApi {
       return this.deployAgent(context, request);
     if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/invoke')
       return this.invokeAgent(context, request);
+    if (request.route === 'GET /tenants/{tenantId}/agents/{agentId}/executions')
+      return this.executions(context, request);
+    if (request.route === 'GET /tenants/{tenantId}/agents/{agentId}/metrics')
+      return this.metrics(context, request);
+    if (request.route === 'GET /tenants/{tenantId}/audit-events')
+      return this.auditEvents(context, request);
     if (request.route === 'GET /tenants/{tenantId}/aws-connections') {
       const listed = await this.repository.listAwsConnections(context.tenantId, listOptions());
       return success(
@@ -634,7 +691,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AWS_CONNECTION_CREATED',
+        action: auditActions.AWS_CONNECTION_CREATED,
         resourceType: 'AWS_CONNECTION',
         resourceId: id,
         metadata: { accountId: input.accountId, region: input.region },
@@ -683,7 +740,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AWS_CONNECTION_VERIFIED',
+        action: auditActions.AWS_CONNECTION_VERIFIED,
         resourceType: 'AWS_CONNECTION',
         resourceId: id,
         metadata: { accountId: connection.accountId, region: connection.region },
@@ -702,7 +759,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AWS_CONNECTION_VERIFICATION_FAILED',
+        action: auditActions.AWS_CONNECTION_VERIFICATION_FAILED,
         resourceType: 'AWS_CONNECTION',
         resourceId: id,
         metadata: { accountId: connection.accountId, region: connection.region, errorCode: code },
@@ -749,7 +806,10 @@ export class ControlApi {
         value.endpointLiveVersion === agent.runtimeVersion
     );
     const connection = deployment
-      ? await this.repository.getAwsConnection(context.tenantId, deployment.snapshot.awsConnectionId)
+      ? await this.repository.getAwsConnection(
+          context.tenantId,
+          deployment.snapshot.awsConnectionId
+        )
       : undefined;
     if (
       !deployment ||
@@ -770,13 +830,15 @@ export class ControlApi {
       );
     if (!this.customerRoleAssumer)
       throw new ApiError(503, 'RUNTIME_UNAVAILABLE', 'Runtime invocation is not configured.');
+    const executionId = createExecutionId();
+    const started = this.clock();
+    const runtimeSessionId = input.sessionId ?? randomUUID();
     try {
       const credentials = await this.customerRoleAssumer.assumeCustomerRole({
         roleArn: connection.roleArn,
         externalId: connection.externalId,
         sessionName: `playground-${agent.id}-${context.userId}`.slice(0, 64)
       });
-      const runtimeSessionId = input.sessionId ?? randomUUID();
       const result = await this.runtimeInvoker.invoke({
         runtimeArn: agent.runtimeArn,
         qualifier: 'production',
@@ -785,9 +847,162 @@ export class ControlApi {
         credentials,
         connection
       });
-      return success(playgroundInvokeResponseSchema.parse({ ...result, sessionId: runtimeSessionId }));
+      const completed = this.clock();
+      const summary: AgentExecutionSummary = {
+        executionId,
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        deploymentId: deployment.id,
+        runtimeVersion: agent.runtimeVersion,
+        endpointName: 'production',
+        requestedBy: context.userId,
+        status: 'SUCCEEDED',
+        durationMs: Math.max(0, completed.getTime() - started.getTime()),
+        toolActivity: result.toolActivity.map((activity) => ({
+          tool: activity.tool,
+          status: activity.status,
+          ...(activity.durationMs === undefined ? {} : { durationMs: activity.durationMs }),
+          ...(activity.reasonCode ? { safeReasonCode: activity.reasonCode } : {})
+        })),
+        policyDenialCount: result.toolActivity.filter((activity) => activity.status === 'DENIED')
+          .length,
+        ...(result.traceId ? { traceId: result.traceId } : {}),
+        startedAt: started.toISOString(),
+        completedAt: completed.toISOString()
+      };
+      await this.bestEffortObservabilityWrite('execution_summary_persistence_failed', async () => {
+        await this.repository.createAgentExecutionSummary(summary);
+      });
+      await this.bestEffortObservabilityWrite('invocation_audit_persistence_failed', async () => {
+        await this.repository.appendAuditEvent({
+          id: createAuditEventId(),
+          tenantId: context.tenantId,
+          actorId: context.userId,
+          action: auditActions.AGENT_INVOKED,
+          resourceType: 'AGENT',
+          resourceId: agent.id,
+          metadata: {
+            executionId,
+            deploymentId: deployment.id,
+            runtimeVersion: agent.runtimeVersion,
+            status: 'SUCCEEDED'
+          },
+          createdAt: completed.toISOString()
+        });
+      });
+      for (const activity of result.toolActivity.filter((value) => value.status === 'DENIED')) {
+        await this.bestEffortObservabilityWrite(
+          'policy_denial_audit_persistence_failed',
+          async () => {
+            await this.repository.appendAuditEvent({
+              id: createAuditEventId(),
+              tenantId: context.tenantId,
+              actorId: context.userId,
+              action: auditActions.POLICY_DENIED,
+              resourceType: 'AGENT',
+              resourceId: agent.id,
+              metadata: {
+                executionId,
+                agentId: agent.id,
+                tool: activity.tool,
+                policyDecision: 'DENY'
+              },
+              createdAt: completed.toISOString()
+            });
+          }
+        );
+      }
+      return success(
+        playgroundInvokeResponseSchema.parse({
+          result: result.result,
+          toolActivity: result.toolActivity,
+          sessionId: runtimeSessionId
+        })
+      );
     } catch (cause) {
-      throw runtimeInvocationApiError(cause);
+      const error = runtimeInvocationApiError(cause);
+      const completed = this.clock();
+      await this.bestEffortObservabilityWrite(
+        'failed_execution_summary_persistence_failed',
+        async () => {
+          await this.repository.createAgentExecutionSummary({
+            executionId,
+            tenantId: context.tenantId,
+            agentId: agent.id,
+            deploymentId: deployment.id,
+            runtimeVersion: agent.runtimeVersion,
+            endpointName: 'production',
+            requestedBy: context.userId,
+            status: 'FAILED',
+            durationMs: Math.max(0, completed.getTime() - started.getTime()),
+            toolActivity: [],
+            policyDenialCount: 0,
+            errorCode: error.code,
+            startedAt: started.toISOString(),
+            completedAt: completed.toISOString()
+          });
+        }
+      );
+      await this.bestEffortObservabilityWrite(
+        'failed_invocation_audit_persistence_failed',
+        async () => {
+          await this.repository.appendAuditEvent({
+            id: createAuditEventId(),
+            tenantId: context.tenantId,
+            actorId: context.userId,
+            action: auditActions.AGENT_INVOCATION_FAILED,
+            resourceType: 'AGENT',
+            resourceId: agent.id,
+            metadata: {
+              executionId,
+              deploymentId: deployment.id,
+              runtimeVersion: agent.runtimeVersion,
+              errorCode: error.code
+            },
+            createdAt: completed.toISOString()
+          });
+        }
+      );
+      throw error;
+    }
+  }
+
+  private async executions(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    const agent = await this.agent(context, request);
+    const listed = await this.repository.listAgentExecutionSummaries(
+      context.tenantId,
+      agent.id,
+      options(request.queryParameters)
+    );
+    return success(listed.items, 200, listed);
+  }
+
+  private async metrics(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    const agent = await this.agent(context, request);
+    const snapshot = await this.repository.getAgentMetricsSnapshot(context.tenantId, agent.id);
+    if (!snapshot) return success({ availability: 'UNAVAILABLE' });
+    const stale = this.clock().getTime() - Date.parse(snapshot.collectedAt) > 30 * 60 * 1000;
+    return success(stale ? { ...snapshot, availability: 'STALE' as const } : snapshot);
+  }
+
+  private async auditEvents(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    const listed = await this.repository.listAuditEvents(
+      context.tenantId,
+      options(request.queryParameters)
+    );
+    return success(listed.items, 200, listed);
+  }
+
+  private async bestEffortObservabilityWrite(
+    event: string,
+    operation: () => Promise<void>
+  ): Promise<void> {
+    try {
+      await operation();
+    } catch (cause) {
+      console.error(
+        JSON.stringify({ event, errorName: cause instanceof Error ? cause.name : 'UnknownError' })
+      );
     }
   }
 
@@ -824,7 +1039,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AGENT_CREATED',
+        action: auditActions.AGENT_CREATED,
         resourceType: 'AGENT',
         resourceId: agent.id,
         metadata: {
@@ -965,7 +1180,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'DEPLOYMENT_QUEUED',
+        action: auditActions.DEPLOYMENT_REQUESTED,
         resourceType: 'DEPLOYMENT',
         resourceId: deploymentId,
         metadata: { agentId: agent.id, revision: agent.revision },
@@ -1036,7 +1251,7 @@ export class ControlApi {
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AGENT_CONFIGURATION_UPDATED',
+        action: auditActions.AGENT_CONFIGURATION_UPDATED,
         resourceType: 'AGENT',
         resourceId: agent.id,
         metadata: {

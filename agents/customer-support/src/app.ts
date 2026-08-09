@@ -4,6 +4,7 @@ import { CustomerSupportAgent } from './agent/customer-support-agent.js';
 import { loadCustomerSupportAgentConfig } from './agent/config.js';
 import { GatewayToolExecutor } from './tools/gateway-tool-executor.js';
 import { HttpGatewayMcpClient, SigV4GatewayTransport } from './tools/gateway-mcp-client.js';
+import { OpenTelemetryAgentTelemetry } from './telemetry/agent-telemetry.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -16,7 +17,9 @@ export async function startRuntime(): Promise<void> {
     new GatewayToolExecutor(
       new HttpGatewayMcpClient(new SigV4GatewayTransport(config.gatewayUrl, config.region)),
       config.toolTimeoutMs
-    )
+    ),
+    undefined,
+    new OpenTelemetryAgentTelemetry()
   );
   const server = createRuntimeServer({ invoke: (prompt) => agent.invokeWithActivity(prompt) });
 
