@@ -96,6 +96,11 @@ export interface BedrockPreflightChecker {
   check(input: { modelId: string; region: string }): Promise<void>;
 }
 
+/** Read-only verification that the assumed customer role can reach AgentCore in the target Region. */
+export interface AgentCorePreflightChecker {
+  check(deployment: Deployment): Promise<void>;
+}
+
 /** Static catalog check intentionally precedes any customer-account Bedrock control-plane call. */
 export class CatalogBedrockPreflightChecker implements BedrockPreflightChecker {
   async check(input: { modelId: string; region: string }): Promise<void> {
@@ -114,6 +119,7 @@ export interface DeploymentWorkerDependencies {
   readonly repository: ControlPlaneRepository;
   readonly customerRoleAssumer: CustomerRoleAssumer;
   readonly bedrock: BedrockPreflightChecker;
+  readonly agentCore: AgentCorePreflightChecker;
   readonly dependencies: DependencyProvisioner;
   readonly runtime: RuntimeDeploymentPort;
   readonly artifactPipeline: DeploymentArtifactPipelinePort;
@@ -296,6 +302,16 @@ export class DeploymentWorker {
           : deployment.operationType === 'UNDEPLOY'
             ? await this.undeploy(stage, input)
             : await this.deploy(stage, input, deployment);
+      if (result.status === 'FAILED')
+        await this.persistFailure(
+          deployment,
+          new DeploymentError(
+            'DEPLOYMENT_STAGE_FAILED',
+            stage,
+            false,
+            'The deployment stage reported failure.'
+          )
+        );
       if (this.isTerminalSuccess(stage, result.status))
         await this.persistTerminal(
           deployment,
@@ -340,6 +356,7 @@ export class DeploymentWorker {
       case 'PREFLIGHT_STORAGE':
         return this.preflightStorage(deployment);
       case 'PREFLIGHT_AGENTCORE':
+        await this.dependencies.agentCore.check(deployment);
         return { status: 'READY' };
       case 'ENSURING_ARTIFACT':
         return this.ensureArtifact(deployment);
@@ -414,6 +431,7 @@ export class DeploymentWorker {
       case 'UNDEPLOY_DISABLING_INVOCATION':
         return { status: 'READY' as const };
       case 'UNDEPLOY_DELETING_ENDPOINT':
+        if (await this.cleanupComplete(input, 'RUNTIME_ENDPOINT')) return { status: 'READY' };
         return this.cleanupResult(
           input,
           'RUNTIME_ENDPOINT',
@@ -426,10 +444,12 @@ export class DeploymentWorker {
           await runtime.getProductionEndpointDeletionStatus(input)
         );
       case 'UNDEPLOY_DELETING_RUNTIME':
+        if (await this.cleanupComplete(input, 'RUNTIME')) return { status: 'READY' };
         return this.cleanupResult(input, 'RUNTIME', await runtime.deleteRuntime(input));
       case 'UNDEPLOY_WAITING_RUNTIME':
         return this.cleanupResult(input, 'RUNTIME', await runtime.getRuntimeDeletionStatus(input));
       case 'UNDEPLOY_DELETING_DEPENDENCIES':
+        if (await this.cleanupComplete(input, 'DEPENDENCY_STACK')) return { status: 'READY' };
         return this.cleanupResult(
           input,
           'DEPENDENCY_STACK',
@@ -442,6 +462,7 @@ export class DeploymentWorker {
           await this.requireUndeployDependencies(stage).getDeletionStatus(input)
         );
       case 'UNDEPLOY_DELETING_ARTIFACTS':
+        if (await this.cleanupComplete(input, 'ARTIFACT')) return { status: 'READY' };
         return this.cleanupResult(
           input,
           'ARTIFACT',
@@ -788,6 +809,17 @@ export class DeploymentWorker {
         next
       );
     return { status };
+  }
+  private async cleanupComplete(
+    input: DeploymentCommandInput,
+    kind: 'RUNTIME_ENDPOINT' | 'RUNTIME' | 'DEPENDENCY_STACK' | 'ARTIFACT'
+  ) {
+    const deployment = await this.deployment(input);
+    const entries = (deployment.cleanupLedger ?? []).filter((entry) => entry.kind === kind);
+    return (
+      entries.length > 0 &&
+      entries.every((entry) => entry.status === 'DELETED' || entry.status === 'SKIPPED')
+    );
   }
 }
 

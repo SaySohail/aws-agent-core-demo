@@ -2,7 +2,7 @@
 
 Agent Launchpad is a multi-tenant control plane for configuring and deploying an AI agent into a customer's AWS account with Amazon Bedrock AgentCore. The control plane owns tenant configuration, governance, lifecycle orchestration, and operator UX; the customer owns the resources that execute the agent and process its data.
 
-> **Current status:** local architecture and security validation are implemented, but the SAY-107 cloud release gate is **not approved**. Agent-specific dependency provisioning and complete ownership-checked cleanup are unfinished, so a real end-to-end deployment must not be represented as validated. See the [validation report](docs/validation-report.md).
+> **Current status:** local architecture and security validation are implemented, but the SAY-107 cloud release gate is **not approved**. Agent-specific provisioning and ownership-checked cleanup have mocked coverage; real cloud end-to-end evidence is still outstanding. See the [validation report](docs/validation-report.md).
 
 ## What the demo proves
 
@@ -84,7 +84,7 @@ The ExternalId protects against the confused-deputy problem: a customer role tru
 
 Server-side control-plane invocation is IAM/SigV4 signed and targets the stable custom `production` endpoint. The Runtime uses its dedicated IAM path to invoke the Gateway; the Gateway uses `AWS_IAM` inbound authorization and its service role invokes only configured Lambda targets.
 
-The Customer Support template demonstrates governance with the fake/demo-only `process_refund` tool:
+SAY-102 supplies the three base support tools; SAY-103 extends that Gateway with the fourth, fake/demo-only `process_refund` action for the deterministic policy demonstration:
 
 `request → model requests process_refund → Gateway Policy Engine evaluates Cedar → permit or deny → Lambda runs only when permitted`
 
@@ -106,7 +106,7 @@ Runtime instrumentation uses OpenTelemetry, with Runtime/Gateway/Policy CloudWat
 
 The intended Agent undeploy boundary is deliberately narrower than customer offboarding: Agent-owned endpoint/Runtime and agent-specific resources are separate from the shared bootstrap, Deployment Role, Runtime Execution Role, artifact bucket, KMS key, other Agents, and control-plane history/audit.
 
-**Do not use the current checkout for destructive customer cleanup.** Complete dependency-stack ownership and cleanup metadata are not yet implemented; the worker fails closed with `UNDEPLOY_PLAN_INCOMPLETE` rather than guessing which customer resources to delete.
+Cleanup derives its plan exclusively from server-side deployment metadata and targets only the agent endpoint, Runtime, tagged agent dependency stack, and exact versioned artifacts. It refuses ownership mismatches and never targets shared bootstrap, roles, artifact bucket, or KMS resources. Cloud cleanup E2E remains intentionally out of scope for this checkout.
 
 ## Repository map
 
@@ -164,7 +164,7 @@ pnpm --dir infrastructure/agent-template run synth
 pnpm --dir infrastructure/control-plane run synth
 ```
 
-The control-plane synth needs its explicit environment contract; use non-production placeholders only when synthesizing rather than deploying. `pnpm validate:aws-e2e` is intentionally opt-in and currently fails closed before mutation because the cloud runner and complete cleanup path are incomplete.
+The control-plane synth needs its explicit environment contract; use non-production placeholders only when synthesizing rather than deploying. `pnpm validate:aws-e2e` is intentionally opt-in and currently fails closed before mutation because no cloud runner is included.
 
 For a control-plane-only synthesis in PowerShell, pass the full explicit, non-production contract:
 

@@ -27,8 +27,8 @@ if (!/^[a-z]{2}(?:-gov)?-[a-z]+-\d$/.test(process.env.AWS_E2E_REGION))
 if (!/^[a-z0-9][a-z0-9-]{5,40}$/.test(process.env.AWS_E2E_RUN_ID))
   throw new Error('Refusing cloud validation: AWS_E2E_RUN_ID must be a safe unique run prefix.');
 
-// The infrastructure currently has no agent-specific dependency provisioning/cleanup runner.
-// Failing before any mutation is safer than simulating an end-to-end pass against an account.
+// No cloud runner is included. Failing before any mutation is safer than simulating an
+// end-to-end pass against an account, even though local mocked cleanup coverage exists.
 throw new Error(
-  'AWS E2E validation is blocked: agent-specific dependency provisioning and complete cleanup are not implemented. No AWS mutations were made.'
+  'AWS E2E validation is blocked: no cloud runner is implemented. No AWS mutations were made.'
 );

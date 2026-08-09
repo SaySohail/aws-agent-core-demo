@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { BedrockAgentCoreControlClient } from '@aws-sdk/client-bedrock-agentcore-control';
 import {
   ControlPlaneRepository,
   DynamoDbPersistenceClient,
@@ -18,6 +19,7 @@ import {
   DeploymentWorker,
   type DeploymentCommandInput
 } from './index.js';
+import { AgentCoreControlPlanePreflightChecker } from './agentcore-preflight.js';
 
 const tableName = process.env.CONTROL_PLANE_TABLE_NAME;
 if (!tableName) throw new Error('CONTROL_PLANE_TABLE_NAME must be configured.');
@@ -90,6 +92,11 @@ const worker = new DeploymentWorker({
   repository,
   customerRoleAssumer: assumer,
   bedrock: new CatalogBedrockPreflightChecker(),
+  agentCore: new AgentCoreControlPlanePreflightChecker(
+    repository,
+    assumer,
+    (input) => new BedrockAgentCoreControlClient(input)
+  ),
   dependencies: dependencyProvisioner,
   artifactPipeline: new DeploymentArtifactPipeline({
     repository,

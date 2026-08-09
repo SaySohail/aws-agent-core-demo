@@ -51,12 +51,10 @@ neither `quickCreateUrl` nor the ExternalId.
 - `AWS_E2E_REGION`
 - `AWS_E2E_RUN_ID`
 
-It currently stops before mutation even with those settings. The checked-out implementation has no
-complete agent-specific dependency provisioner or cleanup implementation: dependency-stack identity
-is not persistently owned, and undeploy intentionally rejects dependency/artifact stages with
-`UNDEPLOY_PLAN_INCOMPLETE`. Therefore it cannot safely validate the required clean golden path,
-two-agent teardown preservation, or partial-cleanup recovery. Treating mocked paths as cloud proof
-would be misleading.
+It currently stops before mutation even with those settings. The checked-out implementation has
+mocked coverage for agent-specific provisioning and ownership-checked cleanup, but no cloud runner.
+Therefore it cannot yet validate the clean golden path, two-agent teardown preservation, or
+partial-cleanup recovery against AWS. Treating mocked paths as cloud proof would be misleading.
 
 No true Tenant A → Account A / Tenant B → Account B isolation result is claimed. The following
 release-blocking evidence remains uncollected against real identities/resources: STS wrong/missing
@@ -66,12 +64,11 @@ candidate/rollback failure compensation; CloudTrail evidence; and cleanup owners
 
 ## Required follow-up before release
 
-1. Finish persisted agent dependency provisioning and ownership-validated cleanup.
-2. Implement the explicit AWS E2E runner using two disposable customer accounts (or document a
+1. Implement the explicit AWS E2E runner using two disposable customer accounts (or document a
    single-account, separate-role emulation) and the required non-secret environment contract.
-3. Run the complete SAY-107 matrix, preserving only request IDs/timestamps/identity summaries in
+2. Run the complete SAY-107 matrix, preserving only request IDs/timestamps/identity summaries in
    its evidence.
-4. Resolve the existing workspace formatting failures, then rerun the command matrix.
+3. Rerun the command matrix after cloud evidence is collected.
 
 Until those items are complete, SAY-107 must remain **FAIL** and must not be used as release approval.
 

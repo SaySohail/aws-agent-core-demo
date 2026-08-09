@@ -115,6 +115,7 @@ export class CloudFormationDependencyProvisioner
     const client = await this.client(resolved.deployment);
     const stack = await this.describe(client, name);
     if (!stack) return 'READY' as const;
+    this.assertOwned(stack, resolved.deployment, 'UNDEPLOY_DELETING_DEPENDENCIES');
     if (stack.StackStatus === 'DELETE_COMPLETE') return 'READY' as const;
     if (stack.StackStatus === 'DELETE_FAILED') return 'FAILED' as const;
     if (stack.StackStatus !== 'DELETE_IN_PROGRESS')
@@ -134,6 +135,7 @@ export class CloudFormationDependencyProvisioner
       );
     const stack = await this.describe(await this.client(resolved.deployment), name);
     if (!stack || stack.StackStatus === 'DELETE_COMPLETE') return 'READY' as const;
+    this.assertOwned(stack, resolved.deployment, 'UNDEPLOY_WAITING_DEPENDENCIES');
     return stack.StackStatus === 'DELETE_FAILED' ? ('FAILED' as const) : ('PENDING' as const);
   }
 
@@ -218,6 +220,26 @@ export class CloudFormationDependencyProvisioner
       { Key: 'AgentId', Value: deployment.agentId },
       { Key: 'DeploymentId', Value: deployment.id }
     ];
+  }
+  private assertOwned(
+    stack: { Tags?: { Key?: string | undefined; Value?: string | undefined }[] | undefined },
+    deployment: Deployment,
+    stage: DeploymentError['stage']
+  ) {
+    const tags = Object.fromEntries(
+      (stack.Tags ?? []).flatMap((tag) => (tag.Key && tag.Value ? [[tag.Key, tag.Value]] : []))
+    );
+    if (
+      tags.ManagedBy !== 'AgentLaunchpad' ||
+      tags.Plane !== 'DataPlane' ||
+      tags.AgentId !== deployment.agentId
+    )
+      throw new DeploymentError(
+        'RESOURCE_OWNERSHIP_MISMATCH',
+        stage,
+        false,
+        'Dependency stack ownership tags do not match the agent.'
+      );
   }
   private error(cause: unknown, stage: DeploymentError['stage']) {
     const name = cause instanceof Error ? cause.name : '';

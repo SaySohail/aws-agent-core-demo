@@ -61,7 +61,11 @@ function statusColor(status: DeploymentStatus) {
         : 'accent';
 }
 
-function sortedEvents(events: readonly DeploymentDetailData['events'][number][]) {
+export function deploymentPollingInterval(status: DeploymentStatus) {
+  return isTerminal(status) ? false : 2500;
+}
+
+export function sortedEvents(events: readonly DeploymentDetailData['events'][number][]) {
   return [...new Map(events.map((event) => [event.id, event])).values()].sort(
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)
@@ -76,7 +80,7 @@ export function DeploymentDetail({ deploymentId }: Readonly<{ deploymentId: stri
     queryFn: () => api().deployments.get(tenantId!, deploymentId),
     enabled: Boolean(tenantId),
     refetchInterval: (queryState) =>
-      isTerminal(queryState.state.data?.deployment.status ?? 'QUEUED') ? false : 2500,
+      deploymentPollingInterval(queryState.state.data?.deployment.status ?? 'QUEUED'),
     refetchOnWindowFocus: true,
     retry: (attempt, cause) =>
       !(cause instanceof ControlApiError && [401, 403, 404].includes(cause.status)) && attempt < 3

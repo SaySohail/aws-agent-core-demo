@@ -22,7 +22,7 @@ const api = () =>
     getAccessToken: () => null
   });
 
-function activityState(status: ToolActivity['status']) {
+export function activityState(status: ToolActivity['status']) {
   return status === 'SUCCEEDED' ? 'success' : status === 'DENIED' ? 'warning' : 'error';
 }
 
