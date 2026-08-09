@@ -17,6 +17,7 @@
     "@agent-launchpad/schemas": "workspace:*",
     "@agent-launchpad/shared": "workspace:*",
     "@aws-sdk/client-dynamodb": "3.969.0",
+    "@aws-sdk/client-sfn": "3.969.0",
     "@aws-sdk/lib-dynamodb": "3.969.0"
   },
   "devDependencies": {

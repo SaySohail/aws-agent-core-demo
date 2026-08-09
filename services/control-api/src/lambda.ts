@@ -1,5 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { SFNClient, StartExecutionCommand } from '@aws-sdk/client-sfn';
 import {
   ControlPlaneRepository,
   DynamoDbPersistenceClient,
@@ -17,13 +18,39 @@ const repository = new ControlPlaneRepository(
 const templateUrl = process.env.CUSTOMER_BOOTSTRAP_TEMPLATE_URL;
 const trustedControlPlanePrincipalArn = process.env.CONTROL_API_EXECUTION_ROLE_ARN;
 const allowedRegions = process.env.CUSTOMER_CONNECTION_ALLOWED_REGIONS?.split(',').filter(Boolean);
-if (!templateUrl || !trustedControlPlanePrincipalArn || !allowedRegions?.length)
+const deploymentStateMachineArn = process.env.DEPLOYMENT_STATE_MACHINE_ARN;
+if (
+  !templateUrl ||
+  !trustedControlPlanePrincipalArn ||
+  !allowedRegions?.length ||
+  !deploymentStateMachineArn
+)
   throw new Error('Customer AWS connection verification configuration is required.');
+const workflowStarter = {
+  async start(input: {
+    deploymentId: string;
+    tenantId: string;
+    agentId: string;
+    configurationRevision: number;
+    artifactId?: string;
+  }) {
+    const result = await new SFNClient({}).send(
+      new StartExecutionCommand({
+        stateMachineArn: deploymentStateMachineArn,
+        name: `deployment-${input.deploymentId}`,
+        input: JSON.stringify(input)
+      })
+    );
+    if (!result.executionArn) throw new Error('Step Functions did not return an execution ARN.');
+    return { executionArn: result.executionArn };
+  }
+};
 const api = new ControlApi(
   repository,
   () => new Date(),
   { templateUrl, trustedControlPlanePrincipalArn, allowedRegions },
-  new StsCustomerRoleAssumer()
+  new StsCustomerRoleAssumer(),
+  workflowStarter
 );
 
 function authenticatedUser(
@@ -45,6 +72,7 @@ export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = async (event) 
     ...(event.pathParameters ? { pathParameters: event.pathParameters } : {}),
     ...(event.queryStringParameters ? { queryParameters: event.queryStringParameters } : {}),
     ...(event.body !== undefined ? { body: event.body } : {}),
+    headers: event.headers,
     ...(user ? { user } : {})
   });
 };

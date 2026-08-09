@@ -32,6 +32,18 @@ export const controlPlaneKeys = {
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `DEPLOYMENT#${deploymentIdSchema.parse(id)}`
   }),
+  deploymentEvent: (tenantId: string, deploymentId: string, createdAt: string, id: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `DEPLOYMENT_EVENT#${deploymentIdSchema.parse(deploymentId)}#${createdAt}#${id}`
+  }),
+  deploymentIdempotency: (tenantId: string, agentId: string, keyHash: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `DEPLOYMENT_IDEMPOTENCY#${agentIdSchema.parse(agentId)}#${keyHash}`
+  }),
+  deploymentLock: (tenantId: string, agentId: string) => ({
+    pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
+    sk: `DEPLOYMENT_LOCK#${agentIdSchema.parse(agentId)}`
+  }),
   artifact: (tenantId: string, id: string) => ({
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `ARTIFACT#${agentArtifactIdSchema.parse(id)}`
@@ -60,6 +72,7 @@ export const sortKeyPrefixes = {
   awsConnections: 'AWS#',
   agents: 'AGENT#',
   deployments: 'DEPLOYMENT#',
+  deploymentEvents: 'DEPLOYMENT_EVENT#',
   artifacts: 'ARTIFACT#',
   audits: 'AUDIT#'
 } as const;

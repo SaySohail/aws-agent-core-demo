@@ -9,6 +9,8 @@
     "clean": "tsc --build --clean"
   },
   "dependencies": {
+    "@agent-launchpad/aws": "workspace:*",
+    "@agent-launchpad/schemas": "workspace:*",
     "@agent-launchpad/shared": "workspace:*"
   }
 }

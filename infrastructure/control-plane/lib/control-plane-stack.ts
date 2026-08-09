@@ -11,6 +11,8 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as sfnTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from './environment-config';
 
@@ -160,6 +162,158 @@ export class ControlPlaneStack extends Stack {
         resources: [controlApiLogGroup.logGroupArn]
       })
     );
+    const deploymentWorkerLogGroup = new logs.LogGroup(this, 'DeploymentWorkerLogGroup', {
+      retention: configuration.logRetentionDays,
+      removalPolicy: persistentRemovalPolicy
+    });
+    const deploymentWorkerRole = new iam.Role(this, 'DeploymentWorkerRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      description:
+        'Deployment orchestration worker; assumes only the customer bootstrap deployment role.'
+    });
+    deploymentWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+        resources: [deploymentWorkerLogGroup.logGroupArn]
+      })
+    );
+    deploymentWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query'
+        ],
+        resources: [controlPlaneTable.tableArn, `${controlPlaneTable.tableArn}/index/*`]
+      })
+    );
+    deploymentWorkerRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/AgentLaunchpadDeploymentRole']
+      })
+    );
+    const deploymentWorkerFunction = new NodejsFunction(this, 'DeploymentWorkerFunction', {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      entry: path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'services',
+        'deployment-worker',
+        'src',
+        'lambda.ts'
+      ),
+      handler: 'handler',
+      role: deploymentWorkerRole,
+      logGroup: deploymentWorkerLogGroup,
+      timeout: Duration.minutes(1),
+      environment: { CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName },
+      bundling: { minify: true, sourceMap: true, target: 'node22' }
+    });
+    const stateMachineLogGroup = new logs.LogGroup(this, 'DeploymentStateMachineLogGroup', {
+      retention: configuration.logRetentionDays,
+      removalPolicy: persistentRemovalPolicy
+    });
+    const failed = new sfn.Fail(this, 'DeploymentFailed', { error: 'Deployment.Failed' });
+    const invoke = (stage: string) =>
+      new sfnTasks.LambdaInvoke(this, `${stage}Task`, {
+        lambdaFunction: deploymentWorkerFunction,
+        payload: sfn.TaskInput.fromObject({
+          stage,
+          'deploymentId.$': '$.deploymentId',
+          'tenantId.$': '$.tenantId',
+          'agentId.$': '$.agentId',
+          'configurationRevision.$': '$.configurationRevision',
+          'artifactId.$': '$.artifactId'
+        }),
+        resultPath: '$.task',
+        timeout: Duration.minutes(2),
+        retryOnServiceExceptions: false
+      })
+        .addRetry({
+          errors: ['Deployment.Throttled', 'Deployment.Transient'],
+          interval: Duration.seconds(2),
+          backoffRate: 2,
+          maxAttempts: 4,
+          maxDelay: Duration.seconds(30),
+          jitterStrategy: sfn.JitterType.FULL
+        })
+        .addCatch(failed, { resultPath: '$.failure' });
+    const stages = [
+      'VALIDATING',
+      'VERIFYING_CUSTOMER_ACCESS',
+      'PREFLIGHT_REGION',
+      'PREFLIGHT_MODEL',
+      'PREFLIGHT_IAM',
+      'PREFLIGHT_STORAGE',
+      'PREFLIGHT_AGENTCORE',
+      'ENSURING_ARTIFACT',
+      'PROVISIONING_DEPENDENCIES',
+      'WAITING_FOR_DEPENDENCIES',
+      'DEPLOYING_RUNTIME',
+      'WAITING_FOR_RUNTIME',
+      'HEALTH_CHECKING'
+    ];
+    const tasks = stages.map(invoke) as [
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke,
+      sfnTasks.LambdaInvoke
+    ];
+    const dependencyWait = new sfn.Wait(this, 'DependencyWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const runtimeWait = new sfn.Wait(this, 'RuntimeWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const ready = new sfn.Succeed(this, 'DeploymentReady');
+    const dependencyChoice = new sfn.Choice(this, 'DependenciesReady?')
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[9])
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
+      .otherwise(dependencyWait);
+    const runtimeChoice = new sfn.Choice(this, 'RuntimeReady?')
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), tasks[11])
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
+      .otherwise(runtimeWait);
+    dependencyWait.next(tasks[9]);
+    runtimeWait.next(tasks[11]);
+    tasks[0]
+      .next(tasks[1])
+      .next(tasks[2])
+      .next(tasks[3])
+      .next(tasks[4])
+      .next(tasks[5])
+      .next(tasks[6])
+      .next(tasks[7])
+      .next(tasks[8])
+      .next(dependencyChoice);
+    tasks[9].next(tasks[10]).next(runtimeChoice);
+    tasks[11].next(tasks[12]).next(ready);
+    const deploymentStateMachine = new sfn.StateMachine(this, 'DeploymentStateMachine', {
+      definitionBody: sfn.DefinitionBody.fromChainable(tasks[0]),
+      stateMachineType: sfn.StateMachineType.STANDARD,
+      timeout: Duration.hours(2),
+      tracingEnabled: true,
+      logs: {
+        destination: stateMachineLogGroup,
+        level: sfn.LogLevel.ALL,
+        includeExecutionData: false
+      }
+    });
+    deploymentStateMachine.grantStartExecution(controlApiExecutionRole);
     // Customer bootstrap v1 creates exactly this cross-account role; customer trust still enforces ExternalId.
     controlApiExecutionRole.addToPolicy(
       new iam.PolicyStatement({
@@ -188,7 +342,8 @@ export class ControlPlaneStack extends Stack {
         CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName,
         CUSTOMER_BOOTSTRAP_TEMPLATE_URL: configuration.customerBootstrapTemplateUrl,
         CONTROL_API_EXECUTION_ROLE_ARN: controlApiExecutionRole.roleArn,
-        CUSTOMER_CONNECTION_ALLOWED_REGIONS: configuration.region
+        CUSTOMER_CONNECTION_ALLOWED_REGIONS: configuration.region,
+        DEPLOYMENT_STATE_MACHINE_ARN: deploymentStateMachine.stateMachineArn
       },
       role: controlApiExecutionRole,
       logGroup: controlApiLogGroup,
@@ -220,6 +375,7 @@ export class ControlPlaneStack extends Stack {
         path: '/tenants/{tenantId}/agents/{agentId}/deployments',
         methods: [apigwv2.HttpMethod.GET]
       },
+      { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
       {
         path: '/tenants/{tenantId}/aws-connections',
         methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST]

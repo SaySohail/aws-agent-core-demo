@@ -13,7 +13,11 @@ export interface PersistenceClient {
   batchGet(keys: readonly Record<string, string>[]): Promise<readonly Record<string, unknown>[]>;
   put(item: Record<string, unknown>, condition?: string): Promise<void>;
   update(input: UpdateInput): Promise<void>;
-  delete(key: Record<string, string>, condition?: string): Promise<void>;
+  delete(
+    key: Record<string, string>,
+    condition?: string,
+    conditionValues?: Record<string, unknown>
+  ): Promise<void>;
   query(input: QueryInput): Promise<QueryResult>;
 }
 
@@ -88,9 +92,18 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
     );
   }
 
-  async delete(key: Record<string, string>, condition?: string) {
+  async delete(
+    key: Record<string, string>,
+    condition?: string,
+    conditionValues?: Record<string, unknown>
+  ) {
     await this.documentClient.send(
-      new DeleteCommand({ TableName: this.tableName, Key: key, ConditionExpression: condition })
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: key,
+        ConditionExpression: condition,
+        ...(conditionValues ? { ExpressionAttributeValues: conditionValues } : {})
+      })
     );
   }
 

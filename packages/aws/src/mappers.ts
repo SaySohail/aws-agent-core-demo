@@ -5,6 +5,7 @@ import {
   auditEventSchema,
   awsConnectionSchema,
   deploymentSchema,
+  deploymentEventSchema,
   tenantMembershipSchema,
   tenantSchema,
   type Agent,
@@ -13,6 +14,7 @@ import {
   type AuditEvent,
   type AwsConnection,
   type Deployment,
+  type DeploymentEvent,
   type Tenant,
   type TenantMembership
 } from '@agent-launchpad/schemas';
@@ -40,6 +42,8 @@ export const fromPersistence = {
   agent: (item: Item): Agent => domain(agentSchema, item, 'agent'),
   agentArtifact: (item: Item): AgentArtifact => domain(agentArtifactSchema, item, 'agent artifact'),
   deployment: (item: Item): Deployment => domain(deploymentSchema, item, 'deployment'),
+  deploymentEvent: (item: Item): DeploymentEvent =>
+    domain(deploymentEventSchema, item, 'deployment event'),
   auditEvent: (item: Item): AuditEvent => domain(auditEventSchema, item, 'audit event'),
   agentTemplate: (item: Item): AgentTemplate => domain(agentTemplateSchema, item, 'agent template')
 };
@@ -90,6 +94,17 @@ export const toPersistence = {
       ...controlPlaneKeys.agentDeployments(value.tenantId, value.agentId),
       gsi2sk: `${value.createdAt}#${value.id}`,
       entityType: 'DEPLOYMENT'
+    };
+  },
+  deploymentEvent(value: DeploymentEvent): Item {
+    return {
+      ...deploymentEventSchema.parse(value),
+      ...controlPlaneKeys.deploymentEvent(
+        value.tenantId,
+        value.deploymentId,
+        value.createdAt,
+        value.id
+      )
     };
   },
   auditEvent(value: AuditEvent): Item {

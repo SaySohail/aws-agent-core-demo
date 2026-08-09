@@ -6,6 +6,8 @@ import {
   awsConnectionIdSchema,
   createAgentRequestSchema,
   createAuditEventId,
+  createDeploymentEventId,
+  createDeploymentId,
   bedrockModelCatalog,
   customerSupportTemplate,
   type AgentConfiguration,
@@ -44,7 +46,19 @@ export interface HttpRequest {
   readonly pathParameters?: Record<string, string | undefined>;
   readonly queryParameters?: Record<string, string | undefined>;
   readonly body?: string;
+  readonly headers?: Record<string, string | undefined>;
   readonly user?: AuthenticatedUser;
+}
+
+/** The API starts a durable workflow; it never runs deployment work in the request. */
+export interface DeploymentWorkflowStarter {
+  start(input: {
+    deploymentId: string;
+    tenantId: string;
+    agentId: string;
+    configurationRevision: number;
+    artifactId?: string;
+  }): Promise<{ executionArn: string }>;
 }
 
 export interface HttpResponse {
@@ -170,12 +184,24 @@ function asConflict(cause: unknown): never {
   throw cause;
 }
 
+function normalizedIdempotencyKey(value: string | undefined): string {
+  const normalized = value?.trim();
+  if (!normalized || normalized.length > 128 || !/^[A-Za-z0-9._~-]+$/.test(normalized))
+    throw new ApiError(400, 'VALIDATION_ERROR', 'A valid Idempotency-Key header is required.');
+  return normalized;
+}
+
+function hash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 export class ControlApi {
   public constructor(
     private readonly repository: ControlPlaneRepository,
     private readonly clock: () => Date = () => new Date(),
     private readonly connections: AwsConnectionConfiguration = defaultConnectionConfiguration,
-    private readonly customerRoleAssumer?: CustomerRoleAssumer
+    private readonly customerRoleAssumer?: CustomerRoleAssumer,
+    private readonly workflowStarter?: DeploymentWorkflowStarter
   ) {}
 
   async handle(request: HttpRequest): Promise<HttpResponse> {
@@ -279,6 +305,8 @@ export class ControlApi {
       return this.createAgent(context, request);
     if (request.route === 'PATCH /tenants/{tenantId}/agents/{agentId}')
       return this.updateAgent(context, request);
+    if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/deploy')
+      return this.deployAgent(context, request);
     if (request.route === 'GET /tenants/{tenantId}/aws-connections') {
       const listed = await this.repository.listAwsConnections(context.tenantId, listOptions());
       return success(
@@ -522,6 +550,164 @@ export class ControlApi {
       return success(existing);
     }
     return success(agent, 201);
+  }
+
+  private async deployAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const agent = await this.agent(context, request);
+    const key = normalizedIdempotencyKey(
+      request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']
+    );
+    const idempotencyKeyHash = hash(key);
+    const existing = await this.repository.getDeploymentByIdempotency(
+      context.tenantId,
+      agent.id,
+      idempotencyKeyHash
+    );
+    const artifact = (
+      await this.repository.listAgentArtifacts(context.tenantId, { limit: 100 })
+    ).items
+      .filter(
+        (value) =>
+          value.agentId === agent.id &&
+          value.configurationVersion === agent.revision &&
+          value.status === 'READY'
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    const requestHash = hash(
+      JSON.stringify({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        configurationRevision: agent.revision,
+        artifactId: artifact?.id,
+        artifactSha256: artifact?.sha256,
+        target: agent.configuration.deploymentTarget
+      })
+    );
+    if (existing) {
+      if (existing.requestHash !== requestHash)
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'This idempotency key was used for a different deployment request.'
+        );
+      const deployment = await this.repository.getDeployment(
+        context.tenantId,
+        existing.deploymentId
+      );
+      if (!deployment)
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'The previous deployment request cannot be recovered.'
+        );
+      return success({ deploymentId: deployment.id, status: deployment.status }, 202);
+    }
+    const lock = await this.repository.getDeploymentLock(context.tenantId, agent.id);
+    if (lock)
+      throw new ApiError(
+        409,
+        'DEPLOYMENT_ALREADY_IN_PROGRESS',
+        'A deployment is already in progress for this agent.'
+      );
+    const now = this.clock().toISOString();
+    const deploymentId = createDeploymentId();
+    const deployment = {
+      id: deploymentId,
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      status: 'QUEUED' as const,
+      stage: 'QUEUED' as const,
+      requestedBy: context.userId,
+      configurationRevision: agent.revision,
+      snapshot: {
+        templateId: agent.templateId,
+        templateVersion: agent.templateVersion,
+        ...(artifact ? { artifactId: artifact.id, artifactSha256: artifact.sha256 } : {}),
+        awsConnectionId: agent.configuration.deploymentTarget.awsConnectionId,
+        accountId: agent.configuration.deploymentTarget.accountId,
+        region: agent.configuration.deploymentTarget.region,
+        modelId: agent.configuration.model.modelId,
+        capabilities: [...agent.configuration.capabilities],
+        guardrails: agent.configuration.guardrails
+      },
+      idempotencyKeyHash,
+      requestHash,
+      createdAt: now
+    };
+    try {
+      await this.repository.acquireDeploymentLock({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        deploymentId,
+        configurationRevision: agent.revision,
+        acquiredAt: now
+      });
+    } catch (cause) {
+      if (isConditional(cause))
+        throw new ApiError(
+          409,
+          'DEPLOYMENT_ALREADY_IN_PROGRESS',
+          'A deployment is already in progress for this agent.'
+        );
+      throw cause;
+    }
+    try {
+      await this.repository.createDeploymentIdempotency({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        idempotencyKeyHash,
+        requestHash,
+        deploymentId,
+        createdAt: now
+      });
+      await this.repository.createDeployment(deployment);
+      await this.repository.appendDeploymentEvent({
+        id: createDeploymentEventId(),
+        tenantId: context.tenantId,
+        deploymentId,
+        toStage: 'QUEUED',
+        status: 'QUEUED',
+        createdAt: now
+      });
+      await this.repository.appendAuditEvent({
+        id: createAuditEventId(),
+        tenantId: context.tenantId,
+        actorId: context.userId,
+        action: 'DEPLOYMENT_QUEUED',
+        resourceType: 'DEPLOYMENT',
+        resourceId: deploymentId,
+        metadata: { agentId: agent.id, revision: agent.revision },
+        createdAt: now
+      });
+      if (!this.workflowStarter)
+        throw new ApiError(
+          503,
+          'DEPLOYMENT_UNAVAILABLE',
+          'Deployment orchestration is not configured.'
+        );
+      const execution = await this.workflowStarter.start({
+        deploymentId,
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        configurationRevision: agent.revision,
+        ...(artifact ? { artifactId: artifact.id } : {})
+      });
+      await this.repository.setDeploymentExecutionArn(
+        context.tenantId,
+        deploymentId,
+        execution.executionArn
+      );
+    } catch (cause) {
+      // A deterministic execution name makes retries safe if StartExecution succeeded but the ARN write failed.
+      if (cause instanceof ApiError && cause.code === 'DEPLOYMENT_UNAVAILABLE') {
+        await this.repository
+          .releaseDeploymentLock(context.tenantId, agent.id, deploymentId)
+          .catch(() => undefined);
+      }
+      throw cause;
+    }
+    return success({ deploymentId, status: 'QUEUED' }, 202);
   }
 
   private async updateAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {

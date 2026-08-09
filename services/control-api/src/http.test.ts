@@ -116,6 +116,59 @@ test('authenticated Cognito sub resolves tenant context and never reads another 
   assert.doesNotMatch(denied.body, /agt_/);
 });
 
+test('deployment launch is asynchronous, idempotent, and locked per agent', async () => {
+  let idempotency: { deploymentId: string; requestHash: string } | undefined;
+  let locked = false;
+  let deployment: { id: string; status: string } | undefined;
+  const api = new ControlApi(
+    repository({
+      listAgentArtifacts: async () => ({ items: [] }),
+      getDeploymentByIdempotency: async () => idempotency,
+      getDeploymentLock: async () => (locked ? { deploymentId: 'dep_existing' } : undefined),
+      acquireDeploymentLock: async () => {
+        locked = true;
+      },
+      createDeploymentIdempotency: async (value: { deploymentId: string; requestHash: string }) => {
+        idempotency = value;
+      },
+      createDeployment: async (value: { id: string; status: string }) => {
+        deployment = value;
+      },
+      getDeployment: async () =>
+        deployment as unknown as Awaited<ReturnType<ControlPlaneRepository['getDeployment']>>,
+      appendDeploymentEvent: async () => undefined,
+      setDeploymentExecutionArn: async () => undefined
+    }),
+    () => new Date(timestamp),
+    undefined,
+    undefined,
+    {
+      start: async () => ({
+        executionArn: 'arn:aws:states:us-east-1:123456789012:execution:deploy:dep'
+      })
+    }
+  );
+  const launch = await api.handle(
+    request('POST /tenants/{tenantId}/agents/{agentId}/deploy', {
+      pathParameters: { tenantId: tenantA, agentId },
+      headers: { 'idempotency-key': 'deploy-1' }
+    })
+  );
+  assert.equal(launch.statusCode, 202);
+  assert.equal((JSON.parse(launch.body).data as { status: string }).status, 'QUEUED');
+  const repeat = await api.handle(
+    request('POST /tenants/{tenantId}/agents/{agentId}/deploy', {
+      pathParameters: { tenantId: tenantA, agentId },
+      headers: { 'idempotency-key': 'deploy-1' }
+    })
+  );
+  assert.equal(repeat.statusCode, 202);
+  assert.equal(
+    deployment?.id,
+    (JSON.parse(launch.body).data as { deploymentId: string }).deploymentId
+  );
+});
+
 test('missing JWT identity and malformed request input use controlled errors with request IDs', async () => {
   const api = new ControlApi(repository());
   const unauthenticated = await api.handle({

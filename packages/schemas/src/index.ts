@@ -15,6 +15,7 @@ export const tenantIdSchema = prefixedIdSchema('tnt_');
 export const awsConnectionIdSchema = prefixedIdSchema('awc_');
 export const agentIdSchema = prefixedIdSchema('agt_');
 export const deploymentIdSchema = prefixedIdSchema('dep_');
+export const deploymentEventIdSchema = prefixedIdSchema('dpe_');
 export const agentArtifactIdSchema = prefixedIdSchema('art_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
 /** Platform template IDs are stable, human-readable product identifiers. */
@@ -196,18 +197,26 @@ export const awsConnectionStatusSchema = z.enum([
 ]);
 export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED', 'DISABLED']);
 export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'FAILED', 'ARCHIVED']);
-export const deploymentStatusSchema = z.enum([
+export const deploymentStageSchema = z.enum([
   'QUEUED',
   'VALIDATING',
-  'PACKAGING',
-  'PROVISIONING_TOOLS',
-  'UPLOADING_ARTIFACT',
-  'CREATING_RUNTIME',
-  'CONFIGURING_GATEWAY',
-  'HEALTH_CHECK',
+  'VERIFYING_CUSTOMER_ACCESS',
+  'PREFLIGHT_REGION',
+  'PREFLIGHT_MODEL',
+  'PREFLIGHT_IAM',
+  'PREFLIGHT_STORAGE',
+  'PREFLIGHT_AGENTCORE',
+  'ENSURING_ARTIFACT',
+  'PROVISIONING_DEPENDENCIES',
+  'WAITING_FOR_DEPENDENCIES',
+  'DEPLOYING_RUNTIME',
+  'WAITING_FOR_RUNTIME',
+  'HEALTH_CHECKING',
   'READY',
   'FAILED'
 ]);
+/** Status is deliberately terminal-oriented; stage supplies product-facing progress. */
+export const deploymentStatusSchema = z.enum(['QUEUED', 'IN_PROGRESS', 'READY', 'FAILED']);
 export const agentArtifactStatusSchema = z.enum(['BUILDING', 'UPLOADING', 'READY', 'FAILED']);
 
 export const tenantSchema = z.object({
@@ -341,7 +350,29 @@ export const deploymentSchema = z.object({
   tenantId: tenantIdSchema,
   agentId: agentIdSchema,
   status: deploymentStatusSchema,
+  stage: deploymentStageSchema,
   requestedBy: nonEmptyString.max(256),
+  configurationRevision: z.number().int().positive(),
+  snapshot: z
+    .object({
+      templateId: agentTemplateIdSchema,
+      templateVersion: nonEmptyString.max(100),
+      artifactId: agentArtifactIdSchema.optional(),
+      artifactSha256: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/)
+        .optional(),
+      awsConnectionId: awsConnectionIdSchema,
+      accountId: z.string().regex(/^\d{12}$/),
+      region: nonEmptyString.max(64),
+      modelId: nonEmptyString.max(512),
+      capabilities: z.array(agentCapabilitySchema).max(20),
+      guardrails: z.object({ refunds: refundGuardrailSchema }).strict()
+    })
+    .strict(),
+  idempotencyKeyHash: z.string().regex(/^[a-f0-9]{64}$/),
+  requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+  executionArn: nonEmptyString.max(2048).optional(),
   runtimeVersion: nonEmptyString.max(100).optional(),
   runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   gatewayArn: nonEmptyString.max(2048).optional(),
@@ -352,6 +383,19 @@ export const deploymentSchema = z.object({
   errorCode: nonEmptyString.max(128).optional(),
   errorMessage: nonEmptyString.max(4096).optional()
 });
+
+export const deploymentEventSchema = z
+  .object({
+    id: deploymentEventIdSchema,
+    tenantId: tenantIdSchema,
+    deploymentId: deploymentIdSchema,
+    fromStage: deploymentStageSchema.optional(),
+    toStage: deploymentStageSchema,
+    status: deploymentStatusSchema,
+    errorCode: nonEmptyString.max(128).optional(),
+    createdAt: timestampSchema
+  })
+  .strict();
 
 /** Immutable content-addressed package produced from one exact draft revision. */
 export const agentArtifactSchema = z.object({
@@ -402,6 +446,7 @@ export type AgentCapability = z.infer<typeof agentCapabilitySchema>;
 export type BedrockModelCatalogEntry = z.infer<typeof bedrockModelCatalogEntrySchema>;
 export type Agent = z.infer<typeof agentSchema>;
 export type Deployment = z.infer<typeof deploymentSchema>;
+export type DeploymentEvent = z.infer<typeof deploymentEventSchema>;
 export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;
@@ -411,6 +456,7 @@ export type AwsConnectionStatus = z.infer<typeof awsConnectionStatusSchema>;
 export type AgentTemplateStatus = z.infer<typeof agentTemplateStatusSchema>;
 export type AgentStatus = z.infer<typeof agentStatusSchema>;
 export type DeploymentStatus = z.infer<typeof deploymentStatusSchema>;
+export type DeploymentStage = z.infer<typeof deploymentStageSchema>;
 export type CreateAgentRequest = z.infer<typeof createAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof updateAgentRequestSchema>;
 export type PageQuery = z.infer<typeof pageQuerySchema>;
@@ -508,6 +554,7 @@ export const createTenantId = (): string => generateId('tnt_');
 export const createAwsConnectionId = (): string => generateId('awc_');
 export const createAgentId = (): string => generateId('agt_');
 export const createDeploymentId = (): string => generateId('dep_');
+export const createDeploymentEventId = (): string => generateId('dpe_');
 export const createAgentArtifactId = (): string => generateId('art_');
 export const createAuditEventId = (): string => generateId('evt_');
 export const createAgentTemplateId = (): string => generateId('tpl_');

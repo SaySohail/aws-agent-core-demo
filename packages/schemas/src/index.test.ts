@@ -117,8 +117,22 @@ test('deployment lifecycle and append-only audit event schemas validate', () => 
     id: createDeploymentId(),
     tenantId,
     agentId,
-    status: 'CONFIGURING_GATEWAY' as const,
+    status: 'IN_PROGRESS' as const,
+    stage: 'PROVISIONING_DEPENDENCIES' as const,
     requestedBy: 'cognito-subject',
+    configurationRevision: 1,
+    snapshot: {
+      templateId: 'customer-support',
+      templateVersion: '1',
+      awsConnectionId: createAwsConnectionId(),
+      accountId: '123456789012',
+      region: 'us-east-1',
+      modelId: 'amazon.nova-lite-v1:0',
+      capabilities: ['ORDER_LOOKUP'],
+      guardrails: { refunds: { enabled: false } }
+    },
+    idempotencyKeyHash: 'a'.repeat(64),
+    requestHash: 'b'.repeat(64),
     createdAt: timestamp
   };
 

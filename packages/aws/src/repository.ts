@@ -6,6 +6,7 @@ import {
   type AuditEvent,
   type AwsConnection,
   type Deployment,
+  type DeploymentEvent,
   type Tenant,
   type TenantContext,
   type TenantMembership
@@ -230,6 +231,127 @@ export class ControlPlaneRepository {
     if (!(await this.getAgent(value.tenantId, value.agentId)))
       throw new Error('Cannot create a deployment for a missing tenant agent.');
     await this.store.put(toPersistence.deployment(value), createCondition);
+  }
+  /**
+   * Conditional server-side request identity. The API reads this record before attempting a new
+   * deployment, so retries recover the original deployment without exposing workflow internals.
+   */
+  async getDeploymentByIdempotency(
+    tenantId: string,
+    agentId: string,
+    idempotencyKeyHash: string
+  ): Promise<{ deploymentId: string; requestHash: string } | undefined> {
+    const item = await this.store.get(
+      controlPlaneKeys.deploymentIdempotency(tenantId, agentId, idempotencyKeyHash)
+    );
+    if (!item || typeof item.deploymentId !== 'string' || typeof item.requestHash !== 'string')
+      return undefined;
+    return { deploymentId: item.deploymentId, requestHash: item.requestHash };
+  }
+  async createDeploymentIdempotency(value: {
+    tenantId: string;
+    agentId: string;
+    idempotencyKeyHash: string;
+    requestHash: string;
+    deploymentId: string;
+    createdAt: string;
+  }): Promise<void> {
+    await this.store.put(
+      {
+        ...controlPlaneKeys.deploymentIdempotency(
+          value.tenantId,
+          value.agentId,
+          value.idempotencyKeyHash
+        ),
+        ...value
+      },
+      createCondition
+    );
+  }
+  async acquireDeploymentLock(value: {
+    tenantId: string;
+    agentId: string;
+    deploymentId: string;
+    configurationRevision: number;
+    acquiredAt: string;
+  }): Promise<void> {
+    await this.store.put(
+      { ...controlPlaneKeys.deploymentLock(value.tenantId, value.agentId), ...value },
+      createCondition
+    );
+  }
+  async getDeploymentLock(
+    tenantId: string,
+    agentId: string
+  ): Promise<{ deploymentId: string } | undefined> {
+    const item = await this.store.get(controlPlaneKeys.deploymentLock(tenantId, agentId));
+    return item && typeof item.deploymentId === 'string'
+      ? { deploymentId: item.deploymentId }
+      : undefined;
+  }
+  async releaseDeploymentLock(
+    tenantId: string,
+    agentId: string,
+    deploymentId: string
+  ): Promise<void> {
+    await this.store.delete(
+      controlPlaneKeys.deploymentLock(tenantId, agentId),
+      'attribute_exists(pk) AND attribute_exists(sk) AND deploymentId = :deploymentId',
+      { ':deploymentId': deploymentId }
+    );
+  }
+  async setDeploymentExecutionArn(
+    tenantId: string,
+    id: string,
+    executionArn: string
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.deployment(tenantId, id),
+      updates: { executionArn },
+      condition: existingCondition
+    });
+  }
+  async appendDeploymentEvent(value: DeploymentEvent): Promise<void> {
+    await this.store.put(toPersistence.deploymentEvent(value), createCondition);
+  }
+  async listDeploymentEvents(
+    tenantId: string,
+    deploymentId: string,
+    options: ListOptions = {}
+  ): Promise<Page<DeploymentEvent>> {
+    return this.list(
+      undefined,
+      'pk',
+      controlPlaneKeys.tenant(tenantId).pk,
+      `DEPLOYMENT_EVENT#${deploymentId}#`,
+      options,
+      fromPersistence.deploymentEvent
+    );
+  }
+  async transitionDeployment(input: {
+    tenantId: string;
+    deploymentId: string;
+    fromStage: Deployment['stage'];
+    toStage: Deployment['stage'];
+    status: Deployment['status'];
+    updatedAt: string;
+    errorCode?: string;
+    errorMessage?: string;
+    completedAt?: string;
+  }): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.deployment(input.tenantId, input.deploymentId),
+      updates: {
+        stage: input.toStage,
+        status: input.status,
+        ...(input.errorCode ? { errorCode: input.errorCode } : {}),
+        ...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
+        ...(input.completedAt ? { completedAt: input.completedAt } : {})
+      },
+      condition: 'attribute_exists(pk) AND attribute_exists(sk) AND #stage = :fromStage',
+      conditionNames: { '#stage': 'stage' },
+      conditionValues: { ':fromStage': input.fromStage }
+    });
   }
   async getDeployment(tenantId: string, id: string): Promise<Deployment | undefined> {
     return this.get(controlPlaneKeys.deployment(tenantId, id), fromPersistence.deployment);
