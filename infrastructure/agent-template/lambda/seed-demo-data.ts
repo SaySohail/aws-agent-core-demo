@@ -22,6 +22,9 @@ export const handler = async (event: {
           status: 'IN_TRANSIT',
           shippingCarrier: 'DemoShip',
           estimatedDelivery: '2026-01-20',
+          totalCents: 15000,
+          refundedCents: 0,
+          currency: 'GBP',
           demoData: true
         }
       })

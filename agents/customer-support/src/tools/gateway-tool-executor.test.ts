@@ -61,3 +61,21 @@ test('keeps Gateway authorization failures separate from tool and order failures
     message: 'The support service could not complete the request.'
   });
 });
+
+test('returns a sanitized policy denial without forwarding AgentCore diagnostics', async () => {
+  const client: GatewayMcpClient = {
+    listTools: async () => Object.values(expectedGatewayToolNames()).map((name) => ({ name })),
+    callTool: async () => {
+      throw new GatewayMcpError('POLICY_DENIED');
+    }
+  };
+  const result = await new GatewayToolExecutor(client).execute({
+    name: 'process_refund',
+    input: { orderId: 'ORD-1023', amountCents: 10001, currency: 'GBP', reason: 'Damaged item' }
+  });
+  assert.deepEqual(result, {
+    status: 'error',
+    code: 'POLICY_DENIED',
+    message: 'This action requires manual approval.'
+  });
+});

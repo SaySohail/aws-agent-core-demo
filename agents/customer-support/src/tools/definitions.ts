@@ -3,16 +3,23 @@ import {
   customerSupportGatewayToolDefinitions,
   createSupportTicketInputSchema,
   getOrderInputSchema,
+  processRefundInputSchema,
   searchOrdersInputSchema
 } from '@agent-launchpad/schemas';
 import { z } from 'zod';
 
-export { createSupportTicketInputSchema, getOrderInputSchema, searchOrdersInputSchema };
+export {
+  createSupportTicketInputSchema,
+  getOrderInputSchema,
+  processRefundInputSchema,
+  searchOrdersInputSchema
+};
 
 export const toolInputSchemas = {
   get_order: getOrderInputSchema,
   search_orders: searchOrdersInputSchema,
-  create_support_ticket: createSupportTicketInputSchema
+  create_support_ticket: createSupportTicketInputSchema,
+  process_refund: processRefundInputSchema
 } as const;
 
 export type ToolName = keyof typeof toolInputSchemas;

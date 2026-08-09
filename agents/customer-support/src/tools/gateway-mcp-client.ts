@@ -75,7 +75,18 @@ export class HttpGatewayMcpClient implements GatewayMcpClient {
     if (!body || typeof body !== 'object' || body.jsonrpc !== '2.0' || body.id !== id) {
       throw new GatewayMcpError('GATEWAY_INVALID_RESPONSE');
     }
-    if (body.error) throw new GatewayMcpError('TOOL_EXECUTION_ERROR');
+    if (body.error) {
+      // The service error is deliberately not propagated to the model. AgentCore can vary the
+      // exact message, but authorization denials consistently identify an authorization decision.
+      const detail = `${body.error.code ?? ''} ${body.error.message ?? ''}`.toLowerCase();
+      if (
+        detail.includes('denied') ||
+        detail.includes('not authorized') ||
+        detail.includes('policy')
+      )
+        throw new GatewayMcpError('POLICY_DENIED');
+      throw new GatewayMcpError('TOOL_EXECUTION_ERROR');
+    }
     if (!Object.hasOwn(body, 'result')) throw new GatewayMcpError('GATEWAY_INVALID_RESPONSE');
     return body.result;
   }
@@ -138,6 +149,7 @@ export class GatewayMcpError extends Error {
       | 'GATEWAY_UNAVAILABLE'
       | 'GATEWAY_UNAUTHORIZED'
       | 'GATEWAY_INVALID_RESPONSE'
+      | 'POLICY_DENIED'
       | 'TOOL_EXECUTION_ERROR'
   ) {
     super(code);

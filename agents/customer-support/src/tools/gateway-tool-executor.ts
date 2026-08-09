@@ -22,10 +22,30 @@ export class GatewayToolExecutor implements ToolExecutor {
       return { status: 'success', data: result };
     } catch (error) {
       const code = this.errorCode(error);
+      if (code === 'POLICY_DENIED') {
+        const amountCents =
+          request.name === 'process_refund' && 'amountCents' in request.input
+            ? request.input.amountCents
+            : undefined;
+        console.info(
+          JSON.stringify({
+            event: 'policy_decision',
+            invocationId: request.requestId,
+            tool: request.name,
+            decision: 'DENY',
+            reasonCode: 'POLICY_DENIED',
+            policyProfile: 'refund-auto-approval-v1',
+            ...(amountCents === undefined ? {} : { amountCents })
+          })
+        );
+      }
       return {
         status: 'error',
         code,
-        message: 'The support service could not complete the request.'
+        message:
+          code === 'POLICY_DENIED'
+            ? 'This action requires manual approval.'
+            : 'The support service could not complete the request.'
       };
     }
   }

@@ -14,6 +14,7 @@ export function expectedGatewayToolNames(): Readonly<Record<ToolName, string>> {
   return {
     get_order: gatewayToolName('get_order'),
     search_orders: gatewayToolName('search_orders'),
-    create_support_ticket: gatewayToolName('create_support_ticket')
+    create_support_ticket: gatewayToolName('create_support_ticket'),
+    process_refund: gatewayToolName('process_refund')
   };
 }

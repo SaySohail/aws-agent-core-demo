@@ -6,7 +6,7 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "synth": "cdk synth AgentLaunchpadCustomerSupportTools --quiet",
-    "test": "tsx --test test/**/*.test.ts"
+    "test": "tsx --test test/**/*.test.ts lambda/**/*.test.ts"
   },
   "dependencies": {
     "@agent-launchpad/schemas": "workspace:*",

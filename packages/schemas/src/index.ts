@@ -34,6 +34,17 @@ export const createSupportTicketInputSchema = z
     orderId: supportOrderIdSchema.optional()
   })
   .strict();
+export const processRefundInputSchema = z
+  .object({
+    orderId: supportOrderIdSchema,
+    amountCents: z.number().int().positive(),
+    currency: z.literal('GBP'),
+    reason: z.string().trim().min(3).max(500)
+  })
+  .strict();
+
+/** Demo-only control: policy infrastructure renders this value into Cedar at deployment time. */
+export const REFUND_AUTO_APPROVAL_LIMIT_CENTS = 10_000;
 
 export const customerSupportGatewayToolDefinitions = [
   {
@@ -69,12 +80,29 @@ export const customerSupportGatewayToolDefinitions = [
       },
       required: ['subject', 'description']
     }
+  },
+  {
+    name: 'process_refund',
+    description:
+      'Process a fake/demo GBP refund after confirming the requested amount, reason, and exact order ID.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        orderId: { type: 'string', pattern: '^ORD-[A-Z0-9]{4,32}$' },
+        amountCents: { type: 'integer', minimum: 1 },
+        currency: { type: 'string', enum: ['GBP'] },
+        reason: { type: 'string', minLength: 3, maxLength: 500 }
+      },
+      required: ['orderId', 'amountCents', 'currency', 'reason']
+    }
   }
 ] as const;
 export const customerSupportGatewayTargetNames = {
   get_order: 'GetOrderTarget',
   search_orders: 'SearchOrdersTarget',
-  create_support_ticket: 'CreateTicketTarget'
+  create_support_ticket: 'CreateTicketTarget',
+  process_refund: 'ProcessRefundTarget'
 } as const;
 
 /** HTTP inputs deliberately exclude all server-owned persistence fields. */

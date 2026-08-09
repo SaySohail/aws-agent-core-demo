@@ -166,6 +166,39 @@ test('tool failures are passed to the model as failure data, never success', asy
   );
 });
 
+test('a policy-denied refund is passed safely to the model and is not retried', async () => {
+  const model = new QueueModel([
+    assistant([
+      {
+        toolUse: {
+          toolUseId: 'refund-1',
+          name: 'process_refund',
+          input: {
+            orderId: 'ORD-1023',
+            amountCents: 10001,
+            currency: 'GBP',
+            reason: 'Damaged item'
+          }
+        }
+      }
+    ]),
+    assistant([
+      { text: 'I cannot automatically process that refund; I can create a review ticket.' }
+    ])
+  ]);
+  const tools = new FakeTools({
+    status: 'error',
+    code: 'POLICY_DENIED',
+    message: 'This action requires manual approval.'
+  });
+  const agent = new CustomerSupportAgent(config, model, tools, silentLogger());
+  assert.match(await agent.invoke('Refund £100.01'), /cannot automatically process/);
+  assert.equal(tools.calls.length, 1);
+  const toolResult = model.requests[1]?.messages?.[2]?.content?.[0]?.toolResult?.content?.[0]?.text;
+  assert.match(toolResult ?? '', /POLICY_DENIED/);
+  assert.doesNotMatch(toolResult ?? '', /Cedar|arn:aws|policy-engine/i);
+});
+
 test('a continuation failure after ticket creation does not restart and duplicate the side effect', async () => {
   const outage = Object.assign(new Error('network'), { name: 'ServiceUnavailableException' });
   const model = new QueueModel([

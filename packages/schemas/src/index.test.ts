@@ -13,6 +13,7 @@ import {
   createDeploymentId,
   createTenantId,
   deploymentSchema,
+  processRefundInputSchema,
   tenantContextSchema,
   tenantMembershipSchema,
   tenantSchema
@@ -32,6 +33,26 @@ test('generated IDs are prefixed UUIDs accepted by their schemas', () => {
     true
   );
   assert.notEqual(createTenantId(), createTenantId());
+});
+
+test('process_refund accepts only positive integer GBP minor units with complete input', () => {
+  const valid = {
+    orderId: 'ORD-1023',
+    amountCents: 10_000,
+    currency: 'GBP',
+    reason: 'Damaged item'
+  };
+  assert.deepEqual(processRefundInputSchema.parse(valid), valid);
+  for (const invalid of [
+    { ...valid, amountCents: 0 },
+    { ...valid, amountCents: -1 },
+    { ...valid, amountCents: 1.5 },
+    { ...valid, amountCents: '100' },
+    { ...valid, currency: 'USD' },
+    { ...valid, orderId: undefined },
+    { ...valid, reason: '' }
+  ])
+    assert.equal(processRefundInputSchema.safeParse(invalid).success, false);
 });
 
 test('tenant schemas represent active and suspended tenants and reject malformed IDs', () => {

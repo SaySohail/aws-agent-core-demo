@@ -110,6 +110,26 @@ test('deployment role receives only runtime invocation data-plane access', () =>
   assert.ok(!actions.includes('bedrock-agentcore:*'));
 });
 
+test('deployment role has narrow Gateway and Policy lifecycle permissions', () => {
+  const template = synthesized();
+  const deploymentRole = roleByName(template, 'AgentLaunchpadDeploymentRole');
+  const statements = policyStatementsForRole(template, deploymentRole);
+  const actions = statements.flatMap((statement: Record<string, any>) => statement.Action);
+  for (const action of [
+    'bedrock-agentcore:CreatePolicyEngine',
+    'bedrock-agentcore:UpdatePolicyEngine',
+    'bedrock-agentcore:DeletePolicyEngine',
+    'bedrock-agentcore:CreatePolicy',
+    'bedrock-agentcore:UpdatePolicy',
+    'bedrock-agentcore:DeletePolicy',
+    'bedrock-agentcore:InvokeGateway',
+    'bedrock-agentcore:ManageResourceScopedPolicy'
+  ])
+    assert.ok(actions.includes(action));
+  assert.ok(!actions.includes('bedrock-agentcore:ManageAdminPolicy'));
+  assert.ok(!actions.includes('bedrock-agentcore:*'));
+});
+
 test('artifact storage is private, KMS encrypted, TLS-only, and role-scoped', () => {
   const template = synthesized();
   const bucket = Object.values(resourcesOfType(template, 'AWS::S3::Bucket'))[0];

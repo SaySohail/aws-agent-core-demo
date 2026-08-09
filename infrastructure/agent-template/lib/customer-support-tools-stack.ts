@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import { Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as bedrockagentcore from 'aws-cdk-lib/aws-bedrockagentcore';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -10,7 +11,8 @@ import * as cr from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import {
   customerSupportGatewayTargetNames as gatewayTargetNames,
-  customerSupportGatewayToolDefinitions
+  customerSupportGatewayToolDefinitions,
+  REFUND_AUTO_APPROVAL_LIMIT_CENTS
 } from '@agent-launchpad/schemas';
 
 /** Agent-specific data-plane resources; safe to tear down separately from customer bootstrap. */
@@ -96,6 +98,21 @@ export class CustomerSupportToolsStack extends Stack {
       ['dynamodb:PutItem'],
       [table.tableArn]
     );
+    const processRefund = tool(
+      'ProcessRefundFunction',
+      'processRefund',
+      ['dynamodb:GetItem', 'dynamodb:TransactWriteItems'],
+      [table.tableArn]
+    );
+    const policyEngine = new bedrockagentcore.CfnPolicyEngine(this, 'SupportPolicyEngine', {
+      name: 'AgentLaunchpadSupportPolicy',
+      description: 'Deterministic Cedar authorization for Customer Support Gateway actions.',
+      tags: [
+        { key: 'ManagedBy', value: 'AgentLaunchpad' },
+        { key: 'Plane', value: 'DataPlane' },
+        { key: 'Purpose', value: 'CustomerSupportTools' }
+      ]
+    });
     const gatewayRole = new iam.Role(this, 'GatewayServiceRole', {
       assumedBy: new iam.PrincipalWithConditions(
         new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com'),
@@ -115,7 +132,18 @@ export class CustomerSupportToolsStack extends Stack {
     gatewayRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['lambda:InvokeFunction'],
-        resources: [getOrder.functionArn, searchOrders.functionArn, createTicket.functionArn]
+        resources: [
+          getOrder.functionArn,
+          searchOrders.functionArn,
+          createTicket.functionArn,
+          processRefund.functionArn
+        ]
+      })
+    );
+    gatewayRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock-agentcore:GetPolicyEngine'],
+        resources: [policyEngine.attrPolicyEngineArn]
       })
     );
     const gateway = new cdk.CfnResource(this, 'CustomerSupportGateway', {
@@ -126,9 +154,19 @@ export class CustomerSupportToolsStack extends Stack {
         ProtocolType: 'MCP',
         AuthorizerType: 'AWS_IAM',
         RoleArn: gatewayRole.roleArn,
+        PolicyEngineConfiguration: { Arn: policyEngine.attrPolicyEngineArn, Mode: 'ENFORCE' },
         Tags: { ManagedBy: 'AgentLaunchpad', Plane: 'DataPlane', Purpose: 'CustomerSupportTools' }
       }
     });
+    gatewayRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'bedrock-agentcore:AuthorizeAction',
+          'bedrock-agentcore:PartiallyAuthorizeActions'
+        ],
+        resources: [policyEngine.attrPolicyEngineArn, gateway.getAtt('GatewayArn').toString()]
+      })
+    );
     const target = (
       id: string,
       logicalName: keyof typeof gatewayTargetNames,
@@ -162,6 +200,61 @@ export class CustomerSupportToolsStack extends Stack {
     const getTarget = target('GetOrderTarget', 'get_order', getOrder);
     const searchTarget = target('SearchOrdersTarget', 'search_orders', searchOrders);
     const ticketTarget = target('CreateTicketTarget', 'create_support_ticket', createTicket);
+    const refundTarget = target('ProcessRefundTarget', 'process_refund', processRefund);
+    const statement = (effect: 'permit' | 'forbid', action: string, condition?: string) =>
+      cdk.Fn.join('', [
+        `${effect}(principal is AgentCore::IamEntity, action == AgentCore::Action::"${action}", resource == AgentCore::Gateway::"`,
+        gateway.getAtt('GatewayArn').toString(),
+        `")${condition ? ` when { ${condition} }` : ''};`
+      ]);
+    const policy = (id: string, name: string, cedarStatement: string) => {
+      const resource = new bedrockagentcore.CfnPolicy(this, id, {
+        name,
+        description: `Active Customer Support Gateway authorization policy: ${name}.`,
+        policyEngineId: policyEngine.attrPolicyEngineId,
+        enforcementMode: 'ACTIVE',
+        validationMode: 'FAIL_ON_ANY_FINDINGS',
+        definition: { cedar: { statement: cedarStatement } }
+      });
+      resource.addResourceDependency(getTarget);
+      resource.addResourceDependency(searchTarget);
+      resource.addResourceDependency(ticketTarget);
+      resource.addResourceDependency(refundTarget);
+      return resource;
+    };
+    policy(
+      'GetOrderPermitPolicy',
+      'SupportGetOrderPermit',
+      statement('permit', `${gatewayTargetNames.get_order}___get_order`)
+    );
+    policy(
+      'SearchOrdersPermitPolicy',
+      'SupportSearchOrdersPermit',
+      statement('permit', `${gatewayTargetNames.search_orders}___search_orders`)
+    );
+    policy(
+      'CreateTicketPermitPolicy',
+      'SupportCreateTicketPermit',
+      statement('permit', `${gatewayTargetNames.create_support_ticket}___create_support_ticket`)
+    );
+    policy(
+      'RefundPermitPolicy',
+      'SupportRefundPermit',
+      statement(
+        'permit',
+        `${gatewayTargetNames.process_refund}___process_refund`,
+        `context.input.amountCents <= ${REFUND_AUTO_APPROVAL_LIMIT_CENTS}`
+      )
+    );
+    policy(
+      'RefundForbidPolicy',
+      'SupportRefundForbid',
+      statement(
+        'forbid',
+        `${gatewayTargetNames.process_refund}___process_refund`,
+        `context.input.amountCents > ${REFUND_AUTO_APPROVAL_LIMIT_CENTS}`
+      )
+    );
     new cdk.CfnOutput(this, 'GatewayId', { value: gateway.ref });
     new cdk.CfnOutput(this, 'GatewayArn', { value: gateway.getAtt('GatewayArn').toString() });
     new cdk.CfnOutput(this, 'GatewayUrl', { value: gateway.getAtt('GatewayUrl').toString() });
@@ -169,7 +262,8 @@ export class CustomerSupportToolsStack extends Stack {
     for (const [name, resource] of [
       ['GetOrderTargetId', getTarget],
       ['SearchOrdersTargetId', searchTarget],
-      ['CreateTicketTargetId', ticketTarget]
+      ['CreateTicketTargetId', ticketTarget],
+      ['ProcessRefundTargetId', refundTarget]
     ] as const)
       new cdk.CfnOutput(this, name, { value: resource.getAtt('TargetId').toString() });
   }

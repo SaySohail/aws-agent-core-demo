@@ -18,6 +18,7 @@ export type ToolExecutionResult =
         | 'GATEWAY_UNAUTHORIZED'
         | 'GATEWAY_TOOL_NOT_AVAILABLE'
         | 'GATEWAY_INVALID_RESPONSE'
+        | 'POLICY_DENIED'
         | 'TOOL_TIMEOUT'
         | 'TOOL_VALIDATION_ERROR';
       readonly message: string;

@@ -156,6 +156,67 @@ export class CustomerBootstrapStack extends Stack {
         resources: [artifactBucket.bucketArn]
       })
     );
+    const gatewayArn = Stack.of(this).formatArn({
+      service: 'bedrock-agentcore',
+      resource: 'gateway',
+      resourceName: '*'
+    });
+    const policyEngineArn = Stack.of(this).formatArn({
+      service: 'bedrock-agentcore',
+      resource: 'policy-engine',
+      resourceName: '*'
+    });
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'bedrock-agentcore:CreateGateway',
+          'bedrock-agentcore:UpdateGateway',
+          'bedrock-agentcore:GetGateway',
+          'bedrock-agentcore:DeleteGateway',
+          'bedrock-agentcore:ListGateways',
+          'bedrock-agentcore:CreateGatewayTarget',
+          'bedrock-agentcore:UpdateGatewayTarget',
+          'bedrock-agentcore:GetGatewayTarget',
+          'bedrock-agentcore:DeleteGatewayTarget',
+          'bedrock-agentcore:ListGatewayTargets',
+          'bedrock-agentcore:InvokeGateway',
+          'bedrock-agentcore:ManageResourceScopedPolicy'
+        ],
+        resources: [gatewayArn],
+        conditions: {
+          StringEquals: {
+            'aws:RequestedRegion': cdk.Aws.REGION,
+            'aws:ResourceTag/ManagedBy': 'AgentLaunchpad'
+          }
+        }
+      })
+    );
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'bedrock-agentcore:CreatePolicyEngine',
+          'bedrock-agentcore:UpdatePolicyEngine',
+          'bedrock-agentcore:GetPolicyEngine',
+          'bedrock-agentcore:DeletePolicyEngine',
+          'bedrock-agentcore:ListPolicyEngines'
+        ],
+        resources: [policyEngineArn],
+        conditions: { StringEquals: { 'aws:RequestedRegion': cdk.Aws.REGION } }
+      })
+    );
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'bedrock-agentcore:CreatePolicy',
+          'bedrock-agentcore:UpdatePolicy',
+          'bedrock-agentcore:GetPolicy',
+          'bedrock-agentcore:DeletePolicy',
+          'bedrock-agentcore:ListPolicies'
+        ],
+        resources: [`${policyEngineArn}/policy/*`],
+        conditions: { StringEquals: { 'aws:RequestedRegion': cdk.Aws.REGION } }
+      })
+    );
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['bedrock-agentcore:InvokeAgentRuntime'],
