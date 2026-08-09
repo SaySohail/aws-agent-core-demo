@@ -14,6 +14,7 @@ import {
   validateToolInput
 } from '../tools/definitions.js';
 import type { ToolExecutionResult, ToolExecutor } from '../tools/executor.js';
+import type { RuntimeResponse, ToolActivity } from '@agent-launchpad/schemas';
 
 export interface AgentLogger {
   info(event: Record<string, unknown>): void;
@@ -34,8 +35,14 @@ export class CustomerSupportAgent {
   ) {}
 
   public async invoke(prompt: string): Promise<string> {
+    return (await this.invokeWithActivity(prompt)).result;
+  }
+
+  /** Runtime-facing operation retains safe ordered tool activity without changing agent callers. */
+  public async invokeWithActivity(prompt: string): Promise<RuntimeResponse> {
     const startedAt = Date.now();
     const messages: Message[] = [{ role: 'user', content: [{ text: prompt }] }];
+    const toolActivity: ToolActivity[] = [];
     this.logger.info({ event: 'invocation_started' });
 
     for (let iteration = 0; ; iteration += 1) {
@@ -60,7 +67,7 @@ export class CustomerSupportAgent {
           iteration,
           elapsedMs: Date.now() - startedAt
         });
-        return text;
+        return { result: text, toolActivity };
       }
 
       if (iteration >= this.config.maxToolIterations) {
@@ -69,7 +76,7 @@ export class CustomerSupportAgent {
 
       const results: ContentBlock[] = [];
       for (const toolUse of toolUses) {
-        results.push(await this.executeToolUse(toolUse));
+        results.push(await this.executeToolUse(toolUse, toolActivity));
       }
       messages.push({ role: 'user', content: results });
     }
@@ -105,7 +112,10 @@ export class CustomerSupportAgent {
     }
   }
 
-  private async executeToolUse(toolUse: ToolUseBlock): Promise<ContentBlock> {
+  private async executeToolUse(
+    toolUse: ToolUseBlock,
+    toolActivity: ToolActivity[]
+  ): Promise<ContentBlock> {
     if (!toolUse.toolUseId || !toolUse.name)
       throw new CustomerSupportAgentError('INVALID_MODEL_RESPONSE');
     if (!isToolName(toolUse.name)) throw new CustomerSupportAgentError('UNKNOWN_TOOL');
@@ -128,6 +138,18 @@ export class CustomerSupportAgent {
       };
     }
     this.logger.info({ event: 'tool_completed', toolName: toolUse.name, status: execution.status });
+    toolActivity.push({
+      tool: toolUse.name,
+      status:
+        execution.status === 'success'
+          ? 'SUCCEEDED'
+          : execution.code === 'POLICY_DENIED'
+            ? 'DENIED'
+            : 'FAILED',
+      ...(execution.status === 'error' && execution.code === 'POLICY_DENIED'
+        ? { reasonCode: 'POLICY_DENIED' as const }
+        : {})
+    });
 
     // Tool data remains a structured user/tool-result message; it is never added to the system prompt.
     const payload =

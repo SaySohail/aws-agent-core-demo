@@ -33,6 +33,11 @@ import {
 } from './index.js';
 
 export const PRODUCTION_RUNTIME_ENDPOINT = 'production';
+export const runtimeMetadataConfiguration = { requireMMDSV2: true } as const;
+/** SDK 3.1106 serializer supports the current AgentCore field before its Create input declaration did. */
+type CurrentCreateRuntimeInput = ConstructorParameters<typeof CreateAgentRuntimeCommand>[0] & {
+  readonly metadataConfiguration: { readonly requireMMDSV2: true };
+};
 
 /** Stable, API-safe name derived solely from the opaque immutable agent ID. */
 export function agentCoreRuntimeName(agentId: string): string {
@@ -93,6 +98,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
               agentRuntimeArtifact: artifact,
               roleArn,
               networkConfiguration: { networkMode: 'PUBLIC' },
+              metadataConfiguration: runtimeMetadataConfiguration,
               environmentVariables: this.environment(resolved.deployment),
               clientToken: agentCoreClientToken({
                 deploymentId: context.deploymentId,
@@ -107,6 +113,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
               agentRuntimeArtifact: artifact,
               roleArn,
               networkConfiguration: { networkMode: 'PUBLIC' },
+              metadataConfiguration: runtimeMetadataConfiguration,
               environmentVariables: this.environment(resolved.deployment),
               clientToken: agentCoreClientToken({
                 deploymentId: context.deploymentId,
@@ -118,7 +125,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
                 Plane: 'DataPlane',
                 Purpose: 'CustomerBootstrap'
               }
-            })
+            } as CurrentCreateRuntimeInput)
           );
       const runtimeId = response.agentRuntimeId;
       const runtimeArn = response.agentRuntimeArn;
@@ -205,7 +212,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
     try {
       await this.invoker.invoke({
         runtimeArn: candidate.runtimeArn,
-        payload: { input: 'health check: respond briefly without tools' },
+        payload: { prompt: 'health check: respond briefly without tools' },
         sessionId: `health-${context.deploymentId}`,
         credentials: await this.credentials(resolved.connection, resolved.deployment),
         connection: resolved.connection,

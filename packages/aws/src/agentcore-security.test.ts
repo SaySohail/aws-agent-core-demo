@@ -71,7 +71,7 @@ test('invoker uses only caller-supplied temporary credentials and the official d
     return {
       async send(value) {
         command = value;
-        return { response: { transformToString: async () => '{"result":"ok"}' } };
+        return { response: { transformToString: async () => '{"result":"ok","toolActivity":[]}' } };
       }
     };
   });
@@ -82,11 +82,13 @@ test('invoker uses only caller-supplied temporary credentials and the official d
     credentials,
     connection: coordinates
   });
-  assert.equal(result, '{"result":"ok"}');
+  assert.deepEqual(result, { result: 'ok', toolActivity: [] });
   assert.deepEqual(config, { region: 'us-east-1', credentials });
   assert.ok(command instanceof InvokeAgentRuntimeCommand);
   assert.equal((command as InvokeAgentRuntimeCommand).input.agentRuntimeArn, runtimeArn);
   assert.equal((command as InvokeAgentRuntimeCommand).input.runtimeSessionId, 'session-1');
+  assert.equal((command as InvokeAgentRuntimeCommand).input.qualifier, 'production');
+  assert.equal((command as InvokeAgentRuntimeCommand).input.accept, 'application/json');
 });
 
 test('runtime inbound contract is IAM SigV4 with no browser or user-delegation path', () => {

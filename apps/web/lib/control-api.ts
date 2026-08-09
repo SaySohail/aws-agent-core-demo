@@ -6,6 +6,8 @@ import type {
   CreateAgentRequest as SharedCreateAgentRequest,
   Deployment,
   DeploymentDetail,
+  PlaygroundInvokeRequest,
+  PlaygroundInvokeResponse,
   MembershipRole,
   Tenant,
   UpdateAgentRequest as SharedUpdateAgentRequest
@@ -176,7 +178,12 @@ export function createControlApiClient(options: ControlApiClientOptions) {
         request<Agent>(`/tenants/${segment(tenantId)}/agents/${segment(agentId)}`, {
           method: 'PATCH',
           body: input
-        })
+        }),
+      invoke: (tenantId: string, agentId: string, input: PlaygroundInvokeRequest) =>
+        request<PlaygroundInvokeResponse>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/invoke`,
+          { method: 'POST', body: input }
+        )
     },
     awsConnections: {
       list: (tenantId: string, query?: PageQuery) =>

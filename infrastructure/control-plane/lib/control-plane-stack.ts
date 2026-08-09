@@ -372,6 +372,7 @@ export class ControlPlaneStack extends Stack {
         methods: [apigwv2.HttpMethod.GET]
       },
       { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
+      { path: '/tenants/{tenantId}/agents/{agentId}/invoke', methods: [apigwv2.HttpMethod.POST] },
       {
         path: '/tenants/{tenantId}/aws-connections',
         methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST]

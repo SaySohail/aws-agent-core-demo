@@ -2,7 +2,11 @@ import {
   BedrockAgentCoreClient,
   InvokeAgentRuntimeCommand
 } from '@aws-sdk/client-bedrock-agentcore';
-import type { AwsConnection } from '@agent-launchpad/schemas';
+import {
+  runtimeResponseSchema,
+  type AwsConnection,
+  type RuntimeResponse
+} from '@agent-launchpad/schemas';
 import type { AssumedCustomerRoleCredentials } from './customer-connection.js';
 
 const ARN = /^arn:(aws):([a-z0-9-]+):([a-z0-9-]+):(\d{12}):(.*)$/;
@@ -22,6 +26,27 @@ export class AgentCoreSecurityError extends Error {
     super(code);
   }
 }
+
+export type RuntimeInvocationErrorCode =
+  | 'RUNTIME_INVALID_REQUEST'
+  | 'RUNTIME_QUOTA_EXCEEDED'
+  | 'RUNTIME_FORBIDDEN'
+  | 'RUNTIME_NOT_FOUND'
+  | 'RUNTIME_CONFLICT'
+  | 'RUNTIME_CLIENT_ERROR'
+  | 'RUNTIME_THROTTLED'
+  | 'RUNTIME_UNAVAILABLE'
+  | 'RUNTIME_TIMEOUT'
+  | 'INVALID_RUNTIME_RESPONSE'
+  | 'RUNTIME_RESPONSE_TOO_LARGE';
+
+export class RuntimeInvocationError extends Error {
+  public constructor(public readonly code: RuntimeInvocationErrorCode) {
+    super(code);
+  }
+}
+
+export const MAX_RUNTIME_RESPONSE_BYTES = 256 * 1024;
 
 export interface AgentCoreResourceCoordinates {
   readonly accountId: string;
@@ -120,12 +145,13 @@ export interface AgentRuntimeInvocationClient {
     readonly qualifier?: string;
     readonly credentials: AssumedCustomerRoleCredentials;
     readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
-  }): Promise<string>;
+  }): Promise<RuntimeResponse>;
 }
 
 interface RuntimeDataPlaneClient {
-  send(command: InvokeAgentRuntimeCommand): Promise<{
-    response?: { transformToString(): Promise<string> };
+  send(command: InvokeAgentRuntimeCommand, options?: { abortSignal?: AbortSignal }): Promise<{
+    response?: unknown;
+    contentType?: string;
   }>;
 }
 
@@ -135,7 +161,7 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
     private readonly createClient: (input: {
       readonly region: string;
       readonly credentials: AssumedCustomerRoleCredentials;
-    }) => RuntimeDataPlaneClient = (input) => new BedrockAgentCoreClient(input)
+    }) => RuntimeDataPlaneClient = (input) => new BedrockAgentCoreClient({ ...input, maxAttempts: 1 })
   ) {}
 
   public async invoke(input: {
@@ -145,8 +171,11 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
     readonly qualifier?: string;
     readonly credentials: AssumedCustomerRoleCredentials;
     readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
-  }): Promise<string> {
+    readonly timeoutMs?: number;
+  }): Promise<RuntimeResponse> {
     validateRuntimeArn(input.runtimeArn, input.connection);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), input.timeoutMs ?? 30_000);
     try {
       const client = this.createClient({
         region: input.connection.region,
@@ -158,17 +187,87 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
           runtimeSessionId: input.sessionId ?? crypto.randomUUID(),
           payload: JSON.stringify(input.payload),
           contentType: 'application/json',
-          qualifier: input.qualifier ?? 'DEFAULT'
-        })
+          accept: 'application/json',
+          qualifier: input.qualifier ?? 'production'
+        }),
+        { abortSignal: controller.signal }
       );
-      return (await response.response?.transformToString()) ?? '';
+      if (response.contentType && response.contentType.split(';', 1)[0]?.toLowerCase() !== 'application/json')
+        throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
+      const text = await readRuntimeResponse(response.response, MAX_RUNTIME_RESPONSE_BYTES);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
+      }
+      const validated = runtimeResponseSchema.safeParse(parsed);
+      if (!validated.success) throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
+      return validated.data;
     } catch (cause) {
+      if (cause instanceof RuntimeInvocationError) throw cause;
+      if (controller.signal.aborted) throw new RuntimeInvocationError('RUNTIME_TIMEOUT');
       const name = cause instanceof Error ? cause.name : '';
       if (/AccessDenied|Forbidden/.test(name))
         throw new AgentCoreSecurityError('RUNTIME_FORBIDDEN');
       if (/UnrecognizedClient|InvalidSignature|Unauthorized/.test(name))
         throw new AgentCoreSecurityError('RUNTIME_UNAUTHENTICATED');
-      throw cause;
+      throw mapRuntimeInvocationError(name);
+    } finally {
+      clearTimeout(timeout);
     }
   }
+}
+
+export async function readRuntimeResponse(body: unknown, maximumBytes = MAX_RUNTIME_RESPONSE_BYTES): Promise<string> {
+  if (!body) return '';
+  if (isAsyncIterable(body)) {
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for await (const chunk of body) {
+      const bytes = typeof chunk === 'string' ? new TextEncoder().encode(chunk) : new Uint8Array(chunk);
+      total += bytes.byteLength;
+      if (total > maximumBytes) throw new RuntimeInvocationError('RUNTIME_RESPONSE_TOO_LARGE');
+      chunks.push(bytes);
+    }
+    return new TextDecoder('utf-8', { fatal: true }).decode(concatenate(chunks, total));
+  }
+  if (typeof body === 'object' && body !== null && 'transformToString' in body) {
+    const text = await (body as { transformToString(): Promise<string> }).transformToString();
+    if (Buffer.byteLength(text, 'utf8') > maximumBytes)
+      throw new RuntimeInvocationError('RUNTIME_RESPONSE_TOO_LARGE');
+    return text;
+  }
+  throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Array | string> {
+  return typeof value === 'object' && value !== null && Symbol.asyncIterator in value;
+}
+
+function concatenate(chunks: Uint8Array[], total: number): Uint8Array {
+  const value = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    value.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return value;
+}
+
+function mapRuntimeInvocationError(name: string): RuntimeInvocationError {
+  const code: RuntimeInvocationErrorCode = /ValidationException/.test(name)
+    ? 'RUNTIME_INVALID_REQUEST'
+    : /ServiceQuotaExceeded/.test(name)
+      ? 'RUNTIME_QUOTA_EXCEEDED'
+      : /ResourceNotFound/.test(name)
+        ? 'RUNTIME_NOT_FOUND'
+        : /RetryableConflict/.test(name)
+          ? 'RUNTIME_CONFLICT'
+          : /RuntimeClientError/.test(name)
+            ? 'RUNTIME_CLIENT_ERROR'
+            : /Throttling/.test(name)
+              ? 'RUNTIME_THROTTLED'
+              : 'RUNTIME_UNAVAILABLE';
+  return new RuntimeInvocationError(code);
 }

@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { runtimeInvocationRequestSchema, runtimeResponseSchema, type RuntimeResponse } from '@agent-launchpad/schemas';
 
 export const DEFAULT_PORT = 8080;
 export const MAX_REQUEST_BODY_BYTES = 16 * 1024;
 
 export type HealthStatus = 'Healthy' | 'HealthyBusy';
-export type InvocationHandler = (prompt: string) => Promise<string> | string;
+export type InvocationHandler = (prompt: string) => Promise<RuntimeResponse> | RuntimeResponse;
 
 export interface RuntimeOptions {
   readonly getHealthStatus?: () => HealthStatus;
@@ -113,21 +114,10 @@ async function parseInvocationRequest(request: IncomingMessage): Promise<string>
     throw new RequestError(400, 'INVALID_JSON', 'Request body must contain valid JSON.');
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new RequestError(400, 'INVALID_REQUEST', 'Request body must be a JSON object.');
-  }
-
-  const prompt = (parsed as Record<string, unknown>).prompt;
-  if (typeof prompt !== 'string') {
-    throw new RequestError(400, 'INVALID_REQUEST', 'prompt must be a string.');
-  }
-
-  const normalizedPrompt = prompt.trim();
-  if (normalizedPrompt.length === 0) {
-    throw new RequestError(400, 'INVALID_REQUEST', 'prompt must not be empty.');
-  }
-
-  return normalizedPrompt;
+  const validated = runtimeInvocationRequestSchema.safeParse(parsed);
+  if (!validated.success)
+    throw new RequestError(400, 'INVALID_REQUEST', 'prompt must be a non-empty string.');
+  return validated.data.prompt;
 }
 
 export function createRuntimeServer(options: RuntimeOptions = {}): Server {
@@ -156,8 +146,8 @@ export function createRuntimeServer(options: RuntimeOptions = {}): Server {
             throw new RequestError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.');
           }
           const prompt = await parseInvocationRequest(request);
-          const result = await invoke(prompt);
-          sendJson(response, 200, { result });
+          const result = runtimeResponseSchema.parse(await invoke(prompt));
+          sendJson(response, 200, result);
           return;
         }
 

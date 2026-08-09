@@ -453,6 +453,32 @@ export const runtimeVersionSchema = z
   })
   .strict();
 
+/** Stable data-plane contract shared by the Runtime, control API, and operator playground. */
+export const runtimeInvocationRequestSchema = z
+  .object({ prompt: z.string().trim().min(1).max(8_000) })
+  .strict();
+
+export const toolActivitySchema = z
+  .object({
+    tool: z.enum(['get_order', 'search_orders', 'create_support_ticket', 'process_refund']),
+    status: z.enum(['SUCCEEDED', 'FAILED', 'DENIED']),
+    reasonCode: z.enum(['POLICY_DENIED']).optional()
+  })
+  .strict();
+
+export const runtimeResponseSchema = z
+  .object({ result: z.string().trim().min(1).max(32_000), toolActivity: z.array(toolActivitySchema) })
+  .strict();
+
+export const playgroundInvokeRequestSchema = z
+  .object({
+    prompt: z.string().trim().min(1).max(8_000),
+    sessionId: z.string().uuid().optional()
+  })
+  .strict();
+
+export const playgroundInvokeResponseSchema = runtimeResponseSchema.extend({ sessionId: z.string().uuid() });
+
 /** Safe control-plane view for the deployment lifecycle UI. Operational workflow internals stay server-side. */
 export const deploymentDetailSchema = z
   .object({
@@ -512,6 +538,11 @@ export type Deployment = z.infer<typeof deploymentSchema>;
 export type DeploymentEvent = z.infer<typeof deploymentEventSchema>;
 export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
 export type RuntimeVersion = z.infer<typeof runtimeVersionSchema>;
+export type RuntimeInvocationRequest = z.infer<typeof runtimeInvocationRequestSchema>;
+export type RuntimeResponse = z.infer<typeof runtimeResponseSchema>;
+export type ToolActivity = z.infer<typeof toolActivitySchema>;
+export type PlaygroundInvokeRequest = z.infer<typeof playgroundInvokeRequestSchema>;
+export type PlaygroundInvokeResponse = z.infer<typeof playgroundInvokeResponseSchema>;
 export type DeploymentDetail = z.infer<typeof deploymentDetailSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;

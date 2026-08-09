@@ -16,6 +16,8 @@ import {
   pageQuerySchema,
   tenantIdSchema,
   updateAgentRequestSchema,
+  playgroundInvokeRequestSchema,
+  playgroundInvokeResponseSchema,
   type Agent,
   type AwsConnection,
   type Deployment,
@@ -35,6 +37,12 @@ import {
   type Page
 } from '@agent-launchpad/aws';
 import type { CustomerRoleAssumer } from '@agent-launchpad/aws';
+import {
+  AgentCoreSecurityError,
+  AgentRuntimeInvoker,
+  RuntimeInvocationError,
+  type AgentRuntimeInvocationClient
+} from '@agent-launchpad/aws';
 
 export interface AuthenticatedUser {
   readonly id: string;
@@ -178,6 +186,33 @@ function error(requestId: string, cause: unknown): HttpResponse {
   });
 }
 
+function runtimeInvocationApiError(cause: unknown): ApiError {
+  if (cause instanceof ApiError) return cause;
+  if (cause instanceof AgentCoreSecurityError)
+    return new ApiError(
+      403,
+      'RUNTIME_FORBIDDEN',
+      'The deployed agent can no longer be invoked with the configured AWS access.'
+    );
+  if (!(cause instanceof RuntimeInvocationError))
+    return new ApiError(503, 'RUNTIME_UNAVAILABLE', 'The deployed agent is temporarily unavailable.');
+  const mapped: Record<RuntimeInvocationError['code'], readonly [number, string, string]> = {
+    RUNTIME_INVALID_REQUEST: [400, 'RUNTIME_INVALID_REQUEST', 'The deployed agent rejected this request.'],
+    RUNTIME_QUOTA_EXCEEDED: [429, 'RUNTIME_QUOTA_EXCEEDED', 'The deployed agent is temporarily busy. Try again shortly.'],
+    RUNTIME_FORBIDDEN: [403, 'RUNTIME_FORBIDDEN', 'The deployed agent can no longer be invoked with the configured AWS access.'],
+    RUNTIME_NOT_FOUND: [404, 'RUNTIME_NOT_FOUND', 'The deployed Runtime could not be found. A redeployment may be required.'],
+    RUNTIME_CONFLICT: [409, 'RUNTIME_CONFLICT', 'The deployed agent is being updated. Try again shortly.'],
+    RUNTIME_CLIENT_ERROR: [502, 'RUNTIME_CLIENT_ERROR', 'The deployed agent could not complete the request.'],
+    RUNTIME_THROTTLED: [429, 'RUNTIME_THROTTLED', 'The deployed agent is temporarily busy. Try again shortly.'],
+    RUNTIME_UNAVAILABLE: [503, 'RUNTIME_UNAVAILABLE', 'The deployed agent is temporarily unavailable.'],
+    RUNTIME_TIMEOUT: [504, 'RUNTIME_TIMEOUT', 'The agent did not complete the request in time. The request may already have triggered a tool action, so verify the result before retrying.'],
+    INVALID_RUNTIME_RESPONSE: [502, 'INVALID_RUNTIME_RESPONSE', 'The deployed agent returned an invalid response.'],
+    RUNTIME_RESPONSE_TOO_LARGE: [502, 'RUNTIME_RESPONSE_TOO_LARGE', 'The deployed agent returned an invalid response.']
+  };
+  const [statusCode, code, message] = mapped[cause.code];
+  return new ApiError(statusCode, code, message);
+}
+
 function asConflict(cause: unknown): never {
   if (
     cause instanceof Error &&
@@ -205,7 +240,8 @@ export class ControlApi {
     private readonly clock: () => Date = () => new Date(),
     private readonly connections: AwsConnectionConfiguration = defaultConnectionConfiguration,
     private readonly customerRoleAssumer?: CustomerRoleAssumer,
-    private readonly workflowStarter?: DeploymentWorkflowStarter
+    private readonly workflowStarter?: DeploymentWorkflowStarter,
+    private readonly runtimeInvoker: AgentRuntimeInvocationClient = new AgentRuntimeInvoker()
   ) {}
 
   async handle(request: HttpRequest): Promise<HttpResponse> {
@@ -311,6 +347,8 @@ export class ControlApi {
       return this.updateAgent(context, request);
     if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/deploy')
       return this.deployAgent(context, request);
+    if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/invoke')
+      return this.invokeAgent(context, request);
     if (request.route === 'GET /tenants/{tenantId}/aws-connections') {
       const listed = await this.repository.listAwsConnections(context.tenantId, listOptions());
       return success(
@@ -685,6 +723,72 @@ export class ControlApi {
     );
     if (!agent) throw new ApiError(404, 'NOT_FOUND', 'The agent was not found.');
     return agent;
+  }
+
+  private async invokeAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const input = parse(playgroundInvokeRequestSchema, body(request));
+    const agent = await this.agent(context, request);
+    const [deployments, versions] = await Promise.all([
+      this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 }),
+      this.repository.listRuntimeVersions(context.tenantId, agent.id)
+    ]);
+    const deployment = deployments.items.find(
+      (value) =>
+        value.status === 'READY' &&
+        value.configurationRevision === agent.revision &&
+        value.snapshot.awsConnectionId === agent.configuration.deploymentTarget.awsConnectionId
+    );
+    const version = versions.find(
+      (value) =>
+        value.state === 'READY' &&
+        value.runtimeArn === agent.runtimeArn &&
+        value.runtimeVersion === agent.runtimeVersion &&
+        value.deploymentId === deployment?.id &&
+        value.endpointName === 'production' &&
+        value.endpointLiveVersion === agent.runtimeVersion
+    );
+    const connection = deployment
+      ? await this.repository.getAwsConnection(context.tenantId, deployment.snapshot.awsConnectionId)
+      : undefined;
+    if (
+      !deployment ||
+      !version ||
+      !agent.runtimeArn ||
+      !agent.runtimeVersion ||
+      agent.runtimeEndpointName !== 'production' ||
+      !agent.runtimeEndpoint ||
+      !connection ||
+      connection.status !== 'VERIFIED' ||
+      connection.accountId !== deployment.snapshot.accountId ||
+      connection.region !== deployment.snapshot.region
+    )
+      throw new ApiError(
+        409,
+        'PLAYGROUND_NOT_READY',
+        'The deployed production Runtime is not ready. Deploy or promote the agent first.'
+      );
+    if (!this.customerRoleAssumer)
+      throw new ApiError(503, 'RUNTIME_UNAVAILABLE', 'Runtime invocation is not configured.');
+    try {
+      const credentials = await this.customerRoleAssumer.assumeCustomerRole({
+        roleArn: connection.roleArn,
+        externalId: connection.externalId,
+        sessionName: `playground-${agent.id}-${context.userId}`.slice(0, 64)
+      });
+      const runtimeSessionId = input.sessionId ?? randomUUID();
+      const result = await this.runtimeInvoker.invoke({
+        runtimeArn: agent.runtimeArn,
+        qualifier: 'production',
+        sessionId: runtimeSessionId,
+        payload: { prompt: input.prompt },
+        credentials,
+        connection
+      });
+      return success(playgroundInvokeResponseSchema.parse({ ...result, sessionId: runtimeSessionId }));
+    } catch (cause) {
+      throw runtimeInvocationApiError(cause);
+    }
   }
 
   private async createAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {

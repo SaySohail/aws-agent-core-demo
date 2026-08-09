@@ -18,7 +18,7 @@ export async function startRuntime(): Promise<void> {
       config.toolTimeoutMs
     )
   );
-  const server = createRuntimeServer({ invoke: (prompt) => agent.invoke(prompt) });
+  const server = createRuntimeServer({ invoke: (prompt) => agent.invokeWithActivity(prompt) });
 
   await listen(server, port);
   console.log(JSON.stringify({ event: 'runtime_started', port }));

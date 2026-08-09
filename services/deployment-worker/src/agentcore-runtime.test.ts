@@ -3,7 +3,8 @@ import test from 'node:test';
 import {
   agentCoreClientToken,
   agentCoreRuntimeName,
-  PRODUCTION_RUNTIME_ENDPOINT
+  PRODUCTION_RUNTIME_ENDPOINT,
+  runtimeMetadataConfiguration
 } from './agentcore-runtime.js';
 
 test('runtime name is stable and derives only from the immutable agent id', () => {
@@ -29,4 +30,5 @@ test('client tokens are deterministic, operation-scoped, and production endpoint
   );
   assert.match(agentCoreClientToken(input), /^al-update-[a-f0-9]{64}$/);
   assert.equal(PRODUCTION_RUNTIME_ENDPOINT, 'production');
+  assert.deepEqual(runtimeMetadataConfiguration, { requireMMDSV2: true });
 });
