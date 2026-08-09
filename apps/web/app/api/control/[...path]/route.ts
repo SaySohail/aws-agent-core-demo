@@ -17,7 +17,10 @@ async function forward(request: NextRequest, segments: string[]) {
     method: request.method,
     headers: {
       authorization: `Bearer ${token}`,
-      ...(request.headers.get('content-type') ? { 'content-type': 'application/json' } : {})
+      ...(request.headers.get('content-type') ? { 'content-type': 'application/json' } : {}),
+      ...(request.headers.get('idempotency-key')
+        ? { 'idempotency-key': request.headers.get('idempotency-key')! }
+        : {})
     },
     ...(request.method === 'GET' ? {} : { body: await request.text() }),
     cache: 'no-store'

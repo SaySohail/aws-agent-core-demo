@@ -217,6 +217,12 @@ export const deploymentStageSchema = z.enum([
   'HEALTH_CHECKING',
   'PROMOTING_ENDPOINT',
   'WAITING_FOR_ENDPOINT',
+  'ROLLBACK_VALIDATING',
+  'ROLLBACK_VERIFYING_TARGET',
+  'ROLLBACK_UPDATING_ENDPOINT',
+  'ROLLBACK_WAITING_FOR_ENDPOINT',
+  'ROLLBACK_HEALTH_CHECKING',
+  'ROLLBACK_REVERTING_ENDPOINT',
   'READY',
   'FAILED'
 ]);
@@ -356,6 +362,11 @@ export const deploymentSchema = z.object({
   id: deploymentIdSchema,
   tenantId: tenantIdSchema,
   agentId: agentIdSchema,
+  operationType: z.enum(['DEPLOY', 'ROLLBACK']).optional(),
+  /** Captured from the production endpoint before an endpoint-only rollback. */
+  fromRuntimeVersion: nonEmptyString.max(100).optional(),
+  targetRuntimeVersion: nonEmptyString.max(100).optional(),
+  compensationStatus: z.enum(['SUCCEEDED', 'FAILED']).optional(),
   status: deploymentStatusSchema,
   stage: deploymentStageSchema,
   requestedBy: nonEmptyString.max(256),
@@ -444,12 +455,16 @@ export const runtimeVersionSchema = z
     artifactId: agentArtifactIdSchema,
     artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
     configurationRevision: z.number().int().positive(),
+    /** Stable deployment-input fingerprint; mutable endpoint state never changes this value. */
+    compatibilityFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     workloadIdentityArn: nonEmptyString.max(2048),
     state: z.enum(['CREATING', 'UPDATING', 'READY', 'FAILED']),
     endpointName: nonEmptyString.max(128).optional(),
     endpointArn: nonEmptyString.max(2048).optional(),
     endpointTargetVersion: nonEmptyString.max(100).optional(),
     endpointLiveVersion: nonEmptyString.max(100).optional(),
+    /** Operational promotion evidence; the immutable Runtime identity remains unchanged. */
+    productionPromotedAt: timestampSchema.optional(),
     createdAt: timestampSchema,
     updatedAt: timestampSchema
   })
@@ -481,6 +496,11 @@ export const playgroundInvokeRequestSchema = z
     prompt: z.string().trim().min(1).max(8_000),
     sessionId: z.string().uuid().optional()
   })
+  .strict();
+
+/** The server resolves all Runtime and endpoint identifiers from trusted Agent metadata. */
+export const rollbackRequestSchema = z
+  .object({ targetRuntimeVersion: nonEmptyString.max(100) })
   .strict();
 
 export const playgroundInvokeResponseSchema = runtimeResponseSchema.extend({
@@ -601,6 +621,7 @@ export type RuntimeInvocationRequest = z.infer<typeof runtimeInvocationRequestSc
 export type RuntimeResponse = z.infer<typeof runtimeResponseSchema>;
 export type ToolActivity = z.infer<typeof toolActivitySchema>;
 export type PlaygroundInvokeRequest = z.infer<typeof playgroundInvokeRequestSchema>;
+export type RollbackRequest = z.infer<typeof rollbackRequestSchema>;
 export type PlaygroundInvokeResponse = z.infer<typeof playgroundInvokeResponseSchema>;
 export type DeploymentDetail = z.infer<typeof deploymentDetailSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;

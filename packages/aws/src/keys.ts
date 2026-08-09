@@ -58,6 +58,9 @@ export const controlPlaneKeys = {
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `RUNTIME_VERSION#${runtimeVersionIdSchema.parse(id)}`
   }),
+  runtimeVersionsByAgent: (tenantId: string, agentId: string) => ({
+    gsi4pk: `TENANT#${tenantIdSchema.parse(tenantId)}#AGENT#${agentIdSchema.parse(agentId)}`
+  }),
   audit: (tenantId: string, createdAt: string, id: string) => ({
     pk: `TENANT#${tenantIdSchema.parse(tenantId)}`,
     sk: `AUDIT#${createdAt}#${auditEventIdSchema.parse(id)}`

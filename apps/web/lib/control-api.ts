@@ -46,6 +46,28 @@ export interface Page<T> {
   };
 }
 
+/** Safe, browser-facing projection of an immutable AgentCore Runtime version. */
+export interface AgentVersionHistoryItem {
+  readonly runtimeVersion: string;
+  readonly status: 'CREATING' | 'UPDATING' | 'READY' | 'FAILED';
+  readonly artifactId: string;
+  readonly artifactSha256: string;
+  readonly configurationRevision: number;
+  readonly deploymentId: string;
+  readonly createdAt: string;
+  readonly deployedAt?: string;
+  readonly currentProduction: boolean;
+  readonly previouslyProduction: boolean;
+  readonly productionPromotedAt?: string;
+  readonly rollbackEligible: boolean;
+  readonly rollbackUnavailableReason?: string;
+}
+
+export interface RollbackResponse {
+  readonly deploymentId: string;
+  readonly status: Deployment['status'];
+}
+
 export interface AuthenticatedUser {
   readonly id: string;
   readonly email?: string;
@@ -194,7 +216,17 @@ export function createControlApiClient(options: ControlApiClientOptions) {
       metrics: (tenantId: string, agentId: string) =>
         request<AgentMetricsSnapshot | { readonly availability: 'UNAVAILABLE' }>(
           `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/metrics`
-        )
+        ),
+      versions: (tenantId: string, agentId: string, query?: PageQuery) =>
+        requestPage<AgentVersionHistoryItem>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/versions${queryString(query)}`
+        ),
+      rollback: (tenantId: string, agentId: string, targetRuntimeVersion: string, idempotencyKey: string) =>
+        request<RollbackResponse>(`/tenants/${segment(tenantId)}/agents/${segment(agentId)}/rollback`, {
+          method: 'POST',
+          body: { targetRuntimeVersion },
+          headers: { 'idempotency-key': idempotencyKey }
+        })
     },
     awsConnections: {
       list: (tenantId: string, query?: PageQuery) =>

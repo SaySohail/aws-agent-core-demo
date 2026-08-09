@@ -58,6 +58,12 @@ const stageLabels: Record<DeploymentStage, string> = {
   HEALTH_CHECKING: 'Verify runtime health',
   PROMOTING_ENDPOINT: 'Promote production endpoint',
   WAITING_FOR_ENDPOINT: 'Wait for production endpoint',
+  ROLLBACK_VALIDATING: 'Validate rollback',
+  ROLLBACK_VERIFYING_TARGET: 'Verify rollback target',
+  ROLLBACK_UPDATING_ENDPOINT: 'Update production endpoint',
+  ROLLBACK_WAITING_FOR_ENDPOINT: 'Wait for production endpoint',
+  ROLLBACK_HEALTH_CHECKING: 'Verify rollback health',
+  ROLLBACK_REVERTING_ENDPOINT: 'Restore production endpoint',
   READY: 'Deployment ready',
   FAILED: 'Deployment failed'
 };

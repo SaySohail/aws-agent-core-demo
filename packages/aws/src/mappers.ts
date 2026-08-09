@@ -29,6 +29,12 @@ import { controlPlaneKeys } from './keys.js';
 
 type Item = Record<string, unknown>;
 
+function reverseTimestamp(value: string): string {
+  const time = Date.parse(value);
+  if (Number.isNaN(time)) throw new Error('Runtime version timestamp must be valid.');
+  return String(9_999_999_999_999 - time).padStart(13, '0');
+}
+
 export class PersistenceValidationError extends Error {
   public constructor(entity: string) {
     super(`Persisted ${entity} record did not match its domain schema.`);
@@ -105,6 +111,8 @@ export const toPersistence = {
     return {
       ...runtimeVersionSchema.parse(value),
       ...controlPlaneKeys.runtimeVersion(value.tenantId, value.id),
+      ...controlPlaneKeys.runtimeVersionsByAgent(value.tenantId, value.agentId),
+      gsi4sk: `${reverseTimestamp(value.createdAt)}#${value.runtimeVersion}#${value.id}`,
       entityType: 'RUNTIME_VERSION'
     };
   },

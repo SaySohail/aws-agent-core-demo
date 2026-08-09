@@ -48,6 +48,9 @@ export interface RuntimeDeploymentPort {
   getProductionEndpointStatus(
     context: DeploymentCommandInput
   ): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  rollbackProductionEndpoint(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getRollbackStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  checkRollbackHealth(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
 export interface DependencyProvisioner {
@@ -91,6 +94,7 @@ export class DeploymentWorker {
     input: DeploymentCommandInput
   ): Promise<{ status: 'PENDING' | 'READY' | 'FAILED' }> {
     const deployment = await this.deployment(input);
+    if (deployment.operationType === 'ROLLBACK') return this.rollback(stage, input);
     switch (stage) {
       case 'VALIDATING':
         return this.validate(deployment);
@@ -139,12 +143,41 @@ export class DeploymentWorker {
       case 'READY':
       case 'FAILED':
       case 'QUEUED':
+      case 'ROLLBACK_VALIDATING':
+      case 'ROLLBACK_VERIFYING_TARGET':
+      case 'ROLLBACK_UPDATING_ENDPOINT':
+      case 'ROLLBACK_WAITING_FOR_ENDPOINT':
+      case 'ROLLBACK_HEALTH_CHECKING':
+      case 'ROLLBACK_REVERTING_ENDPOINT':
         throw new DeploymentError(
           'INVALID_STAGE',
           stage,
           false,
           'Terminal stages are not worker commands.'
         );
+    }
+  }
+
+  private async rollback(stage: DeploymentStage, input: DeploymentCommandInput) {
+    switch (stage) {
+      case 'DEPLOYING_RUNTIME': return { status: await this.dependencies.runtime.rollbackProductionEndpoint(input) };
+      case 'WAITING_FOR_RUNTIME': return { status: await this.dependencies.runtime.getRollbackStatus(input) };
+      case 'HEALTH_CHECKING': return { status: await this.dependencies.runtime.checkRollbackHealth(input) };
+      case 'VALIDATING':
+      case 'VERIFYING_CUSTOMER_ACCESS':
+      case 'PREFLIGHT_REGION':
+      case 'PREFLIGHT_MODEL':
+      case 'PREFLIGHT_IAM':
+      case 'PREFLIGHT_STORAGE':
+      case 'PREFLIGHT_AGENTCORE':
+      case 'ENSURING_ARTIFACT':
+      case 'PROVISIONING_DEPENDENCIES':
+      case 'WAITING_FOR_DEPENDENCIES':
+      case 'PROMOTING_ENDPOINT':
+      case 'WAITING_FOR_ENDPOINT':
+        return { status: 'READY' as const };
+      default:
+        throw new DeploymentError('INVALID_STAGE', stage, false, 'Terminal stages are not worker commands.');
     }
   }
 

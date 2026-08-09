@@ -220,6 +220,20 @@ export class ControlPlaneRepository {
     );
     return result.items.filter((item) => item.agentId === agentId);
   }
+  async listRuntimeVersionsPage(
+    tenantId: string,
+    agentId: string,
+    options: ListOptions = {}
+  ): Promise<Page<RuntimeVersion>> {
+    return this.list(
+      'RuntimeVersionsByAgent',
+      'gsi4pk',
+      controlPlaneKeys.runtimeVersionsByAgent(tenantId, agentId).gsi4pk,
+      undefined,
+      options,
+      fromPersistence.runtimeVersion
+    );
+  }
   /** Mutable operational status only; immutable identity/artifact fields cannot be replaced. */
   async updateRuntimeVersionStatus(
     tenantId: string,
@@ -228,7 +242,11 @@ export class ControlPlaneRepository {
       Partial<
         Pick<
           RuntimeVersion,
-          'endpointName' | 'endpointArn' | 'endpointTargetVersion' | 'endpointLiveVersion'
+          | 'endpointName'
+          | 'endpointArn'
+          | 'endpointTargetVersion'
+          | 'endpointLiveVersion'
+          | 'productionPromotedAt'
         >
       >
   ): Promise<void> {
@@ -528,7 +546,7 @@ export class ControlPlaneRepository {
   }
   private async list<T>(
     indexName: string | undefined,
-    partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk' | 'gsi3pk',
+    partitionKey: 'pk' | 'gsi1pk' | 'gsi2pk' | 'gsi3pk' | 'gsi4pk',
     partitionValue: string,
     sortKeyPrefix: string | undefined,
     options: ListOptions,

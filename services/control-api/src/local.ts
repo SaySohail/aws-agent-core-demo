@@ -62,7 +62,9 @@ async function createTable(): Promise<void> {
         { AttributeName: 'gsi2pk', AttributeType: 'S' },
         { AttributeName: 'gsi2sk', AttributeType: 'S' },
         { AttributeName: 'gsi3pk', AttributeType: 'S' },
-        { AttributeName: 'gsi3sk', AttributeType: 'S' }
+        { AttributeName: 'gsi3sk', AttributeType: 'S' },
+        { AttributeName: 'gsi4pk', AttributeType: 'S' },
+        { AttributeName: 'gsi4sk', AttributeType: 'S' }
       ],
       KeySchema: [
         { AttributeName: 'pk', KeyType: 'HASH' },
@@ -90,6 +92,14 @@ async function createTable(): Promise<void> {
           KeySchema: [
             { AttributeName: 'gsi3pk', KeyType: 'HASH' },
             { AttributeName: 'gsi3sk', KeyType: 'RANGE' }
+          ],
+          Projection: { ProjectionType: 'ALL' }
+        },
+        {
+          IndexName: 'RuntimeVersionsByAgent',
+          KeySchema: [
+            { AttributeName: 'gsi4pk', KeyType: 'HASH' },
+            { AttributeName: 'gsi4sk', KeyType: 'RANGE' }
           ],
           Projection: { ProjectionType: 'ALL' }
         }
@@ -179,6 +189,16 @@ function route(
     [
       'GET /tenants/{tenantId}/agents/{agentId}/deployments',
       /^\/tenants\/([^/]+)\/agents\/([^/]+)\/deployments$/,
+      ['tenantId', 'agentId']
+    ],
+    [
+      'GET /tenants/{tenantId}/agents/{agentId}/versions',
+      /^\/tenants\/([^/]+)\/agents\/([^/]+)\/versions$/,
+      ['tenantId', 'agentId']
+    ],
+    [
+      'POST /tenants/{tenantId}/agents/{agentId}/rollback',
+      /^\/tenants\/([^/]+)\/agents\/([^/]+)\/rollback$/,
       ['tenantId', 'agentId']
     ],
     [

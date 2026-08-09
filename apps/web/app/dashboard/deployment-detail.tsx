@@ -25,6 +25,7 @@ import {
   presentedStageState,
   stageLabel
 } from './deployment-presentation';
+import { VersionHistory } from './version-history';
 
 const api = () =>
   createControlApiClient({
@@ -282,6 +283,8 @@ export function DeploymentDetail({ deploymentId }: Readonly<{ deploymentId: stri
           )}
         </VStack>
       </Section>
+
+      <VersionHistory agentId={deployment.agentId} />
 
       {deployment.status === 'READY' || candidate || detail.production.endpointName ? (
         <Section padding={4} dividers={['bottom']}>

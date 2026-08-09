@@ -61,6 +61,12 @@ export class ControlPlaneStack extends Stack {
       sortKey: { name: 'gsi3sk', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL
     });
+    controlPlaneTable.addGlobalSecondaryIndex({
+      indexName: 'RuntimeVersionsByAgent',
+      partitionKey: { name: 'gsi4pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'gsi4sk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL
+    });
 
     // Query a tenant agent's deployment history in chronological order without a table scan:
     // gsi2pk = TENANT#<tenantId>#AGENT#<agentId>, gsi2sk = <createdAt>#<deploymentId>.
@@ -415,6 +421,8 @@ export class ControlPlaneStack extends Stack {
         path: '/tenants/{tenantId}/agents/{agentId}/deployments',
         methods: [apigwv2.HttpMethod.GET]
       },
+      { path: '/tenants/{tenantId}/agents/{agentId}/versions', methods: [apigwv2.HttpMethod.GET] },
+      { path: '/tenants/{tenantId}/agents/{agentId}/rollback', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/invoke', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/executions', methods: [apigwv2.HttpMethod.GET] },

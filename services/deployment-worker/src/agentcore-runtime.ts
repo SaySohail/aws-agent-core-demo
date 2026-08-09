@@ -60,6 +60,25 @@ export function agentCoreClientToken(input: {
   return `al-${input.operation}-${digest}`;
 }
 
+export function rollbackClientToken(operationId: string, fromVersion: string, targetVersion: string): string {
+  return `al-rollback-${createHash('sha256').update(`${operationId}|${fromVersion}|${targetVersion}`).digest('hex')}`;
+}
+
+/** Stable contract identifier: only versioned deployment inputs, never clocks or endpoint state. */
+export function compatibilityFingerprint(deployment: Deployment): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        templateVersion: deployment.snapshot.templateVersion,
+        gateway: deployment.snapshot.gatewayUrl ?? '',
+        configurationRevision: deployment.configurationRevision,
+        capabilities: [...deployment.snapshot.capabilities].sort(),
+        guardrails: deployment.snapshot.guardrails
+      })
+    )
+    .digest('hex');
+}
+
 type ControlClient = Pick<BedrockAgentCoreControlClient, 'send'>;
 
 export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
@@ -152,6 +171,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
         artifactId: resolved.artifact.id,
         artifactSha256: resolved.artifact.sha256,
         configurationRevision: context.configurationRevision,
+        compatibilityFingerprint: compatibilityFingerprint(resolved.deployment),
         workloadIdentityArn,
         state: resolved.agent.runtimeId ? 'UPDATING' : 'CREATING',
         createdAt: timestamp,
@@ -326,6 +346,7 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
         endpointArn: endpoint.agentRuntimeEndpointArn,
         endpointTargetVersion: endpoint.targetVersion,
         endpointLiveVersion: endpoint.liveVersion,
+        productionPromotedAt: updatedAt,
         updatedAt
       });
       await this.repository.promoteAgentRuntime({
@@ -343,6 +364,47 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
     } catch (cause) {
       throw this.mapError(cause, 'WAITING_FOR_ENDPOINT');
     }
+  }
+
+  async rollbackProductionEndpoint(context: DeploymentCommandInput) {
+    const resolved = await this.resolve(context);
+    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
+      if (endpoint.status !== 'READY' || endpoint.liveVersion !== resolved.deployment.fromRuntimeVersion)
+        throw new DeploymentError('PRODUCTION_ENDPOINT_DRIFT', 'ROLLBACK_VALIDATING', false, 'Production endpoint state changed.');
+      const runtime = await client.send(new GetAgentRuntimeCommand({ agentRuntimeId: target.runtimeId, agentRuntimeVersion: target.runtimeVersion }));
+      if (runtime.status !== 'READY') throw new DeploymentError('ROLLBACK_TARGET_NOT_READY', 'ROLLBACK_VERIFYING_TARGET', false, 'Rollback target is not ready.');
+      await client.send(new UpdateAgentRuntimeEndpointCommand({
+        agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT, agentRuntimeVersion: target.runtimeVersion,
+        clientToken: rollbackClientToken(context.deploymentId, resolved.deployment.fromRuntimeVersion!, target.runtimeVersion)
+      }));
+      return 'PENDING' as const;
+    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_UPDATING_ENDPOINT'); }
+  }
+
+  async getRollbackStatus(context: DeploymentCommandInput) {
+    const resolved = await this.resolve(context);
+    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
+      if (endpoint.status === 'UPDATE_FAILED' || endpoint.status === 'DELETING') return 'FAILED' as const;
+      return endpoint.status === 'READY' && endpoint.liveVersion === target.runtimeVersion ? 'READY' as const : 'PENDING' as const;
+    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_WAITING_FOR_ENDPOINT'); }
+  }
+
+  async checkRollbackHealth(context: DeploymentCommandInput) {
+    const resolved = await this.resolve(context);
+    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
+    try {
+      await this.invoker.invoke({ runtimeArn: target.runtimeArn, payload: { prompt: 'health check: respond briefly without tools' }, sessionId: `rollback-${context.deploymentId}`, credentials: await this.credentials(resolved.connection, resolved.deployment), connection: resolved.connection, qualifier: PRODUCTION_RUNTIME_ENDPOINT });
+      const updatedAt = this.now().toISOString();
+      await this.repository.updateRuntimeVersionStatus(context.tenantId, target.id, { state: 'READY', endpointName: PRODUCTION_RUNTIME_ENDPOINT, endpointLiveVersion: target.runtimeVersion, productionPromotedAt: updatedAt, updatedAt });
+      await this.repository.promoteAgentRuntime({ tenantId: context.tenantId, agentId: context.agentId, runtimeId: target.runtimeId, runtimeArn: target.runtimeArn, runtimeVersion: target.runtimeVersion, runtimeEndpoint: resolved.agent.runtimeEndpoint!, runtimeEndpointName: PRODUCTION_RUNTIME_ENDPOINT, runtimeWorkloadIdentityArn: target.workloadIdentityArn, updatedAt });
+      return 'READY' as const;
+    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_HEALTH_CHECKING'); }
   }
 
   private async resolve(context: DeploymentCommandInput) {
@@ -457,6 +519,12 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
         'No trusted runtime candidate was persisted.'
       );
     return candidate;
+  }
+  private rollbackTarget(versions: readonly RuntimeVersion[], deployment: Deployment, runtimeId: string | undefined) {
+    const target = versions.find((version) => version.runtimeVersion === deployment.targetRuntimeVersion);
+    if (!target || !runtimeId || target.runtimeId !== runtimeId || target.state !== 'READY' || !target.productionPromotedAt)
+      throw new DeploymentError('ROLLBACK_TARGET_NOT_FOUND', 'ROLLBACK_VERIFYING_TARGET', false, 'Trusted rollback target is unavailable.');
+    return target;
   }
   private validateResponse(
     runtimeArn: string,
