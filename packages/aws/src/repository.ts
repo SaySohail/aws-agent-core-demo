@@ -158,7 +158,16 @@ export class ControlPlaneRepository {
     changes: Partial<
       Pick<
         Agent,
-        'name' | 'model' | 'region' | 'status' | 'runtimeArn' | 'runtimeVersion' | 'runtimeEndpoint'
+        | 'name'
+        | 'model'
+        | 'region'
+        | 'status'
+        | 'runtimeArn'
+        | 'runtimeVersion'
+        | 'runtimeEndpoint'
+        | 'runtimeWorkloadIdentityArn'
+        | 'gatewayArn'
+        | 'gatewayWorkloadIdentityArn'
       >
     > &
       Pick<Agent, 'updatedAt'>
@@ -172,6 +181,9 @@ export class ControlPlaneRepository {
         runtimeArn: true,
         runtimeVersion: true,
         runtimeEndpoint: true,
+        runtimeWorkloadIdentityArn: true,
+        gatewayArn: true,
+        gatewayWorkloadIdentityArn: true,
         updatedAt: true
       })
       .partial()

@@ -33,3 +33,11 @@ the stack. Bucket access is TLS-only, versioned, KMS-encrypted, and public acces
 The only wildcard resources are documented inline in the synthesized policies: AgentCore create/list
 operations and X-Ray/CloudWatch metrics do not support a narrower resource ARN. Their action lists
 are deliberately small; metrics are constrained to the `bedrock-agentcore` namespace.
+
+The deployment role has only `bedrock-agentcore:InvokeAgentRuntime` for Runtime data-plane calls;
+it has no user-delegation or broad AgentCore invocation grant. Before an immutable Runtime ARN is
+known, that grant is limited to Agent Launchpad-tagged Runtimes in this account and region. The
+separate Runtime Execution Role can only invoke Agent Launchpad-tagged customer-support Gateways
+in this account and region with `bedrock-agentcore:InvokeGateway`. Gateway identifiers are created
+by the separate agent-template stack, so this tag-constrained pattern is the narrowest bootstrap-time
+scope. Neither role carries Gateway administration permission.

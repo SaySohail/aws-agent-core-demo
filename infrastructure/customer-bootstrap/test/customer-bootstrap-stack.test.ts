@@ -89,6 +89,25 @@ test('runtime role trusts AgentCore and has no broad Bedrock permission', () => 
   assert.ok(actions.includes('bedrock:InvokeModel'));
   assert.ok(actions.includes('bedrock:InvokeModelWithResponseStream'));
   assert.ok(!actions.includes('bedrock:*'));
+  assert.ok(actions.includes('bedrock-agentcore:InvokeGateway'));
+  assert.ok(!actions.some((action: string) => action === 'bedrock-agentcore:*'));
+  assert.ok(
+    !actions.some(
+      (action: string) =>
+        action.startsWith('bedrock-agentcore:') && action !== 'bedrock-agentcore:InvokeGateway'
+    )
+  );
+});
+
+test('deployment role receives only runtime invocation data-plane access', () => {
+  const template = synthesized();
+  const deploymentRole = roleByName(template, 'AgentLaunchpadDeploymentRole');
+  const actions = policyStatementsForRole(template, deploymentRole).flatMap(
+    (statement: Record<string, any>) => statement.Action
+  );
+  assert.ok(actions.includes('bedrock-agentcore:InvokeAgentRuntime'));
+  assert.ok(!actions.includes('bedrock-agentcore:InvokeAgentRuntimeForUser'));
+  assert.ok(!actions.includes('bedrock-agentcore:*'));
 });
 
 test('artifact storage is private, KMS encrypted, TLS-only, and role-scoped', () => {

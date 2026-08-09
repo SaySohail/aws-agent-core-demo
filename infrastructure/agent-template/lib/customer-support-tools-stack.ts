@@ -97,7 +97,19 @@ export class CustomerSupportToolsStack extends Stack {
       [table.tableArn]
     );
     const gatewayRole = new iam.Role(this, 'GatewayServiceRole', {
-      assumedBy: new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com'),
+      assumedBy: new iam.PrincipalWithConditions(
+        new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com'),
+        {
+          StringEquals: { 'aws:SourceAccount': cdk.Aws.ACCOUNT_ID },
+          ArnLike: {
+            'aws:SourceArn': Stack.of(this).formatArn({
+              service: 'bedrock-agentcore',
+              resource: 'gateway',
+              resourceName: '*'
+            })
+          }
+        }
+      ),
       description: 'AgentCore Gateway service role limited to support-tool Lambda invocation.'
     });
     gatewayRole.addToPolicy(

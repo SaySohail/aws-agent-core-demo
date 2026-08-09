@@ -18,6 +18,7 @@
   "dependencies": {
     "@agent-launchpad/schemas": "workspace:*",
     "@aws-sdk/client-dynamodb": "3.969.0",
+    "@aws-sdk/client-bedrock-agentcore": "3.1106.0",
     "@aws-sdk/client-s3": "3.969.0",
     "@aws-sdk/client-sts": "3.969.0",
     "@aws-sdk/lib-dynamodb": "3.969.0",

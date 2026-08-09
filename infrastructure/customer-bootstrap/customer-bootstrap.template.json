@@ -378,6 +378,39 @@
                   ]
                 ]
               }
+            },
+            {
+              "Action": "bedrock-agentcore:InvokeGateway",
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  },
+                  "aws:ResourceTag/ManagedBy": "AgentLaunchpad",
+                  "aws:ResourceTag/Purpose": "CustomerSupportTools"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":gateway/*"
+                  ]
+                ]
+              }
             }
           ],
           "Version": "2012-10-17"
@@ -448,6 +481,38 @@
               "Effect": "Allow",
               "Resource": {
                 "Fn::GetAtt": ["ArtifactBucket7410C9EF", "Arn"]
+              }
+            },
+            {
+              "Action": "bedrock-agentcore:InvokeAgentRuntime",
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  },
+                  "aws:ResourceTag/ManagedBy": "AgentLaunchpad"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":runtime/*"
+                  ]
+                ]
               }
             },
             {

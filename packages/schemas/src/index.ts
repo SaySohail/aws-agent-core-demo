@@ -188,6 +188,11 @@ export const agentSchema = z.object({
   runtimeArn: nonEmptyString.max(2048).optional(),
   runtimeVersion: nonEmptyString.max(100).optional(),
   runtimeEndpoint: nonEmptyString.max(2048).optional(),
+  /** Trusted AgentCore deployment response only; never browser-provided. */
+  runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
+  gatewayArn: nonEmptyString.max(2048).optional(),
+  /** Trusted AgentCore deployment response only; never browser-provided. */
+  gatewayWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema
 });
@@ -199,6 +204,9 @@ export const deploymentSchema = z.object({
   status: deploymentStatusSchema,
   requestedBy: nonEmptyString.max(256),
   runtimeVersion: nonEmptyString.max(100).optional(),
+  runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
+  gatewayArn: nonEmptyString.max(2048).optional(),
+  gatewayWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   createdAt: timestampSchema,
   startedAt: timestampSchema.optional(),
   completedAt: timestampSchema.optional(),

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { GatewayToolExecutor } from './gateway-tool-executor.js';
+import { GatewayMcpError } from './gateway-mcp-client.js';
 import { expectedGatewayToolNames } from './gateway-tool-names.js';
 import type { GatewayMcpClient } from './gateway-mcp-client.js';
 
@@ -41,4 +42,22 @@ test('fails closed when a required gateway tool is missing', async () => {
   });
   assert.equal(result.status, 'error');
   if (result.status === 'error') assert.equal(result.code, 'GATEWAY_TOOL_NOT_AVAILABLE');
+});
+
+test('keeps Gateway authorization failures separate from tool and order failures', async () => {
+  const client: GatewayMcpClient = {
+    listTools: async () => Object.values(expectedGatewayToolNames()).map((name) => ({ name })),
+    callTool: async () => {
+      throw new GatewayMcpError('GATEWAY_UNAUTHORIZED');
+    }
+  };
+  const result = await new GatewayToolExecutor(client).execute({
+    name: 'get_order',
+    input: { orderId: 'ORD-1023' }
+  });
+  assert.deepEqual(result, {
+    status: 'error',
+    code: 'GATEWAY_UNAUTHORIZED',
+    message: 'The support service could not complete the request.'
+  });
 });

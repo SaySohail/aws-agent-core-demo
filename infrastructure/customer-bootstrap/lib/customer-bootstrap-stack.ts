@@ -116,6 +116,28 @@ export class CustomerBootstrapStack extends Stack {
         resources: [foundationModelArn]
       })
     );
+    // Gateway IDs are created by the agent-template stack, so the exact ARN is not available
+    // at bootstrap time. AgentCore supports resource tags for InvokeGateway; scope the wildcard
+    // to this account/region and only Agent Launchpad customer-support Gateways.
+    runtimeExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock-agentcore:InvokeGateway'],
+        resources: [
+          Stack.of(this).formatArn({
+            service: 'bedrock-agentcore',
+            resource: 'gateway',
+            resourceName: '*'
+          })
+        ],
+        conditions: {
+          StringEquals: {
+            'aws:RequestedRegion': cdk.Aws.REGION,
+            'aws:ResourceTag/ManagedBy': 'AgentLaunchpad',
+            'aws:ResourceTag/Purpose': 'CustomerSupportTools'
+          }
+        }
+      })
+    );
 
     const deploymentRole = new iam.Role(this, 'DeploymentRole', {
       roleName: 'AgentLaunchpadDeploymentRole',
@@ -132,6 +154,24 @@ export class CustomerBootstrapStack extends Stack {
       new iam.PolicyStatement({
         actions: ['s3:GetBucketLocation', 's3:ListBucket'],
         resources: [artifactBucket.bucketArn]
+      })
+    );
+    deploymentRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+        resources: [
+          Stack.of(this).formatArn({
+            service: 'bedrock-agentcore',
+            resource: 'runtime',
+            resourceName: '*'
+          })
+        ],
+        conditions: {
+          StringEquals: {
+            'aws:RequestedRegion': cdk.Aws.REGION,
+            'aws:ResourceTag/ManagedBy': 'AgentLaunchpad'
+          }
+        }
       })
     );
     deploymentRole.addToPolicy(
