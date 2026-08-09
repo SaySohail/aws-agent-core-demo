@@ -2,83 +2,58 @@
 
 ## Result
 
-**FAIL — release/security gate is not approved.**
+**NOT READY**
 
-This remains fail-closed: no explicitly identified disposable cloud accounts, test users, or
-bootstrap identifiers were supplied to execute the real AWS gate. A skipped cloud run is not PASS.
+Run: 2026-08-09T10:48:37.553Z. Target accounts: not configured; no AWS call was made. No account was selected implicitly.
 
-This report records a local validation run of revision
-`e302c1f827d89615db8c93699691b6eb709a8a84` on 2026-08-09 (Asia/Calcutta).
-No AWS customer account, Cognito development user, CloudTrail trail, or disposable
-control-plane environment was configured. No cloud resources were created, updated, or deleted.
+| Gate | Result |
+| --- | --- |
+| Golden path | SKIPPED / NOT VALIDATED |
+| Tenant isolation | SKIPPED / NOT VALIDATED |
+| ExternalId | SKIPPED / NOT VALIDATED |
+| Runtime IAM | SKIPPED / NOT VALIDATED |
+| Gateway IAM | SKIPPED / NOT VALIDATED |
+| Policy | SKIPPED / NOT VALIDATED |
+| Deployment safety | SKIPPED / NOT VALIDATED |
+| Rollback | SKIPPED / NOT VALIDATED |
+| Cleanup isolation/recovery | SKIPPED / NOT VALIDATED |
+| Credential leakage | SKIPPED / NOT VALIDATED |
 
-## Automated evidence
+## Evidence
 
-| Category                  | Result                | Evidence                                                                                                                                             |
-| ------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package/install integrity | PASS                  | `pnpm install --frozen-lockfile`                                                                                                                     |
-| Lint                      | PASS                  | `pnpm lint`                                                                                                                                          |
-| Type safety               | PASS                  | `pnpm typecheck`                                                                                                                                     |
-| Unit/security tests       | PASS                  | `pnpm test`, `pnpm validate:security`                                                                                                                |
-| Build                     | PASS                  | `pnpm build`                                                                                                                                         |
-| CDK synthesis             | PASS                  | Bootstrap and agent-template synth; control-plane synth with explicit non-production placeholder account, Region, origin, and bootstrap-template URL |
-| Formatting                | PASS                  | `pnpm format:check`                                                                                                                                  |
-| AWS E2E                   | NOT RUN / FAIL-CLOSED | `pnpm validate:aws-e2e` refused because `AGENT_LAUNCHPAD_AWS_E2E=1` and required disposable-account identifiers were not supplied                    |
+| Test | Result | Evidence |
+| --- | --- | --- |
+| artifact_deployment | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| dependency_provisioning | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| runtime_ready | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| production_endpoint | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| playground_invocation | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| gateway_get_order | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| refund_policy_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| observability_evidence | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| second_runtime_version | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| rollback | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| undeploy | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| bootstrap_preserved | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| external_id_correct | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| external_id_missing_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| external_id_wrong_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| revoked_trust_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| runtime_unauthorized_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| runtime_unsigned_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| gateway_unauthorized_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| gateway_not_none | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| refund_threshold_denied_no_lambda | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| prompt_injection_refund_denied | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| tenant_a_cannot_access_b | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| deployment_idempotency | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| lifecycle_races | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| failed_candidate_not_production | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| rollback_failure_recovery | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| partial_cleanup_retry | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| agent_a_cleanup_preserves_b | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
+| no_credentials_leaked | SKIPPED / NOT VALIDATED | Refusing AWS E2E validation: set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly. |
 
-The local suite exercises tenant-partitioned repository/API reads, server-owned connection
-coordinates, idempotent deploy requests, lifecycle locking, artifact reproducibility and
-ZIP inspection, MMDSv2 request configuration, production endpoint qualification, IAM/SigV4
-invoker construction, policy-denial handling, tool-input validation, side-effect idempotency,
-observability fail-open behavior, and synthesized bootstrap/Gateway IAM and Cedar assertions.
+Critical findings open: 30
 
-## Security finding fixed
-
-**ExternalId-bearing bootstrap URL persisted in verified browser responses — fixed.**
-
-The control API previously generated `quickCreateUrl` for every connection state. That URL includes
-the CloudFormation ExternalId parameter and therefore exposed the ExternalId again after successful
-onboarding. Verified connection responses now omit `quickCreateUrl`; the URL is only returned while
-the connection is pending bootstrap. The API regression test proves the verified response contains
-neither `quickCreateUrl` nor the ExternalId.
-
-## Cloud validation prerequisites and limitations
-
-`pnpm validate:aws-e2e` requires all of the following before it will do anything:
-
-- `AGENT_LAUNCHPAD_AWS_E2E=1`
-- `AWS_E2E_CONTROL_PLANE_ACCOUNT_ID`
-- `AWS_E2E_CUSTOMER_ACCOUNT_A_ID`
-- `AWS_E2E_REGION`
-- `AWS_E2E_RUN_ID`
-
-It currently stops before mutation even with those settings. The checked-out implementation has
-mocked coverage for agent-specific provisioning and ownership-checked cleanup, but no cloud runner.
-Therefore it cannot yet validate the clean golden path, two-agent teardown preservation, or
-partial-cleanup recovery against AWS. Treating mocked paths as cloud proof would be misleading.
-
-No true Tenant A → Account A / Tenant B → Account B isolation result is claimed. The following
-release-blocking evidence remains uncollected against real identities/resources: STS wrong/missing
-ExternalId denial; revoked trust fail-closed deploy/invoke/rollback/undeploy; unsigned and unrelated
-IAM Runtime/Gateway denial; policy engine side-effect denial; immutable S3 VersionId deployment;
-candidate/rollback failure compensation; CloudTrail evidence; and cleanup ownership attacks.
-
-## Required follow-up before release
-
-1. Implement the explicit AWS E2E runner using two disposable customer accounts (or document a
-   single-account, separate-role emulation) and the required non-secret environment contract.
-2. Run the complete SAY-107 matrix, preserving only request IDs/timestamps/identity summaries in
-   its evidence.
-3. Rerun the command matrix after cloud evidence is collected.
-
-Until those items are complete, SAY-107 must remain **FAIL** and must not be used as release approval.
-
-## Runtime networking decision
-
-AgentCore Runtime currently uses `PUBLIC` networking intentionally for the demo: the managed Runtime
-needs a public service endpoint and does not receive browser traffic. Inbound invocation remains
-restricted to AWS IAM/SigV4; the application invokes only from the server using short-lived customer
-role credentials, validates the Runtime ARN against the connected account and Region, and prohibits
-browser/JWT/user-delegated Runtime invocation. `PUBLIC` therefore means network reachability, not
-anonymous access. The tradeoff is that this is not private VPC isolation; it remains appropriate only
-while the IAM-only demo threat model is accepted. No VPC change was made because no authorization
-defect was found.
+A `SKIPPED / NOT VALIDATED` result is not a pass. The command exits non-zero for any failed release-blocking test or incomplete required matrix.
