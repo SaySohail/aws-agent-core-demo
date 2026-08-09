@@ -17,5 +17,14 @@
   "devDependencies": {
     "esbuild": "0.28.1",
     "tsx": "4.20.6"
+  },
+  "dependencies": {
+    "@agent-launchpad/schemas": "workspace:*",
+    "@aws-crypto/sha256-js": "5.2.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1105.0",
+    "@aws-sdk/credential-provider-node": "3.972.78",
+    "@smithy/protocol-http": "5.5.16",
+    "@smithy/signature-v4": "5.6.12",
+    "zod": "3.24.1"
   }
 }

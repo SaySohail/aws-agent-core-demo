@@ -1,10 +1,24 @@
 import { closeServer, createRuntimeServer, listen, parsePort } from './server.js';
+import { BedrockConverseModelClient } from './agent/bedrock-model.js';
+import { CustomerSupportAgent } from './agent/customer-support-agent.js';
+import { loadCustomerSupportAgentConfig } from './agent/config.js';
+import { GatewayToolExecutor } from './tools/gateway-tool-executor.js';
+import { HttpGatewayMcpClient, SigV4GatewayTransport } from './tools/gateway-mcp-client.js';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 export async function startRuntime(): Promise<void> {
   const port = parsePort(process.env.PORT);
-  const server = createRuntimeServer();
+  const config = loadCustomerSupportAgentConfig();
+  const agent = new CustomerSupportAgent(
+    config,
+    new BedrockConverseModelClient(config.region),
+    new GatewayToolExecutor(
+      new HttpGatewayMcpClient(new SigV4GatewayTransport(config.gatewayUrl, config.region)),
+      config.toolTimeoutMs
+    )
+  );
+  const server = createRuntimeServer({ invoke: (prompt) => agent.invoke(prompt) });
 
   await listen(server, port);
   console.log(JSON.stringify({ event: 'runtime_started', port }));

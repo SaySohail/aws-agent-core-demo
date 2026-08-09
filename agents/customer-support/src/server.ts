@@ -11,6 +11,27 @@ export interface RuntimeOptions {
   readonly invoke?: InvocationHandler;
 }
 
+interface SafeInvocationError extends Error {
+  readonly code: string;
+}
+
+function isSafeInvocationError(error: unknown): error is SafeInvocationError {
+  return (
+    error instanceof Error &&
+    [
+      'MODEL_TIMEOUT',
+      'MODEL_THROTTLED',
+      'MODEL_UNAVAILABLE',
+      'INVALID_MODEL_RESPONSE',
+      'TOOL_UNAVAILABLE',
+      'TOOL_VALIDATION_ERROR',
+      'TOOL_EXECUTION_ERROR',
+      'TOOL_ITERATION_LIMIT',
+      'UNKNOWN_TOOL'
+    ].includes((error as SafeInvocationError).code)
+  );
+}
+
 class RequestError extends Error {
   public constructor(
     public readonly statusCode: number,
@@ -112,8 +133,7 @@ async function parseInvocationRequest(request: IncomingMessage): Promise<string>
 export function createRuntimeServer(options: RuntimeOptions = {}): Server {
   const getHealthStatus = options.getHealthStatus ?? (() => 'Healthy' as const);
   const invoke =
-    options.invoke ??
-    ((prompt: string): string => `Agent Launchpad smoke runtime received: ${prompt}`);
+    options.invoke ?? (() => Promise.reject(new Error('Invocation handler is not configured.')));
 
   return createServer((request, response) => {
     void (async () => {
@@ -145,6 +165,12 @@ export function createRuntimeServer(options: RuntimeOptions = {}): Server {
       } catch (error) {
         if (error instanceof RequestError) {
           sendError(response, error);
+          return;
+        }
+
+        if (isSafeInvocationError(error)) {
+          const statusCode = error.code === 'MODEL_TIMEOUT' ? 504 : 503;
+          sendJson(response, statusCode, { error: { code: error.code, message: error.message } });
           return;
         }
 

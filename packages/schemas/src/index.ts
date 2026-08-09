@@ -18,6 +18,65 @@ export const deploymentIdSchema = prefixedIdSchema('dep_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
 export const agentTemplateIdSchema = prefixedIdSchema('tpl_');
 
+/** Customer-support tool contracts are shared by the agent and data-plane Lambda boundary. */
+export const supportOrderIdSchema = z
+  .string()
+  .trim()
+  .regex(/^ORD-[A-Z0-9]{4,32}$/, 'Expected an order ID like ORD-1023.');
+export const getOrderInputSchema = z.object({ orderId: supportOrderIdSchema }).strict();
+export const searchOrdersInputSchema = z
+  .object({ customerEmail: z.string().trim().email().max(254) })
+  .strict();
+export const createSupportTicketInputSchema = z
+  .object({
+    subject: z.string().trim().min(3).max(160),
+    description: z.string().trim().min(10).max(4000),
+    orderId: supportOrderIdSchema.optional()
+  })
+  .strict();
+
+export const customerSupportGatewayToolDefinitions = [
+  {
+    name: 'get_order',
+    description: 'Retrieve current details for one order when the exact order ID is known.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { orderId: { type: 'string', pattern: '^ORD-[A-Z0-9]{4,32}$' } },
+      required: ['orderId']
+    }
+  },
+  {
+    name: 'search_orders',
+    description: "Find a customer's recent orders when the exact order ID is not known.",
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { customerEmail: { type: 'string', format: 'email', maxLength: 254 } },
+      required: ['customerEmail']
+    }
+  },
+  {
+    name: 'create_support_ticket',
+    description: 'Create a customer-support case after sufficient issue information is available.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        subject: { type: 'string', minLength: 3, maxLength: 160 },
+        description: { type: 'string', minLength: 10, maxLength: 4000 },
+        orderId: { type: 'string', pattern: '^ORD-[A-Z0-9]{4,32}$' }
+      },
+      required: ['subject', 'description']
+    }
+  }
+] as const;
+export const customerSupportGatewayTargetNames = {
+  get_order: 'GetOrderTarget',
+  search_orders: 'SearchOrdersTarget',
+  create_support_ticket: 'CreateTicketTarget'
+} as const;
+
 /** HTTP inputs deliberately exclude all server-owned persistence fields. */
 export const pageQuerySchema = z
   .object({
