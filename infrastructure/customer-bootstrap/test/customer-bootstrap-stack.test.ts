@@ -77,7 +77,7 @@ test('separates roles and avoids broad managed policies or arbitrary PassRole', 
   );
 });
 
-test('runtime role trusts AgentCore and has no broad Bedrock permission', () => {
+test('runtime role trusts AgentCore and has no broad Bedrock or Gateway wildcard permission', () => {
   const template = synthesized();
   const runtimeRole = roleByName(template, 'AgentLaunchpadRuntimeExecutionRole');
   const trust = runtimeRole.Properties.AssumeRolePolicyDocument.Statement[0];
@@ -89,7 +89,7 @@ test('runtime role trusts AgentCore and has no broad Bedrock permission', () => 
   assert.ok(actions.includes('bedrock:InvokeModel'));
   assert.ok(actions.includes('bedrock:InvokeModelWithResponseStream'));
   assert.ok(!actions.includes('bedrock:*'));
-  assert.ok(actions.includes('bedrock-agentcore:InvokeGateway'));
+  assert.ok(!actions.includes('bedrock-agentcore:InvokeGateway'));
   assert.ok(!actions.some((action: string) => action === 'bedrock-agentcore:*'));
   assert.ok(
     !actions.some(
@@ -99,13 +99,13 @@ test('runtime role trusts AgentCore and has no broad Bedrock permission', () => 
   );
 });
 
-test('deployment role receives only runtime invocation data-plane access', () => {
+test('deployment role has no wildcard runtime invocation grant; Runtime policies grant exact ARNs', () => {
   const template = synthesized();
   const deploymentRole = roleByName(template, 'AgentLaunchpadDeploymentRole');
   const actions = policyStatementsForRole(template, deploymentRole).flatMap(
     (statement: Record<string, any>) => statement.Action
   );
-  assert.ok(actions.includes('bedrock-agentcore:InvokeAgentRuntime'));
+  assert.ok(!actions.includes('bedrock-agentcore:InvokeAgentRuntime'));
   assert.ok(!actions.includes('bedrock-agentcore:InvokeAgentRuntimeForUser'));
   assert.ok(!actions.includes('bedrock-agentcore:*'));
 });

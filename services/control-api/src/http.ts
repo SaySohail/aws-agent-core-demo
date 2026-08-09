@@ -512,6 +512,7 @@ export class ControlApi {
       deployment: {
         id: deployment.id,
         agentId: deployment.agentId,
+        operationType: deployment.operationType,
         status: deployment.status,
         stage: deployment.stage,
         requestedBy: deployment.requestedBy,
@@ -633,7 +634,7 @@ export class ControlApi {
       stage: 'QUEUED',
       requestedBy: context.userId,
       configurationRevision: source.configurationRevision,
-      operationType: 'DEPLOY',
+      operationType: source.operationType,
       snapshot: source.snapshot,
       idempotencyKeyHash,
       requestHash: hash(`retry:${source.id}:${idempotencyKeyHash}`),
@@ -668,7 +669,8 @@ export class ControlApi {
       tenantId: context.tenantId,
       agentId: source.agentId,
       configurationRevision: source.configurationRevision,
-      ...(source.snapshot.artifactId ? { artifactId: source.snapshot.artifactId } : {})
+      ...(source.snapshot.artifactId ? { artifactId: source.snapshot.artifactId } : {}),
+      operationType: source.operationType
     });
     await this.repository.setDeploymentExecutionArn(
       context.tenantId,
@@ -1552,6 +1554,7 @@ export class ControlApi {
       id: deploymentId,
       tenantId: context.tenantId,
       agentId: agent.id,
+      operationType: 'DEPLOY' as const,
       status: 'QUEUED' as const,
       stage: 'QUEUED' as const,
       requestedBy: context.userId,

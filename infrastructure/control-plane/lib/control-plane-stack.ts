@@ -305,7 +305,7 @@ export class ControlPlaneStack extends Stack {
       removalPolicy: persistentRemovalPolicy
     });
     const failed = new sfn.Fail(this, 'DeploymentFailed', { error: 'Deployment.Failed' });
-    const invoke = (stage: string) =>
+    const invoke = (stage: string, catchTarget: sfn.IChainable = failed) =>
       new sfnTasks.LambdaInvoke(this, `${stage}Task`, {
         lambdaFunction: deploymentWorkerFunction,
         payload: sfn.TaskInput.fromObject({
@@ -314,21 +314,23 @@ export class ControlPlaneStack extends Stack {
           'tenantId.$': '$.tenantId',
           'agentId.$': '$.agentId',
           'configurationRevision.$': '$.configurationRevision',
-          'artifactId.$': '$.artifactId'
+          'artifactId.$': '$.artifactId',
+          'operationType.$': '$.operationType'
         }),
         resultPath: '$.task',
         timeout: Duration.minutes(2),
         retryOnServiceExceptions: false
       })
         .addRetry({
-          errors: ['Deployment.Throttled', 'Deployment.Transient'],
+          // DeploymentError.name is deliberately canonicalized by the worker boundary.
+          errors: ['Deployment.Transient'],
           interval: Duration.seconds(2),
           backoffRate: 2,
           maxAttempts: 4,
           maxDelay: Duration.seconds(30),
           jitterStrategy: sfn.JitterType.FULL
         })
-        .addCatch(failed, { resultPath: '$.failure' });
+        .addCatch(catchTarget, { resultPath: '$.failure' });
     const stages = [
       'VALIDATING',
       'VERIFYING_CUSTOMER_ACCESS',
@@ -346,7 +348,7 @@ export class ControlPlaneStack extends Stack {
       'PROMOTING_ENDPOINT',
       'WAITING_FOR_ENDPOINT'
     ];
-    const tasks = stages.map(invoke);
+    const tasks = stages.map((stage) => invoke(stage));
     const dependencyWait = new sfn.Wait(this, 'DependencyWait', {
       time: sfn.WaitTime.duration(Duration.seconds(20))
     });
@@ -384,6 +386,32 @@ export class ControlPlaneStack extends Stack {
       .next(dependencyChoice);
     tasks[9]!.next(tasks[10]!).next(runtimeChoice);
     tasks[11]!.next(tasks[12]!).next(tasks[13]!).next(tasks[14]!).next(endpointChoice);
+    const rollbackCompensation = invoke('ROLLBACK_REVERTING_ENDPOINT');
+    const rollbackStages = [
+      'ROLLBACK_VALIDATING',
+      'ROLLBACK_VERIFYING_TARGET',
+      'ROLLBACK_UPDATING_ENDPOINT',
+      'ROLLBACK_WAITING_FOR_ENDPOINT',
+      'ROLLBACK_HEALTH_CHECKING'
+    ].map((stage) =>
+      stage === 'ROLLBACK_HEALTH_CHECKING' ? invoke(stage, rollbackCompensation) : invoke(stage)
+    );
+    const rollbackWait = new sfn.Wait(this, 'RollbackEndpointWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const rollbackReady = new sfn.Succeed(this, 'RollbackReady');
+    const rollbackEndpointReady = new sfn.Choice(this, 'RollbackEndpointReady?')
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), rollbackStages[4]!)
+      .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), rollbackCompensation)
+      .otherwise(rollbackWait);
+    rollbackWait.next(rollbackStages[3]!);
+    rollbackStages[0]!
+      .next(rollbackStages[1]!)
+      .next(rollbackStages[2]!)
+      .next(rollbackStages[3]!)
+      .next(rollbackEndpointReady);
+    rollbackStages[4]!.next(rollbackReady);
+    rollbackCompensation.next(failed);
     const undeployStages = [
       'UNDEPLOY_VALIDATING',
       'UNDEPLOY_DISABLING_INVOCATION',
@@ -395,7 +423,7 @@ export class ControlPlaneStack extends Stack {
       'UNDEPLOY_WAITING_DEPENDENCIES',
       'UNDEPLOY_DELETING_ARTIFACTS',
       'UNDEPLOY_VERIFYING'
-    ].map(invoke);
+    ].map((stage) => invoke(stage));
     const undeployEndpointWait = new sfn.Wait(this, 'UndeployEndpointWait', {
       time: sfn.WaitTime.duration(Duration.seconds(20))
     });
@@ -429,9 +457,14 @@ export class ControlPlaneStack extends Stack {
     undeployStages[4]!.next(undeployStages[5]!).next(runtimeDeleted);
     undeployStages[6]!.next(undeployStages[7]!).next(dependenciesDeleted);
     undeployStages[8]!.next(undeployStages[9]!).next(undeployReady);
+    const invalidOperation = new sfn.Fail(this, 'InvalidLifecycleOperation', {
+      error: 'Deployment.InvalidOperation'
+    });
     const operationChoice = new sfn.Choice(this, 'LifecycleOperation')
+      .when(sfn.Condition.stringEquals('$.operationType', 'DEPLOY'), tasks[0]!)
+      .when(sfn.Condition.stringEquals('$.operationType', 'ROLLBACK'), rollbackStages[0]!)
       .when(sfn.Condition.stringEquals('$.operationType', 'UNDEPLOY'), undeployStages[0]!)
-      .otherwise(tasks[0]!);
+      .otherwise(invalidOperation);
     const deploymentStateMachine = new sfn.StateMachine(this, 'DeploymentStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(operationChoice),
       stateMachineType: sfn.StateMachineType.STANDARD,

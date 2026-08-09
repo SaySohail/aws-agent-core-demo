@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts",
     "cdk": "cdk",
     "deploy:dev": "cdk deploy ControlPlane-dev -c environment=dev --require-approval never",
     "destroy:dev": "cdk destroy ControlPlane-dev -c environment=dev",

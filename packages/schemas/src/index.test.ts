@@ -117,6 +117,7 @@ test('deployment lifecycle and append-only audit event schemas validate', () => 
     id: createDeploymentId(),
     tenantId,
     agentId,
+    operationType: 'DEPLOY' as const,
     status: 'IN_PROGRESS' as const,
     stage: 'PROVISIONING_DEPENDENCIES' as const,
     requestedBy: 'cognito-subject',

@@ -49,6 +49,7 @@ const deployment: Deployment = {
   id: 'dep_00000000-0000-4000-8000-000000000001',
   tenantId,
   agentId,
+  operationType: 'DEPLOY',
   status: 'QUEUED',
   stage: 'QUEUED',
   requestedBy: 'user',

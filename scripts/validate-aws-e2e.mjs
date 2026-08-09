@@ -1,5 +1,5 @@
-/* global URL, fetch, console */
-import { readFile, writeFile } from 'node:fs/promises';
+/* global URL, console */
+import { writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import { AssumeRoleCommand, GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
 import {
@@ -81,23 +81,13 @@ function regions() {
     fail('AWS_E2E_REGIONS must be a comma-separated list of valid Regions.');
   return [...new Set(values)];
 }
-function safe(value) {
-  return (
-    typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\r\n]/.test(value)
-  );
-}
-function redactedError(error) {
-  const name = error instanceof Error ? error.name : 'Error';
-  return /AccessDenied|Forbidden|Unauthorized|InvalidClientTokenId|SignatureDoesNotMatch/i.test(
-    name
-  )
-    ? name
-    : 'request failed';
-}
-
 function configuredTargets() {
   if (process.env.AGENT_LAUNCHPAD_AWS_E2E !== 'DESTROY_DISPOSABLE_RESOURCES')
     fail('set AGENT_LAUNCHPAD_AWS_E2E=DESTROY_DISPOSABLE_RESOURCES exactly.');
+  const controlPlaneAccountId = account('AWS_E2E_CONTROL_PLANE_ACCOUNT_ID');
+  const stage = required('AWS_E2E_STAGE');
+  if (!/^[a-z][a-z0-9-]{1,31}$/.test(stage))
+    fail('AWS_E2E_STAGE must be an explicit safe environment/stage name.');
   const regionList = regions();
   const tenantA = {
     tenant: 'A',
@@ -115,7 +105,12 @@ function configuredTargets() {
       }
     : undefined;
   if (tenantB) tenantB.roleArn = role('AWS_E2E_BOOTSTRAP_ROLE_B_ARN', tenantB.accountId);
-  return { regionList, tenants: tenantB ? [tenantA, tenantB] : [tenantA] };
+  return {
+    controlPlaneAccountId,
+    regionList,
+    stage,
+    tenants: tenantB ? [tenantA, tenantB] : [tenantA]
+  };
 }
 
 async function assumeExact(target, externalId) {
@@ -149,48 +144,6 @@ async function expectAssumeDenied(target, externalId) {
   } catch (error) {
     return /AccessDenied|Forbidden|Unauthorized/i.test(error instanceof Error ? error.name : '');
   }
-}
-async function loadManifest() {
-  const manifestPath = required('AWS_E2E_MANIFEST');
-  let parsed;
-  try {
-    parsed = JSON.parse(await readFile(manifestPath, 'utf8'));
-  } catch {
-    fail('AWS_E2E_MANIFEST must be readable valid JSON.');
-  }
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    Array.isArray(parsed) ||
-    !Array.isArray(parsed.cases)
-  )
-    fail('AWS_E2E_MANIFEST must contain a cases array.');
-  const cases = new Map(parsed.cases.map((item) => [item?.id, item]));
-  for (const [id] of requiredCases) {
-    const test = cases.get(id);
-    if (
-      !test ||
-      !safe(test.url) ||
-      !['GET', 'POST', 'PUT', 'DELETE'].includes(test.method) ||
-      !['success', 'denied'].includes(test.expect)
-    )
-      fail(`manifest case ${id} is missing or invalid.`);
-  }
-  return cases;
-}
-async function executeCase(test) {
-  const headers = {
-    accept: 'application/json',
-    ...(test.headers && typeof test.headers === 'object' ? test.headers : {})
-  };
-  const response = await fetch(test.url, {
-    method: test.method,
-    headers,
-    ...(test.body === undefined ? {} : { body: JSON.stringify(test.body) }),
-    redirect: 'error'
-  });
-  const expected = test.expect === 'success' ? response.ok : [401, 403].includes(response.status);
-  return { ok: expected, detail: `HTTP ${response.status}` };
 }
 function render(results, targetInfo) {
   const groups = new Map(blockingCategories.map((category) => [category, []]));
@@ -237,7 +190,6 @@ function render(results, targetInfo) {
 const results = [];
 try {
   const targets = configuredTargets();
-  const manifest = await loadManifest();
   const credentials = new Map();
   for (const target of targets.tenants) {
     credentials.set(target.tenant, await assumeExact(target, target.externalId));
@@ -295,12 +247,13 @@ try {
       });
       continue;
     }
-    try {
-      const outcome = await executeCase(manifest.get(id));
-      results.push({ id, category, status: outcome.ok ? 'PASS' : 'FAIL', detail: outcome.detail });
-    } catch (error) {
-      results.push({ id, category, status: 'FAIL', detail: redactedError(error) });
-    }
+    results.push({
+      id,
+      category,
+      status: 'SKIPPED / NOT VALIDATED',
+      detail:
+        'Direct AWS validation implementation is required; generic HTTP manifests are rejected.'
+    });
   }
   const targetInfo =
     targets.tenants.map((target) => `Tenant ${target.tenant} → ${target.accountId}`).join('; ') +

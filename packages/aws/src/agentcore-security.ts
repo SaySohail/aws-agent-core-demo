@@ -101,6 +101,19 @@ export function validateGatewayArn(
   }
 }
 
+/** Validates a trusted GetGateway/CloudFormation response as one coherent Gateway identity. */
+export function validateGatewayMetadata(input: {
+  readonly connection: Pick<AwsConnection, 'accountId' | 'region'>;
+  readonly gatewayId: string;
+  readonly gatewayArn: string;
+  readonly workloadIdentityArn: string;
+}): void {
+  const gatewayArn = validateGatewayArn(input.gatewayArn, input.connection);
+  if (!gatewayArn.endsWith(`gateway/${input.gatewayId}`))
+    throw new AgentCoreSecurityError('INVALID_GATEWAY_ARN');
+  validateWorkloadIdentityArn(input.workloadIdentityArn, input.connection);
+}
+
 export function validateWorkloadIdentityArn(
   value: string,
   coordinates: AgentCoreResourceCoordinates

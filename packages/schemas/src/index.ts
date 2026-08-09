@@ -248,6 +248,7 @@ export const deploymentStageSchema = z.enum([
 ]);
 /** Status is deliberately terminal-oriented; stage supplies product-facing progress. */
 export const deploymentStatusSchema = z.enum(['QUEUED', 'IN_PROGRESS', 'READY', 'FAILED']);
+export const deploymentOperationTypeSchema = z.enum(['DEPLOY', 'ROLLBACK', 'UNDEPLOY']);
 export const agentArtifactStatusSchema = z.enum(['BUILDING', 'UPLOADING', 'READY', 'FAILED']);
 export const cleanupResourceKindSchema = z.enum([
   'RUNTIME_ENDPOINT',
@@ -405,7 +406,8 @@ export const deploymentSchema = z.object({
   id: deploymentIdSchema,
   tenantId: tenantIdSchema,
   agentId: agentIdSchema,
-  operationType: z.enum(['DEPLOY', 'ROLLBACK', 'UNDEPLOY']).optional(),
+  /** Immutable lifecycle intent. Workers reject missing or mismatched task input. */
+  operationType: deploymentOperationTypeSchema,
   /** Captured from the production endpoint before an endpoint-only rollback. */
   fromRuntimeVersion: nonEmptyString.max(100).optional(),
   targetRuntimeVersion: nonEmptyString.max(100).optional(),
@@ -701,6 +703,7 @@ export type AwsConnectionStatus = z.infer<typeof awsConnectionStatusSchema>;
 export type AgentTemplateStatus = z.infer<typeof agentTemplateStatusSchema>;
 export type AgentStatus = z.infer<typeof agentStatusSchema>;
 export type DeploymentStatus = z.infer<typeof deploymentStatusSchema>;
+export type DeploymentOperationType = z.infer<typeof deploymentOperationTypeSchema>;
 export type DeploymentStage = z.infer<typeof deploymentStageSchema>;
 export type CreateAgentRequest = z.infer<typeof createAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof updateAgentRequestSchema>;

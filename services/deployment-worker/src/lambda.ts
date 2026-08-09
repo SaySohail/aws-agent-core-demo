@@ -1,8 +1,12 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { CloudFormationClient } from '@aws-sdk/client-cloudformation';
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { BedrockAgentCoreControlClient } from '@aws-sdk/client-bedrock-agentcore-control';
+import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-cloudformation';
+import { DeleteObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  BedrockAgentCoreControlClient,
+  GetAgentRuntimeCommand,
+  GetAgentRuntimeEndpointCommand
+} from '@aws-sdk/client-bedrock-agentcore-control';
 import {
   ControlPlaneRepository,
   DynamoDbPersistenceClient,
@@ -70,7 +74,18 @@ const artifactCleanup = {
           item.status === 'READY' &&
           item.snapshot.artifactId === artifact.id
       );
-      if (!other)
+      if (other) {
+        const now = new Date().toISOString();
+        await repository.updateDeploymentCleanupLedger(
+          input.tenantId,
+          input.deploymentId,
+          (deployment.cleanupLedger ?? []).map((entry) =>
+            entry.kind === 'ARTIFACT' && entry.logicalId === artifact.id
+              ? { ...entry, status: 'SKIPPED' as const, updatedAt: now }
+              : entry
+          )
+        );
+      } else
         await s3.send(
           new DeleteObjectCommand({
             Bucket: artifact.bucket,
@@ -84,7 +99,99 @@ const artifactCleanup = {
   },
   async verifyAbsent(input: DeploymentCommandInput) {
     const deployment = await repository.getDeployment(input.tenantId, input.deploymentId);
-    if (!deployment) return 'FAILED' as const;
+    const connection =
+      deployment &&
+      (await repository.getAwsConnection(input.tenantId, deployment.snapshot.awsConnectionId));
+    const plan = deployment?.cleanupPlan;
+    if (
+      !deployment ||
+      deployment.operationType !== 'UNDEPLOY' ||
+      !plan?.runtimeId ||
+      !connection ||
+      connection.status !== 'VERIFIED' ||
+      connection.accountId !== plan.accountId ||
+      connection.region !== plan.region
+    )
+      return 'FAILED' as const;
+    const credentials = await assumer.assumeCustomerRole({
+      roleArn: connection.roleArn,
+      externalId: connection.externalId,
+      sessionName: `verify-cleanup-${deployment.id}`
+    });
+    const runtime = new BedrockAgentCoreControlClient({ region: plan.region, credentials });
+    const cloudFormation = new CloudFormationClient({ region: plan.region, credentials });
+    const s3 = new S3Client({ region: plan.region, credentials });
+    const absent = async (action: () => Promise<unknown>) => {
+      try {
+        await action();
+        return false;
+      } catch (cause) {
+        return (
+          cause instanceof Error &&
+          /NotFound|does not exist|not exist/i.test(cause.name + cause.message)
+        );
+      }
+    };
+    if (
+      !(await absent(() =>
+        runtime.send(
+          new GetAgentRuntimeEndpointCommand({
+            agentRuntimeId: plan.runtimeId!,
+            endpointName: 'production'
+          })
+        )
+      )) ||
+      !(await absent(() =>
+        runtime.send(new GetAgentRuntimeCommand({ agentRuntimeId: plan.runtimeId! }))
+      ))
+    )
+      return 'PENDING' as const;
+    if (
+      plan.dependencyStackName &&
+      !(await absent(() =>
+        cloudFormation.send(new DescribeStacksCommand({ StackName: plan.dependencyStackName! }))
+      ))
+    )
+      return 'PENDING' as const;
+    for (const artifactId of plan.artifactIds) {
+      const artifact = await repository.getAgentArtifact(input.tenantId, artifactId);
+      const ledger = deployment.cleanupLedger?.find(
+        (entry) => entry.kind === 'ARTIFACT' && entry.logicalId === artifactId
+      );
+      if (
+        !artifact ||
+        artifact.agentId !== input.agentId ||
+        !artifact.bucket ||
+        !artifact.objectKey ||
+        !artifact.s3VersionId
+      )
+        return 'FAILED' as const;
+      if (ledger?.status === 'SKIPPED') {
+        const retained = (
+          await repository.listDeploymentsForAgent(input.tenantId, input.agentId, { limit: 100 })
+        ).items.some(
+          (other) =>
+            other.id !== deployment.id &&
+            other.status === 'READY' &&
+            other.snapshot.artifactId === artifact.id
+        );
+        if (retained) continue;
+        return 'FAILED' as const;
+      }
+      if (
+        !(await absent(() =>
+          s3.send(
+            new HeadObjectCommand({
+              Bucket: artifact.bucket!,
+              Key: artifact.objectKey!,
+              VersionId: artifact.s3VersionId!,
+              ExpectedBucketOwner: connection.accountId
+            })
+          )
+        ))
+      )
+        return 'PENDING' as const;
+    }
     return 'READY' as const;
   }
 };
@@ -113,6 +220,13 @@ const worker = new DeploymentWorker({
 });
 
 export async function handler(event: DeploymentCommandInput & { stage: DeploymentStage }) {
-  if (!event?.stage) throw new Error('Deployment stage is required.');
+  if (
+    !event?.stage ||
+    !['DEPLOY', 'ROLLBACK', 'UNDEPLOY'].includes(event.operationType) ||
+    !event.deploymentId ||
+    !event.tenantId ||
+    !event.agentId
+  )
+    throw new Error('A complete, valid lifecycle task payload is required.');
   return worker.dispatch(event.stage, event);
 }

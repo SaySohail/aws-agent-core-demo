@@ -33,7 +33,7 @@ const workflowStarter = {
     agentId: string;
     configurationRevision: number;
     artifactId?: string;
-    operationType?: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY';
+    operationType: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY';
   }) {
     const result = await new SFNClient({}).send(
       new StartExecutionCommand({

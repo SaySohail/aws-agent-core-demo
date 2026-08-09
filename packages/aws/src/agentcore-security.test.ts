@@ -7,6 +7,7 @@ import {
   runtimeInboundAuthentication,
   validateAgentCoreMetadata,
   validateGatewayArn,
+  validateGatewayMetadata,
   validateRuntimeArn,
   validateWorkloadIdentityArn
 } from './agentcore-security.js';
@@ -28,6 +29,26 @@ test('validates AgentCore resource and workload-identity coordinates', () => {
     runtimeWorkloadIdentityArn: identityArn,
     gatewayWorkloadIdentityArn: identityArn
   });
+});
+
+test('Gateway metadata binds a trusted workload identity to the exact Gateway response', () => {
+  validateGatewayMetadata({
+    connection: coordinates,
+    gatewayId: 'gateway-123',
+    gatewayArn,
+    workloadIdentityArn: identityArn
+  });
+  assert.throws(
+    () =>
+      validateGatewayMetadata({
+        connection: coordinates,
+        gatewayId: 'gateway-other',
+        gatewayArn,
+        workloadIdentityArn: identityArn
+      }),
+    (error: unknown) =>
+      error instanceof AgentCoreSecurityError && error.code === 'INVALID_GATEWAY_ARN'
+  );
 });
 
 for (const [name, value, validate, code] of [

@@ -549,6 +549,7 @@ export class ControlPlaneRepository {
     deploymentId: string;
     dependencyStackName: string;
     gatewayArn: string;
+    gatewayWorkloadIdentityArn: string;
     gatewayUrl: string;
   }): Promise<void> {
     const deployment = await this.getDeployment(input.tenantId, input.deploymentId);
@@ -558,6 +559,7 @@ export class ControlPlaneRepository {
       updates: {
         dependencyStackName: input.dependencyStackName,
         gatewayArn: input.gatewayArn,
+        gatewayWorkloadIdentityArn: input.gatewayWorkloadIdentityArn,
         snapshot: { ...deployment.snapshot, gatewayUrl: input.gatewayUrl }
       },
       condition: existingCondition

@@ -27,6 +27,9 @@ export class DeploymentError extends Error {
     readonly serviceRequestId?: string
   ) {
     super(message);
+    // Step Functions receives Lambda's Error.name, not this business code.
+    // Keep the only retryable name in exact lockstep with the state machine.
+    this.name = retryable ? 'Deployment.Transient' : 'Deployment.Permanent';
   }
 }
 
@@ -36,6 +39,7 @@ export interface DeploymentCommandInput {
   readonly agentId: string;
   readonly configurationRevision: number;
   readonly artifactId?: string;
+  readonly operationType: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY';
 }
 
 /** SAY-100 owns the concrete AgentCore Runtime API calls behind these contracts. */
@@ -60,6 +64,8 @@ export interface RuntimeDeploymentPort {
   ): Promise<'PENDING' | 'READY' | 'FAILED'>;
   getRollbackStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
   checkRollbackHealth(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  validateRollbackTarget(context: DeploymentCommandInput): Promise<'READY' | 'FAILED'>;
+  revertRollbackEndpoint(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
 /** Teardown only receives a trusted operation context, never browser-selected AWS identifiers. */
@@ -296,12 +302,28 @@ export class DeploymentWorker {
     const deployment = await this.deployment(input);
     await this.persistStage(deployment, stage);
     try {
+      if (deployment.operationType !== input.operationType)
+        throw new DeploymentError(
+          'OPERATION_TYPE_MISMATCH',
+          stage,
+          false,
+          'Lifecycle task operation does not match the persisted operation.'
+        );
       const result =
-        deployment.operationType === 'ROLLBACK'
+        input.operationType === 'ROLLBACK'
           ? await this.rollback(stage, input)
-          : deployment.operationType === 'UNDEPLOY'
+          : input.operationType === 'UNDEPLOY'
             ? await this.undeploy(stage, input)
-            : await this.deploy(stage, input, deployment);
+            : input.operationType === 'DEPLOY'
+              ? await this.deploy(stage, input, deployment)
+              : (() => {
+                  throw new DeploymentError(
+                    'INVALID_OPERATION_TYPE',
+                    stage,
+                    false,
+                    'Lifecycle operation is not supported.'
+                  );
+                })();
       if (result.status === 'FAILED')
         await this.persistFailure(
           deployment,
@@ -312,10 +334,20 @@ export class DeploymentWorker {
             'The deployment stage reported failure.'
           )
         );
+      if (stage === 'ROLLBACK_REVERTING_ENDPOINT' && result.status === 'READY')
+        await this.persistFailure(
+          deployment,
+          new DeploymentError(
+            'ROLLBACK_SMOKE_FAILED',
+            'ROLLBACK_HEALTH_CHECKING',
+            false,
+            'Rollback smoke check failed; the prior production version was restored.'
+          )
+        );
       if (this.isTerminalSuccess(stage, result.status))
         await this.persistTerminal(
           deployment,
-          deployment.operationType === 'UNDEPLOY' ? 'UNDEPLOYED' : 'READY'
+          input.operationType === 'UNDEPLOY' ? 'UNDEPLOYED' : 'READY'
         );
       return result;
     } catch (cause) {
@@ -328,7 +360,11 @@ export class DeploymentWorker {
               false,
               'Deployment worker failed.'
             );
-      if (!error.retryable) await this.persistFailure(deployment, error);
+      if (
+        !error.retryable &&
+        !(input.operationType === 'ROLLBACK' && stage === 'ROLLBACK_HEALTH_CHECKING')
+      )
+        await this.persistFailure(deployment, error);
       throw error;
     }
   }
@@ -482,25 +518,18 @@ export class DeploymentWorker {
 
   private async rollback(stage: DeploymentStage, input: DeploymentCommandInput) {
     switch (stage) {
-      case 'DEPLOYING_RUNTIME':
+      case 'ROLLBACK_VALIDATING':
+        return this.validate(await this.deployment(input));
+      case 'ROLLBACK_VERIFYING_TARGET':
+        return { status: await this.dependencies.runtime.validateRollbackTarget(input) };
+      case 'ROLLBACK_UPDATING_ENDPOINT':
         return { status: await this.dependencies.runtime.rollbackProductionEndpoint(input) };
-      case 'WAITING_FOR_RUNTIME':
+      case 'ROLLBACK_WAITING_FOR_ENDPOINT':
         return { status: await this.dependencies.runtime.getRollbackStatus(input) };
-      case 'HEALTH_CHECKING':
+      case 'ROLLBACK_HEALTH_CHECKING':
         return { status: await this.dependencies.runtime.checkRollbackHealth(input) };
-      case 'VALIDATING':
-      case 'VERIFYING_CUSTOMER_ACCESS':
-      case 'PREFLIGHT_REGION':
-      case 'PREFLIGHT_MODEL':
-      case 'PREFLIGHT_IAM':
-      case 'PREFLIGHT_STORAGE':
-      case 'PREFLIGHT_AGENTCORE':
-      case 'ENSURING_ARTIFACT':
-      case 'PROVISIONING_DEPENDENCIES':
-      case 'WAITING_FOR_DEPENDENCIES':
-      case 'PROMOTING_ENDPOINT':
-      case 'WAITING_FOR_ENDPOINT':
-        return { status: 'READY' as const };
+      case 'ROLLBACK_REVERTING_ENDPOINT':
+        return { status: await this.dependencies.runtime.revertRollbackEndpoint(input) };
       default:
         throw new DeploymentError(
           'INVALID_STAGE',
@@ -511,7 +540,9 @@ export class DeploymentWorker {
     }
   }
 
-  private async deployment(input: DeploymentCommandInput): Promise<Deployment> {
+  private async deployment(
+    input: DeploymentCommandInput
+  ): Promise<Deployment & { operationType: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY' }> {
     const deployment = await this.dependencies.repository.getDeployment(
       input.tenantId,
       input.deploymentId
@@ -519,7 +550,9 @@ export class DeploymentWorker {
     if (
       !deployment ||
       deployment.agentId !== input.agentId ||
-      deployment.configurationRevision !== input.configurationRevision
+      deployment.configurationRevision !== input.configurationRevision ||
+      !deployment.operationType ||
+      !['DEPLOY', 'ROLLBACK', 'UNDEPLOY'].includes(deployment.operationType)
     )
       throw new DeploymentError(
         'DEPLOYMENT_SNAPSHOT_INVALID',
@@ -527,7 +560,7 @@ export class DeploymentWorker {
         false,
         'Deployment snapshot is unavailable.'
       );
-    return deployment;
+    return deployment as Deployment & { operationType: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY' };
   }
   private async validate(deployment: Deployment) {
     const [agent, template, connection] = await Promise.all([
@@ -667,7 +700,8 @@ export class DeploymentWorker {
       deploymentId: deployment.id,
       tenantId: deployment.tenantId,
       agentId: deployment.agentId,
-      configurationRevision: deployment.configurationRevision
+      configurationRevision: deployment.configurationRevision,
+      operationType: deployment.operationType!
     });
     return this.preflightStorage(resolved);
   }
@@ -715,7 +749,8 @@ export class DeploymentWorker {
       deploymentId: deployment.id,
       tenantId: deployment.tenantId,
       agentId: deployment.agentId,
-      configurationRevision: deployment.configurationRevision
+      configurationRevision: deployment.configurationRevision,
+      operationType: deployment.operationType!
     });
     if (current.stage === terminal) return;
     const now = (this.dependencies.now?.() ?? new Date()).toISOString();
@@ -743,15 +778,29 @@ export class DeploymentWorker {
         deployment.agentId,
         now
       );
+    await this.dependencies.repository
+      .releaseDeploymentLock(deployment.tenantId, deployment.agentId, deployment.id)
+      .catch(() => undefined);
   }
   private async persistFailure(deployment: Deployment, error: DeploymentError) {
     const current = await this.deployment({
       deploymentId: deployment.id,
       tenantId: deployment.tenantId,
       agentId: deployment.agentId,
-      configurationRevision: deployment.configurationRevision
+      configurationRevision: deployment.configurationRevision,
+      operationType: deployment.operationType!
     });
     if (current.stage === 'FAILED') return;
+    if (current.operationType === 'DEPLOY' && current.dependencyStackName)
+      await this.dependencies.dependencies
+        .compensate({
+          deploymentId: current.id,
+          tenantId: current.tenantId,
+          agentId: current.agentId,
+          configurationRevision: current.configurationRevision,
+          operationType: 'DEPLOY'
+        })
+        .catch(() => undefined);
     const now = (this.dependencies.now?.() ?? new Date()).toISOString();
     await this.dependencies.repository.recordDeploymentStage({
       tenantId: deployment.tenantId,
@@ -774,10 +823,16 @@ export class DeploymentWorker {
         createdAt: now
       }
     });
+    await this.dependencies.repository
+      .releaseDeploymentLock(deployment.tenantId, deployment.agentId, deployment.id)
+      .catch(() => undefined);
   }
   private isTerminalSuccess(stage: DeploymentStage, status: 'PENDING' | 'READY' | 'FAILED') {
     return (
-      status === 'READY' && (stage === 'WAITING_FOR_ENDPOINT' || stage === 'UNDEPLOY_VERIFYING')
+      status === 'READY' &&
+      (stage === 'WAITING_FOR_ENDPOINT' ||
+        stage === 'ROLLBACK_HEALTH_CHECKING' ||
+        stage === 'UNDEPLOY_VERIFYING')
     );
   }
   private async cleanupResult(

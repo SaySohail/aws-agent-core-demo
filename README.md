@@ -82,7 +82,7 @@ The ExternalId protects against the confused-deputy problem: a customer role tru
 
 ### Runtime, Gateway, and policy
 
-Server-side control-plane invocation is IAM/SigV4 signed and targets the stable custom `production` endpoint. The Runtime uses its dedicated IAM path to invoke the Gateway; the Gateway uses `AWS_IAM` inbound authorization and its service role invokes only configured Lambda targets.
+Server-side control-plane invocation is IAM/SigV4 signed and targets the stable custom `production` endpoint. The Runtime uses its dedicated IAM path to invoke the Gateway; the Gateway uses `AWS_IAM` inbound authorization and its service role invokes only configured Lambda targets. Runtime networking is intentionally `PUBLIC` for this demo: the endpoint is network reachable, but it is not anonymous—AgentCore IAM/SigV4 authorization is required and browser-direct invocation is not supported.
 
 SAY-102 supplies the three base support tools; SAY-103 extends that Gateway with the fourth, fake/demo-only `process_refund` action for the deterministic policy demonstration:
 
@@ -164,7 +164,7 @@ pnpm --dir infrastructure/agent-template run synth
 pnpm --dir infrastructure/control-plane run synth
 ```
 
-The control-plane synth needs its explicit environment contract; use non-production placeholders only when synthesizing rather than deploying. `pnpm validate:aws-e2e` is intentionally opt-in and currently fails closed before mutation because no cloud runner is included.
+The control-plane synth needs its explicit environment contract; use non-production placeholders only when synthesizing rather than deploying. `pnpm validate:aws-e2e` is a destructive, opt-in release gate. It fails closed without its complete, explicit disposable-account contract and never selects a target from ambient credentials. See the [runner contract](docs/say-107-e2e-runner.md).
 
 For a control-plane-only synthesis in PowerShell, pass the full explicit, non-production contract:
 
@@ -195,11 +195,11 @@ For a reliable 3–5 minute interviewer walkthrough, have a known-good deployed 
 
 - Only the Customer Support template is implemented; its order, ticket, and refund integration is demo data.
 - Gateway/tools/policy must currently be preprovisioned by the separate agent-template stack; the deployment worker does not provision or reconcile that stack.
-- Runtime networking is `PUBLIC`; there is no VPC/private networking path.
+- Runtime networking is intentionally `PUBLIC`; there is no VPC/private networking path. The threat model is network reachability protected by mandatory AgentCore IAM/SigV4 authorization, not an unauthenticated public endpoint.
 - There is no AgentCore Memory/conversation persistence.
 - Transaction Search needs one-time customer account setup and telemetry ingestion is asynchronous.
 - A connection has one configured deployment Region; model support is limited to the catalogued Regions.
-- Agent-specific dependency provisioning, complete teardown, and real two-account AWS E2E evidence remain unfinished.
+- The release gate is not approved until its direct AWS evidence report records every required SAY-107 check as `PASS`.
 
 Likely follow-up work includes additional templates, environment promotion, private networking, policy-authoring UX, cost controls, and multi-Region resilience. None is part of this repository's current demo.
 

@@ -116,28 +116,8 @@ export class CustomerBootstrapStack extends Stack {
         resources: [foundationModelArn]
       })
     );
-    // Gateway IDs are created by the agent-template stack, so the exact ARN is not available
-    // at bootstrap time. AgentCore supports resource tags for InvokeGateway; scope the wildcard
-    // to this account/region and only Agent Launchpad customer-support Gateways.
-    runtimeExecutionRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['bedrock-agentcore:InvokeGateway'],
-        resources: [
-          Stack.of(this).formatArn({
-            service: 'bedrock-agentcore',
-            resource: 'gateway',
-            resourceName: '*'
-          })
-        ],
-        conditions: {
-          StringEquals: {
-            'aws:RequestedRegion': cdk.Aws.REGION,
-            'aws:ResourceTag/ManagedBy': 'AgentLaunchpad',
-            'aws:ResourceTag/Purpose': 'CustomerSupportTools'
-          }
-        }
-      })
-    );
+    // Each agent-owned Gateway installs its own exact ARN resource policy for this shared role.
+    // The bootstrap role intentionally carries no wildcard InvokeGateway grant.
 
     const deploymentRole = new iam.Role(this, 'DeploymentRole', {
       roleName: 'AgentLaunchpadDeploymentRole',
@@ -222,9 +202,14 @@ export class CustomerBootstrapStack extends Stack {
         conditions: { StringEquals: { 'aws:RequestedRegion': cdk.Aws.REGION } }
       })
     );
+    // Each Runtime receives a resource policy granting this role InvokeAgentRuntime on its exact ARN.
+    // Bootstrap retains only tag-scoped permission to install that resource policy during provisioning.
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['bedrock-agentcore:InvokeAgentRuntime'],
+        actions: [
+          'bedrock-agentcore:ManageResourceScopedPolicy',
+          'bedrock-agentcore:PutResourcePolicy'
+        ],
         resources: [
           Stack.of(this).formatArn({
             service: 'bedrock-agentcore',
@@ -265,7 +250,9 @@ export class CustomerBootstrapStack extends Stack {
         resources: ['*'],
         conditions: {
           StringEquals: { 'aws:RequestedRegion': cdk.Aws.REGION },
-          'ForAllValues:StringEquals': { 'aws:TagKeys': ['ManagedBy', 'Plane', 'Purpose'] },
+          'ForAllValues:StringEquals': {
+            'aws:TagKeys': ['ManagedBy', 'AgentId', 'Plane', 'Purpose']
+          },
           'ForAllValues:StringEqualsIfExists': {
             'aws:RequestTag/ManagedBy': 'AgentLaunchpad',
             'aws:RequestTag/Plane': 'DataPlane',

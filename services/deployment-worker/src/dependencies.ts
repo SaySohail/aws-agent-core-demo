@@ -5,6 +5,7 @@ import {
   UpdateStackCommand,
   type CloudFormationClient
 } from '@aws-sdk/client-cloudformation';
+import { createHash } from 'node:crypto';
 import type { CustomerRoleAssumer, ControlPlaneRepository } from '@agent-launchpad/aws';
 import type { Deployment } from '@agent-launchpad/schemas';
 import {
@@ -16,9 +17,23 @@ import {
 
 type CloudFormation = Pick<CloudFormationClient, 'send'>;
 
-/** An opaque ID is normalized, then fixed forever; retries and redrives target this same stack. */
+/**
+ * A bounded, human-readable identifier with a hash suffix. It is safe for the shortest
+ * AgentCore/IAM names and preserves uniqueness even when two opaque IDs normalize alike.
+ */
+export function agentResourceIdentifier(agentId: string): string {
+  const slug = agentId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 20);
+  const digest = createHash('sha256').update(agentId).digest('hex').slice(0, 12);
+  return `${slug || 'agent'}-${digest}`;
+}
+
+/** An opaque ID is normalized, hashed, then fixed forever; retries and redrives target this same stack. */
 export function dependencyStackName(agentId: string): string {
-  return `AgentLaunchpadAgent-${agentId.replace(/[^A-Za-z0-9]/g, '').slice(-48)}`;
+  return `AgentLaunchpadAgent-${agentResourceIdentifier(agentId)}`;
 }
 
 export class CloudFormationDependencyProvisioner
@@ -53,6 +68,20 @@ export class CloudFormationDependencyProvisioner
           StackName: stackName,
           TemplateURL: this.templateUrl,
           Capabilities: ['CAPABILITY_NAMED_IAM'],
+          Parameters: [
+            { ParameterKey: 'AgentId', ParameterValue: resolved.deployment.agentId },
+            {
+              ParameterKey: 'AgentResourceIdentifier',
+              ParameterValue: agentResourceIdentifier(resolved.deployment.agentId)
+            },
+            {
+              ParameterKey: 'AgentResourceHash',
+              ParameterValue: createHash('sha256')
+                .update(resolved.deployment.agentId)
+                .digest('hex')
+                .slice(0, 12)
+            }
+          ],
           Tags: this.tags(resolved.deployment)
         })
       );
@@ -69,6 +98,20 @@ export class CloudFormationDependencyProvisioner
           StackName: stackName,
           TemplateURL: this.templateUrl,
           Capabilities: ['CAPABILITY_NAMED_IAM'],
+          Parameters: [
+            { ParameterKey: 'AgentId', ParameterValue: resolved.deployment.agentId },
+            {
+              ParameterKey: 'AgentResourceIdentifier',
+              ParameterValue: agentResourceIdentifier(resolved.deployment.agentId)
+            },
+            {
+              ParameterKey: 'AgentResourceHash',
+              ParameterValue: createHash('sha256')
+                .update(resolved.deployment.agentId)
+                .digest('hex')
+                .slice(0, 12)
+            }
+          ],
           Tags: this.tags(resolved.deployment)
         })
       );
@@ -98,8 +141,28 @@ export class CloudFormationDependencyProvisioner
   }
 
   async compensate(context: DeploymentCommandInput): Promise<void> {
-    // Only this deployment's deterministic agent stack is eligible; bootstrap/shared resources are never named here.
-    await this.delete(context);
+    // A failed deployment may remove only a stack it created for an agent with no prior
+    // healthy production deployment. Bootstrap and an existing healthy agent stack are
+    // deliberately outside this compensation boundary.
+    const resolved = await this.resolve(context, 'PROVISIONING_DEPENDENCIES');
+    const name = resolved.deployment.dependencyStackName;
+    if (!name || name !== dependencyStackName(resolved.deployment.agentId)) return;
+    const healthy = (
+      await this.repository.listDeploymentsForAgent(
+        resolved.deployment.tenantId,
+        resolved.deployment.agentId,
+        { limit: 100 }
+      )
+    ).items.some((item) => item.id !== resolved.deployment.id && item.status === 'READY');
+    if (healthy) return;
+    const client = await this.client(resolved.deployment);
+    const stack = await this.describe(client, name);
+    if (!stack || stack.StackStatus === 'DELETE_COMPLETE') return;
+    this.assertOwned(stack, resolved.deployment, 'PROVISIONING_DEPENDENCIES');
+    const deploymentId = (stack.Tags ?? []).find((tag) => tag.Key === 'DeploymentId')?.Value;
+    if (deploymentId !== resolved.deployment.id) return;
+    if (stack.StackStatus !== 'DELETE_IN_PROGRESS')
+      await client.send(new DeleteStackCommand({ StackName: name }));
   }
 
   async delete(context: DeploymentCommandInput) {
@@ -203,12 +266,38 @@ export class CloudFormationDependencyProvisioner
         output.OutputKey && output.OutputValue ? [[output.OutputKey, output.OutputValue]] : []
       )
     );
-    if (!outputs.GatewayArn || !outputs.GatewayUrl) return 'FAILED' as const;
+    if (
+      !outputs.GatewayId ||
+      !outputs.GatewayArn ||
+      !outputs.GatewayUrl ||
+      !outputs.GatewayWorkloadIdentityArn
+    )
+      return 'FAILED' as const;
+    try {
+      const { validateGatewayMetadata } = await import('@agent-launchpad/aws');
+      validateGatewayMetadata({
+        connection: {
+          accountId: deployment.snapshot.accountId,
+          region: deployment.snapshot.region
+        },
+        gatewayId: outputs.GatewayId,
+        gatewayArn: outputs.GatewayArn,
+        workloadIdentityArn: outputs.GatewayWorkloadIdentityArn
+      });
+    } catch {
+      throw new DeploymentError(
+        'WORKLOAD_IDENTITY_MISMATCH',
+        'WAITING_FOR_DEPENDENCIES',
+        false,
+        'AgentCore returned Gateway metadata outside the customer target.'
+      );
+    }
     await this.repository.setDeploymentDependencyOutput({
       tenantId: deployment.tenantId,
       deploymentId: deployment.id,
       dependencyStackName: name,
       gatewayArn: outputs.GatewayArn,
+      gatewayWorkloadIdentityArn: outputs.GatewayWorkloadIdentityArn,
       gatewayUrl: outputs.GatewayUrl
     });
     return 'READY' as const;
