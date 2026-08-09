@@ -4,6 +4,9 @@
 
 **FAIL — release/security gate is not approved.**
 
+This remains fail-closed: no explicitly identified disposable cloud accounts, test users, or
+bootstrap identifiers were supplied to execute the real AWS gate. A skipped cloud run is not PASS.
+
 This report records a local validation run of revision
 `e302c1f827d89615db8c93699691b6eb709a8a84` on 2026-08-09 (Asia/Calcutta).
 No AWS customer account, Cognito development user, CloudTrail trail, or disposable
@@ -19,7 +22,7 @@ control-plane environment was configured. No cloud resources were created, updat
 | Unit/security tests       | PASS                  | `pnpm test`, `pnpm validate:security`                                                                                                                |
 | Build                     | PASS                  | `pnpm build`                                                                                                                                         |
 | CDK synthesis             | PASS                  | Bootstrap and agent-template synth; control-plane synth with explicit non-production placeholder account, Region, origin, and bootstrap-template URL |
-| Formatting                | FAIL (pre-existing)   | `pnpm format:check` reports 23 existing files outside this change set                                                                                |
+| Formatting                | PASS                  | `pnpm format:check`                                                                                                                                  |
 | AWS E2E                   | NOT RUN / FAIL-CLOSED | `pnpm validate:aws-e2e` refused because `AGENT_LAUNCHPAD_AWS_E2E=1` and required disposable-account identifiers were not supplied                    |
 
 The local suite exercises tenant-partitioned repository/API reads, server-owned connection
@@ -71,3 +74,14 @@ candidate/rollback failure compensation; CloudTrail evidence; and cleanup owners
 4. Resolve the existing workspace formatting failures, then rerun the command matrix.
 
 Until those items are complete, SAY-107 must remain **FAIL** and must not be used as release approval.
+
+## Runtime networking decision
+
+AgentCore Runtime currently uses `PUBLIC` networking intentionally for the demo: the managed Runtime
+needs a public service endpoint and does not receive browser traffic. Inbound invocation remains
+restricted to AWS IAM/SigV4; the application invokes only from the server using short-lived customer
+role credentials, validates the Runtime ARN against the connected account and Region, and prohibits
+browser/JWT/user-delegated Runtime invocation. `PUBLIC` therefore means network reachability, not
+anonymous access. The tradeoff is that this is not private VPC isolation; it remains appropriate only
+while the IAM-only demo threat model is accepted. No VPC change was made because no authorization
+defect was found.

@@ -11,8 +11,14 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useEffect, useMemo, useState } from 'react';
-import type { Agent, AgentCapability, AgentTemplate } from '@agent-launchpad/schemas';
-import type { AwsConnectionOnboarding, MeResponse } from '../../lib/control-api';
+import {
+  bedrockModelCatalog,
+  type Agent,
+  type AgentCapability,
+  type AgentTemplate
+} from '@agent-launchpad/schemas';
+import type { AwsConnectionOnboarding } from '../../lib/control-api';
+import { useActiveTenant } from '../../lib/active-tenant';
 
 const labels: Record<AgentCapability, string> = {
   ORDER_LOOKUP: 'Order lookup',
@@ -22,7 +28,8 @@ const labels: Record<AgentCapability, string> = {
 };
 
 export function AgentTemplateCatalog() {
-  const [tenantId, setTenantId] = useState<string>();
+  const { tenant } = useActiveTenant();
+  const tenantId = tenant?.tenantId;
   const [templates, setTemplates] = useState<readonly AgentTemplate[]>();
   const [connections, setConnections] = useState<readonly AwsConnectionOnboarding[]>();
   const [selected, setSelected] = useState<AgentTemplate>();
@@ -39,28 +46,38 @@ export function AgentTemplateCatalog() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [tenantId]);
   const target = useMemo(
     () => connections?.find((value) => value.id === connectionId),
     [connections, connectionId]
   );
   const refundsEnabled = capabilities.includes('PROCESS_REFUND');
+  const supportedModelIds = (selected?.supportedModelIds ?? []).filter((candidate) =>
+    bedrockModelCatalog.some(
+      (model) =>
+        model.modelId === candidate &&
+        target?.region &&
+        model.supportedRegions.includes(target.region)
+    )
+  );
+
+  useEffect(() => {
+    if (supportedModelIds.length && !supportedModelIds.includes(modelId))
+      setModelId(supportedModelIds[0]!);
+  }, [modelId, supportedModelIds]);
 
   async function load() {
     setLoading(true);
     setError(undefined);
     try {
-      const me = await call<MeResponse>('me');
-      const tenant = me.tenants[0];
-      if (!tenant) throw new Error('No active tenant membership is available.');
+      if (!tenantId) throw new Error('No active tenant membership is available.');
       const [catalogue, awsConnections] = await Promise.all([
         call<AgentTemplate[]>('agent-templates'),
-        call<AwsConnectionOnboarding[]>(`tenants/${tenant.tenantId}/aws-connections`)
+        call<AwsConnectionOnboarding[]>(`tenants/${tenantId}/aws-connections`)
       ]);
       const template = catalogue.find(
         (item) => item.templateId === 'customer-support' && item.status === 'ACTIVE'
       );
-      setTenantId(tenant.tenantId);
       setTemplates(catalogue);
       setConnections(awsConnections);
       setSelected(template);
@@ -190,7 +207,9 @@ export function AgentTemplateCatalog() {
               label="Bedrock model"
               value={modelId}
               onChange={setModelId}
-              options={selected.supportedModelIds}
+              options={supportedModelIds}
+              isDisabled={!target || supportedModelIds.length === 0}
+              disabledMessage="Select a verified AWS connection with a Region that supports this model."
               width="100%"
             />
             <Heading level={3}>Deployment target</Heading>

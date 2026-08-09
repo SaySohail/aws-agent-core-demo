@@ -5,6 +5,7 @@ import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import { ActiveTenantProvider } from '../lib/active-tenant';
 
 export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   const [queryClient] = useState(
@@ -17,7 +18,9 @@ export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   );
   return (
     <Theme theme={neutralTheme} mode="system">
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ActiveTenantProvider>{children}</ActiveTenantProvider>
+      </QueryClientProvider>
     </Theme>
   );
 }

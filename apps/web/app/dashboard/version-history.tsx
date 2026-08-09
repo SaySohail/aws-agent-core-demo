@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AgentVersionHistoryItem } from '../../lib/control-api';
 import { ControlApiError, createControlApiClient } from '../../lib/control-api';
 import { useState } from 'react';
+import { useActiveTenant } from '../../lib/active-tenant';
 
 const api = () =>
   createControlApiClient({
@@ -44,11 +45,9 @@ function productionState(version: AgentVersionHistoryItem): string {
 }
 
 export function VersionHistory({ agentId }: Readonly<{ agentId: string }>) {
-  const membership = useQuery({ queryKey: ['me'], queryFn: () => api().me.get() });
-  const tenantId = membership.data?.tenants[0]?.tenantId;
-  const canRollback = ['OWNER', 'ADMIN'].includes(
-    membership.data?.tenants[0]?.role ?? 'MEMBER'
-  );
+  const { tenant } = useActiveTenant();
+  const tenantId = tenant?.tenantId;
+  const canRollback = ['OWNER', 'ADMIN'].includes(tenant?.role ?? 'MEMBER');
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<AgentVersionHistoryItem>();
   const versions = useQuery({
@@ -103,19 +102,25 @@ export function VersionHistory({ agentId }: Readonly<{ agentId: string }>) {
       key: 'configurationRevision',
       header: 'Configuration',
       width: proportional(1),
-      renderCell: (version: VersionRow) => <Text as="p">Revision {version.configurationRevision}</Text>
+      renderCell: (version: VersionRow) => (
+        <Text as="p">Revision {version.configurationRevision}</Text>
+      )
     },
     {
       key: 'artifact',
       header: 'Artifact',
       width: proportional(2),
-      renderCell: (version: VersionRow) => <Token label={version.artifactSha256} size="sm" color="gray" />
+      renderCell: (version: VersionRow) => (
+        <Token label={version.artifactSha256} size="sm" color="gray" />
+      )
     },
     {
       key: 'deployedAt',
       header: 'Promoted',
       width: proportional(2),
-      renderCell: (version: VersionRow) => <Text as="p">{timestamp(version.deployedAt ?? version.createdAt)}</Text>
+      renderCell: (version: VersionRow) => (
+        <Text as="p">{timestamp(version.deployedAt ?? version.createdAt)}</Text>
+      )
     },
     {
       key: 'action',
@@ -123,7 +128,11 @@ export function VersionHistory({ agentId }: Readonly<{ agentId: string }>) {
       width: proportional(1),
       renderCell: (version: VersionRow) =>
         version.rollbackEligible && canRollback ? (
-          <Button label={`Roll back to v${version.runtimeVersion}`} variant="secondary" onClick={() => setSelected(version)} />
+          <Button
+            label={`Roll back to v${version.runtimeVersion}`}
+            variant="secondary"
+            onClick={() => setSelected(version)}
+          />
         ) : (
           <Text as="p" color="secondary">
             {version.rollbackUnavailableReason ??
@@ -143,7 +152,9 @@ export function VersionHistory({ agentId }: Readonly<{ agentId: string }>) {
           </Text>
         </VStack>
         {versions.isLoading ? (
-          <Text as="p" color="secondary">Loading version history.</Text>
+          <Text as="p" color="secondary">
+            Loading version history.
+          </Text>
         ) : null}
         {versions.isError ? (
           <Banner
@@ -153,9 +164,20 @@ export function VersionHistory({ agentId }: Readonly<{ agentId: string }>) {
           />
         ) : null}
         {!versions.isLoading && !versions.isError && rows.length === 0 ? (
-          <Text as="p" color="secondary">No Runtime versions have been recorded for this agent.</Text>
+          <Text as="p" color="secondary">
+            No Runtime versions have been recorded for this agent.
+          </Text>
         ) : null}
-        {rows.length ? <Table data={rows} columns={columns} idKey="runtimeVersion" density="compact" dividers="rows" hasHover /> : null}
+        {rows.length ? (
+          <Table
+            data={rows}
+            columns={columns}
+            idKey="runtimeVersion"
+            density="compact"
+            dividers="rows"
+            hasHover
+          />
+        ) : null}
         {rollback.isError ? (
           <Banner
             status="error"

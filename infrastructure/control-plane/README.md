@@ -16,6 +16,7 @@ the active AWS profile. Set the pair for the environment you will operate:
 export CONTROL_PLANE_DEV_ACCOUNT=123456789012
 export CONTROL_PLANE_DEV_REGION=ap-south-1
 export CONTROL_PLANE_DEV_WEB_ORIGIN=http://localhost:3000
+export CONTROL_PLANE_DEV_WEB_ORIGINS=http://localhost:3000,https://dev.example.com
 export CONTROL_PLANE_DEV_CUSTOMER_BOOTSTRAP_TEMPLATE_URL=https://assets.example.com/agent-launchpad/customer-bootstrap.template.json
 export CONTROL_PLANE_PROD_ACCOUNT=210987654321
 export CONTROL_PLANE_PROD_REGION=ap-south-1
@@ -53,7 +54,7 @@ configured in both environments.
 
 ## Resources and outputs
 
-The stack provisions an HTTP API with public `GET /health` and JWT-protected `GET /me`, Node.js 22
+The stack provisions an HTTP API with public `GET /health` and JWT-protected control-plane routes, Node.js 22
 TypeScript Lambdas and restricted CloudWatch Logs roles, a pay-per-request DynamoDB table using generic
 `pk`/`sk` keys, and an artifact bucket. The table additionally has `MembershipsByUser`
 (`gsi1pk`/`gsi1sk`) for `USER#<cognitoSub>` to `TENANT#<tenantId>` membership queries, and
@@ -61,7 +62,8 @@ TypeScript Lambdas and restricted CloudWatch Logs roles, a pay-per-request Dynam
 `TENANT#<tenantId>#AGENT#<agentId>` and `<createdAt>#<deploymentId>`. It also provisions a
 Cognito User Pool with public sign-up disabled, a browser-safe Authorization Code + PKCE client
 (no client secret), and a Cognito domain.
-The configured browser origin is the only callback and logout origin. Outputs expose the API endpoint,
+`CONTROL_PLANE_<ENV>_WEB_ORIGINS` configures an explicit comma-separated callback/logout origin allow-list
+(with `WEB_ORIGIN` retained as the single-origin fallback). Outputs expose the API endpoint,
 table name, bucket name, and Cognito values required by the web app. Every supported resource is tagged
 with `Project`, `Environment`, `ManagedBy`, and `Plane`.
 

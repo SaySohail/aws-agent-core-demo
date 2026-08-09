@@ -1,4 +1,8 @@
-import { CloudWatchClient, GetMetricDataCommand, type MetricDataQuery } from '@aws-sdk/client-cloudwatch';
+import {
+  CloudWatchClient,
+  GetMetricDataCommand,
+  type MetricDataQuery
+} from '@aws-sdk/client-cloudwatch';
 import type { AgentCoreMetricsReader, MetricValues } from './index.js';
 
 /** Exact dimensions are built from deployed Runtime/Gateway identifiers, never logical tenant input. */
@@ -21,7 +25,10 @@ export class CloudWatchAgentCoreMetricsReader implements AgentCoreMetricsReader 
         metric('policyDenies', 'PolicyDenyCount', 'Sum', gatewayDimensions)
       );
     }
-    const response = await new CloudWatchClient({ region: input.agent.region, credentials: input.credentials }).send(
+    const response = await new CloudWatchClient({
+      region: input.agent.region,
+      credentials: input.credentials
+    }).send(
       new GetMetricDataCommand({
         StartTime: input.start,
         EndTime: input.end,
@@ -29,7 +36,9 @@ export class CloudWatchAgentCoreMetricsReader implements AgentCoreMetricsReader 
         MetricDataQueries: queries
       })
     );
-    const values = new Map((response.MetricDataResults ?? []).map((result) => [result.Id, result.Values?.[0]]));
+    const values = new Map(
+      (response.MetricDataResults ?? []).map((result) => [result.Id, result.Values?.[0]])
+    );
     const latencyAverageMs = optional(values.get('latencyAverage'));
     const latencyP95Ms = optional(values.get('latencyP95'));
     const sessionCount = optional(values.get('sessions'));
@@ -48,8 +57,25 @@ export class CloudWatchAgentCoreMetricsReader implements AgentCoreMetricsReader 
   }
 }
 
-function metric(id: string, name: string, stat: string, dimensions: { Name: string; Value: string }[]): MetricDataQuery {
-  return { Id: id, ReturnData: true, MetricStat: { Metric: { Namespace: 'AWS/BedrockAgentCore', MetricName: name, Dimensions: dimensions }, Period: 900, Stat: stat } };
+function metric(
+  id: string,
+  name: string,
+  stat: string,
+  dimensions: { Name: string; Value: string }[]
+): MetricDataQuery {
+  return {
+    Id: id,
+    ReturnData: true,
+    MetricStat: {
+      Metric: { Namespace: 'AWS/BedrockAgentCore', MetricName: name, Dimensions: dimensions },
+      Period: 900,
+      Stat: stat
+    }
+  };
 }
-function number(value: number | undefined): number { return value ?? 0; }
-function optional(value: number | undefined): number | undefined { return value; }
+function number(value: number | undefined): number {
+  return value ?? 0;
+}
+function optional(value: number | undefined): number | undefined {
+  return value;
+}

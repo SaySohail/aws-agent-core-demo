@@ -134,8 +134,8 @@ export class ControlPlaneStack extends Stack {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
-        callbackUrls: ['http://localhost:3000/auth/callback'],
-        logoutUrls: ['http://localhost:3000/login']
+        callbackUrls: configuration.webOrigins.map((origin) => `${origin}/auth/callback`),
+        logoutUrls: configuration.webOrigins.map((origin) => `${origin}/login`)
       },
       preventUserExistenceErrors: true
     });

@@ -14,7 +14,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present typecheck",
-    "build": "pnpm -r --if-present build",
+    "build": "pnpm -r --if-present --workspace-concurrency=1 build",
+    "synth": "pnpm --filter @agent-launchpad/customer-bootstrap-infrastructure synth && pnpm --filter @agent-launchpad/agent-template-infrastructure synth && pnpm --filter @agent-launchpad/control-plane-infrastructure synth",
     "validate:security": "pnpm test && pnpm --filter @agent-launchpad/customer-bootstrap-infrastructure test && pnpm --filter @agent-launchpad/agent-template-infrastructure test",
     "validate:aws-e2e": "node scripts/validate-aws-e2e.mjs",
     "clean": "pnpm -r --if-present clean"

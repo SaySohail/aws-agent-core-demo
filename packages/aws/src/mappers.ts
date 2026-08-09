@@ -95,7 +95,9 @@ export const toPersistence = {
       ...agentSchema.parse(value),
       ...controlPlaneKeys.agent(value.tenantId, value.id),
       ...(value.status === 'ACTIVE' && value.runtimeId ? controlPlaneKeys.activeAgent() : {}),
-      ...(value.status === 'ACTIVE' && value.runtimeId ? { gsi3sk: `${value.updatedAt}#${value.id}` } : {}),
+      ...(value.status === 'ACTIVE' && value.runtimeId
+        ? { gsi3sk: `${value.updatedAt}#${value.id}` }
+        : {}),
       entityType: 'AGENT'
     };
   },
@@ -153,7 +155,12 @@ export const toPersistence = {
   agentExecutionSummary(value: AgentExecutionSummary): Item {
     return {
       ...agentExecutionSummarySchema.parse(value),
-      ...controlPlaneKeys.execution(value.tenantId, value.agentId, value.startedAt, value.executionId),
+      ...controlPlaneKeys.execution(
+        value.tenantId,
+        value.agentId,
+        value.startedAt,
+        value.executionId
+      ),
       entityType: 'AGENT_EXECUTION_SUMMARY'
     };
   },

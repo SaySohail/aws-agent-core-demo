@@ -116,19 +116,19 @@ export interface DeploymentWorkerDependencies {
   readonly bedrock: BedrockPreflightChecker;
   readonly dependencies: DependencyProvisioner;
   readonly runtime: RuntimeDeploymentPort;
-  readonly artifactPipeline: DeploymentArtifactPipeline;
+  readonly artifactPipeline: DeploymentArtifactPipelinePort;
   readonly undeployRuntime?: UndeployRuntimePort;
   readonly undeployDependencies?: UndeployDependencyPort;
   readonly artifactCleanup?: ArtifactCleanupPort;
   readonly now?: () => Date;
 }
 
-export interface DeploymentArtifactPipeline {
+export interface DeploymentArtifactPipelinePort {
   ensure(deployment: Deployment): Promise<{ artifactId: string; sha256: string }>;
 }
 
 /** Creates one immutable package for the deployment's captured configuration, and resumes safely after retries. */
-export class DeploymentArtifactPipeline implements DeploymentArtifactPipeline {
+export class DeploymentArtifactPipeline implements DeploymentArtifactPipelinePort {
   public constructor(
     private readonly dependencies: {
       repository: ControlPlaneRepository;

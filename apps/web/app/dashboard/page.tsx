@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { currentSession } from '../../lib/auth';
 import { AwsConnectionOnboarding } from './aws-connection';
 import { AgentTemplateCatalog } from './agent-catalog';
+import { ActiveTenantSelector } from './active-tenant-selector';
 
 export default async function DashboardPage() {
   const session = await currentSession();
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
             <Button href="/auth/logout" label="Sign out" variant="secondary" />
           </VStack>
         </Card>
+        <ActiveTenantSelector />
         <AwsConnectionOnboarding />
         <AgentTemplateCatalog />
       </VStack>

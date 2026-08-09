@@ -16,5 +16,7 @@
     "@aws-sdk/client-dynamodb": "3.969.0",
     "@aws-sdk/lib-dynamodb": "3.969.0"
   },
-  "devDependencies": { "tsx": "4.20.6" }
+  "devDependencies": {
+    "tsx": "4.20.6"
+  }
 }

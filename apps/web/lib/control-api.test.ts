@@ -78,7 +78,10 @@ test('version history uses the tenant-scoped endpoint and retains opaque paginat
   });
 
   const result = await api.agents.versions('tnt_123', 'agt_123', { pageSize: 25 });
-  assert.equal(received?.url, 'https://control.example.test/tenants/tnt_123/agents/agt_123/versions?pageSize=25');
+  assert.equal(
+    received?.url,
+    'https://control.example.test/tenants/tnt_123/agents/agt_123/versions?pageSize=25'
+  );
   assert.equal(result.page?.nextToken, 'opaque-token');
 });
 
@@ -94,7 +97,10 @@ test('rollback sends only the selected version and an idempotency key', async ()
   });
 
   await api.agents.rollback('tnt_123', 'agt_123', '2', 'rollback-123');
-  assert.equal(received?.url, 'https://control.example.test/tenants/tnt_123/agents/agt_123/rollback');
+  assert.equal(
+    received?.url,
+    'https://control.example.test/tenants/tnt_123/agents/agt_123/rollback'
+  );
   assert.equal(received?.headers.get('idempotency-key'), 'rollback-123');
   assert.deepEqual(await received?.json(), { targetRuntimeVersion: '2' });
 });

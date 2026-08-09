@@ -346,7 +346,6 @@ export class AgentArtifactUploader {
       configurationversion: String(input.configurationVersion)
     };
     const storage = this.storageFor({ region: input.connection.region, credentials });
-    let response: { versionId?: string; etag?: string };
     try {
       const existing = await storage.head({
         bucket,
@@ -366,7 +365,7 @@ export class AgentArtifactUploader {
       if (!(cause instanceof Error) || !/NotFound|NoSuchKey|404/.test(cause.name + cause.message))
         throw cause;
     }
-    response = await storage.put({
+    const response = await storage.put({
       bucket,
       key,
       expectedOwner: input.connection.accountId,

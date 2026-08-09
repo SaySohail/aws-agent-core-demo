@@ -88,7 +88,12 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
       new UpdateCommand({
         TableName: this.tableName,
         Key: key,
-        UpdateExpression: [assignments.length ? `SET ${assignments.join(', ')}` : '', removals.length ? `REMOVE ${removals.join(', ')}` : ''].filter(Boolean).join(' '),
+        UpdateExpression: [
+          assignments.length ? `SET ${assignments.join(', ')}` : '',
+          removals.length ? `REMOVE ${removals.join(', ')}` : ''
+        ]
+          .filter(Boolean)
+          .join(' '),
         ExpressionAttributeNames: { ...names, ...conditionNames },
         ExpressionAttributeValues: values,
         ConditionExpression: condition,

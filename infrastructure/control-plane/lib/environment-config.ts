@@ -8,7 +8,8 @@ export interface EnvironmentConfig {
   readonly noncurrentVersionRetentionDays: number;
   readonly pointInTimeRecovery: boolean;
   readonly removalPolicy: 'destroy' | 'retain';
-  readonly webOrigin: string;
+  /** Explicit allow-list; never infer OAuth redirect destinations from the request. */
+  readonly webOrigins: readonly string[];
   readonly customerBootstrapTemplateUrl: string;
   /** Versioned public template for one agent-owned dependency stack. */
   readonly agentDependencyTemplateUrl: string;
@@ -30,15 +31,30 @@ function requiredSetting(
   return value;
 }
 
-function requiredWebOrigin(environment: EnvironmentName): string {
-  const value = requiredSetting(environment, 'WEB_ORIGIN');
-  const origin = new URL(value);
-  if (origin.origin !== value || origin.pathname !== '/' || origin.search || origin.hash) {
-    throw new Error(
-      `CONTROL_PLANE_${environment.toUpperCase()}_WEB_ORIGIN must be an origin without a path.`
-    );
-  }
-  return origin.origin;
+function requiredWebOrigins(environment: EnvironmentName): readonly string[] {
+  const prefix = `CONTROL_PLANE_${environment.toUpperCase()}`;
+  const values = (
+    process.env[`${prefix}_WEB_ORIGINS`] ?? requiredSetting(environment, 'WEB_ORIGIN')
+  )
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!values.length) throw new Error(`${prefix}_WEB_ORIGINS must include at least one origin.`);
+  return [
+    ...new Set(
+      values.map((value) => {
+        const origin = new URL(value);
+        if (origin.origin !== value || origin.pathname !== '/' || origin.search || origin.hash)
+          throw new Error(`${prefix}_WEB_ORIGINS entries must be origins without paths.`);
+        if (
+          origin.protocol !== 'https:' &&
+          !(origin.protocol === 'http:' && origin.hostname === 'localhost')
+        )
+          throw new Error(`${prefix}_WEB_ORIGINS entries must use HTTPS, except localhost.`);
+        return origin.origin;
+      })
+    )
+  ];
 }
 
 function requiredHttpsSetting(
@@ -64,7 +80,7 @@ export function resolveEnvironmentConfig(environment: string): EnvironmentConfig
     noncurrentVersionRetentionDays: name === 'prod' ? 365 : 30,
     pointInTimeRecovery: name === 'prod',
     removalPolicy: name === 'prod' ? 'retain' : 'destroy',
-    webOrigin: requiredWebOrigin(name),
+    webOrigins: requiredWebOrigins(name),
     customerBootstrapTemplateUrl: requiredHttpsSetting(name, 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL'),
     agentDependencyTemplateUrl: requiredHttpsSetting(name, 'AGENT_DEPENDENCY_TEMPLATE_URL')
   };

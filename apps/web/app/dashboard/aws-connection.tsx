@@ -8,12 +8,14 @@ import { Selector } from '@astryxdesign/core/Selector';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useEffect, useState } from 'react';
-import type { AwsConnectionOnboarding, MeResponse } from '../../lib/control-api';
+import type { AwsConnectionOnboarding } from '../../lib/control-api';
+import { useActiveTenant } from '../../lib/active-tenant';
 
 const regions = ['us-east-1', 'us-west-2', 'eu-west-1'];
 
 export function AwsConnectionOnboarding() {
-  const [tenantId, setTenantId] = useState<string>();
+  const { tenant } = useActiveTenant();
+  const tenantId = tenant?.tenantId;
   const [accountId, setAccountId] = useState('');
   const [region, setRegion] = useState(regions[0]);
   const [connection, setConnection] = useState<AwsConnectionOnboarding>();
@@ -21,16 +23,11 @@ export function AwsConnectionOnboarding() {
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     void load();
-  }, []);
+  }, [tenantId]);
   async function load() {
     try {
-      const me = await call<MeResponse>('me');
-      const tenant = me.tenants[0];
-      if (!tenant) return setError('No active tenant membership is available.');
-      setTenantId(tenant.tenantId);
-      const listed = await call<AwsConnectionOnboarding[]>(
-        `tenants/${tenant.tenantId}/aws-connections`
-      );
+      if (!tenantId) return setError('No active tenant membership is available.');
+      const listed = await call<AwsConnectionOnboarding[]>(`tenants/${tenantId}/aws-connections`);
       setConnection(listed.find((item) => item.status !== 'DISCONNECTED'));
     } catch {
       setError('Unable to load AWS connection settings.');

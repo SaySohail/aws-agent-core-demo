@@ -10,6 +10,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { useQuery } from '@tanstack/react-query';
 import { createControlApiClient } from '../../lib/control-api';
+import { useActiveTenant } from '../../lib/active-tenant';
 
 const api = () =>
   createControlApiClient({
@@ -18,8 +19,8 @@ const api = () =>
   });
 
 export function AgentObservability({ agentId }: Readonly<{ agentId: string }>) {
-  const membership = useQuery({ queryKey: ['me'], queryFn: () => api().me.get() });
-  const tenantId = membership.data?.tenants[0]?.tenantId;
+  const { tenant } = useActiveTenant();
+  const tenantId = tenant?.tenantId;
   const agent = useQuery({
     queryKey: ['agent', tenantId, agentId],
     queryFn: () => api().agents.get(tenantId!, agentId),

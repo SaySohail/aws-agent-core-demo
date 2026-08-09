@@ -26,6 +26,7 @@ import {
   stageLabel
 } from './deployment-presentation';
 import { VersionHistory } from './version-history';
+import { useActiveTenant } from '../../lib/active-tenant';
 
 const api = () =>
   createControlApiClient({
@@ -68,8 +69,8 @@ function sortedEvents(events: readonly DeploymentDetailData['events'][number][])
 }
 
 export function DeploymentDetail({ deploymentId }: Readonly<{ deploymentId: string }>) {
-  const membership = useQuery({ queryKey: ['me'], queryFn: () => api().me.get() });
-  const tenantId = membership.data?.tenants[0]?.tenantId;
+  const { tenant } = useActiveTenant();
+  const tenantId = tenant?.tenantId;
   const query = useQuery({
     queryKey: ['deployment', tenantId, deploymentId],
     queryFn: () => api().deployments.get(tenantId!, deploymentId),

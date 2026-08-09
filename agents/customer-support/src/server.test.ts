@@ -38,7 +38,9 @@ test('GET /ping remains cheap and healthy', async (context) => {
 test('POST /invocations preserves the result envelope and trims prompts', async (context) => {
   let prompt: string | undefined;
   const runtime = await startRuntime(
-    createRuntimeServer({ invoke: (value) => ((prompt = value), { result: 'Support response', toolActivity: [] }) })
+    createRuntimeServer({
+      invoke: (value) => ((prompt = value), { result: 'Support response', toolActivity: [] })
+    })
   );
   context.after(() => runtime.close());
   const { response, body } = await requestJson(runtime, '/invocations', {

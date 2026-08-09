@@ -89,12 +89,18 @@ export class MetricsWorker {
       ...(metrics.invocationCount
         ? { errorRate: metrics.errorCount / metrics.invocationCount }
         : {}),
-      ...(metrics.latencyAverageMs === undefined ? {} : { latencyAverageMs: metrics.latencyAverageMs }),
+      ...(metrics.latencyAverageMs === undefined
+        ? {}
+        : { latencyAverageMs: metrics.latencyAverageMs }),
       ...(metrics.latencyP95Ms === undefined ? {} : { latencyP95Ms: metrics.latencyP95Ms }),
       throttleCount: metrics.throttleCount,
       ...(metrics.sessionCount === undefined ? {} : { sessionCount: metrics.sessionCount }),
-      ...(metrics.policyAllowCount === undefined ? {} : { policyAllowCount: metrics.policyAllowCount }),
-      ...(metrics.policyDenyCount === undefined ? {} : { policyDenyCount: metrics.policyDenyCount }),
+      ...(metrics.policyAllowCount === undefined
+        ? {}
+        : { policyAllowCount: metrics.policyAllowCount }),
+      ...(metrics.policyDenyCount === undefined
+        ? {}
+        : { policyDenyCount: metrics.policyDenyCount }),
       availability: 'AVAILABLE',
       collectedAt: end.toISOString()
     };

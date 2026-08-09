@@ -62,7 +62,11 @@ export function agentCoreClientToken(input: {
   return `al-${input.operation}-${digest}`;
 }
 
-export function rollbackClientToken(operationId: string, fromVersion: string, targetVersion: string): string {
+export function rollbackClientToken(
+  operationId: string,
+  fromVersion: string,
+  targetVersion: string
+): string {
   return `al-rollback-${createHash('sha256').update(`${operationId}|${fromVersion}|${targetVersion}`).digest('hex')}`;
 }
 
@@ -374,53 +378,176 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
 
   async rollbackProductionEndpoint(context: DeploymentCommandInput) {
     const resolved = await this.resolve(context);
-    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const target = this.rollbackTarget(
+      resolved.versions,
+      resolved.deployment,
+      resolved.agent.runtimeId
+    );
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
-      if (endpoint.status !== 'READY' || endpoint.liveVersion !== resolved.deployment.fromRuntimeVersion)
-        throw new DeploymentError('PRODUCTION_ENDPOINT_DRIFT', 'ROLLBACK_VALIDATING', false, 'Production endpoint state changed.');
-      const runtime = await client.send(new GetAgentRuntimeCommand({ agentRuntimeId: target.runtimeId, agentRuntimeVersion: target.runtimeVersion }));
-      if (runtime.status !== 'READY') throw new DeploymentError('ROLLBACK_TARGET_NOT_READY', 'ROLLBACK_VERIFYING_TARGET', false, 'Rollback target is not ready.');
-      await client.send(new UpdateAgentRuntimeEndpointCommand({
-        agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT, agentRuntimeVersion: target.runtimeVersion,
-        clientToken: rollbackClientToken(context.deploymentId, resolved.deployment.fromRuntimeVersion!, target.runtimeVersion)
-      }));
+      const endpoint = await client.send(
+        new GetAgentRuntimeEndpointCommand({
+          agentRuntimeId: target.runtimeId,
+          endpointName: PRODUCTION_RUNTIME_ENDPOINT
+        })
+      );
+      if (
+        endpoint.status !== 'READY' ||
+        endpoint.liveVersion !== resolved.deployment.fromRuntimeVersion
+      )
+        throw new DeploymentError(
+          'PRODUCTION_ENDPOINT_DRIFT',
+          'ROLLBACK_VALIDATING',
+          false,
+          'Production endpoint state changed.'
+        );
+      const runtime = await client.send(
+        new GetAgentRuntimeCommand({
+          agentRuntimeId: target.runtimeId,
+          agentRuntimeVersion: target.runtimeVersion
+        })
+      );
+      if (runtime.status !== 'READY')
+        throw new DeploymentError(
+          'ROLLBACK_TARGET_NOT_READY',
+          'ROLLBACK_VERIFYING_TARGET',
+          false,
+          'Rollback target is not ready.'
+        );
+      await client.send(
+        new UpdateAgentRuntimeEndpointCommand({
+          agentRuntimeId: target.runtimeId,
+          endpointName: PRODUCTION_RUNTIME_ENDPOINT,
+          agentRuntimeVersion: target.runtimeVersion,
+          clientToken: rollbackClientToken(
+            context.deploymentId,
+            resolved.deployment.fromRuntimeVersion!,
+            target.runtimeVersion
+          )
+        })
+      );
       return 'PENDING' as const;
-    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_UPDATING_ENDPOINT'); }
+    } catch (cause) {
+      throw this.mapError(cause, 'ROLLBACK_UPDATING_ENDPOINT');
+    }
   }
 
   async getRollbackStatus(context: DeploymentCommandInput) {
     const resolved = await this.resolve(context);
-    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const target = this.rollbackTarget(
+      resolved.versions,
+      resolved.deployment,
+      resolved.agent.runtimeId
+    );
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: target.runtimeId, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
-      if (endpoint.status === 'UPDATE_FAILED' || endpoint.status === 'DELETING') return 'FAILED' as const;
-      return endpoint.status === 'READY' && endpoint.liveVersion === target.runtimeVersion ? 'READY' as const : 'PENDING' as const;
-    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_WAITING_FOR_ENDPOINT'); }
+      const endpoint = await client.send(
+        new GetAgentRuntimeEndpointCommand({
+          agentRuntimeId: target.runtimeId,
+          endpointName: PRODUCTION_RUNTIME_ENDPOINT
+        })
+      );
+      if (endpoint.status === 'UPDATE_FAILED' || endpoint.status === 'DELETING')
+        return 'FAILED' as const;
+      return endpoint.status === 'READY' && endpoint.liveVersion === target.runtimeVersion
+        ? ('READY' as const)
+        : ('PENDING' as const);
+    } catch (cause) {
+      throw this.mapError(cause, 'ROLLBACK_WAITING_FOR_ENDPOINT');
+    }
   }
 
   async checkRollbackHealth(context: DeploymentCommandInput) {
     const resolved = await this.resolve(context);
-    const target = this.rollbackTarget(resolved.versions, resolved.deployment, resolved.agent.runtimeId);
+    const target = this.rollbackTarget(
+      resolved.versions,
+      resolved.deployment,
+      resolved.agent.runtimeId
+    );
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      await this.invoker.invoke({ runtimeArn: target.runtimeArn, payload: { prompt: 'health check: respond briefly without tools' }, sessionId: `rollback-${context.deploymentId}`, credentials: await this.credentials(resolved.connection, resolved.deployment), connection: resolved.connection, qualifier: PRODUCTION_RUNTIME_ENDPOINT });
+      await this.invoker.invoke({
+        runtimeArn: target.runtimeArn,
+        payload: { prompt: 'health check: respond briefly without tools' },
+        sessionId: `rollback-${context.deploymentId}`,
+        credentials: await this.credentials(resolved.connection, resolved.deployment),
+        connection: resolved.connection,
+        qualifier: PRODUCTION_RUNTIME_ENDPOINT
+      });
       const updatedAt = this.now().toISOString();
-      await this.repository.updateRuntimeVersionStatus(context.tenantId, target.id, { state: 'READY', endpointName: PRODUCTION_RUNTIME_ENDPOINT, endpointLiveVersion: target.runtimeVersion, productionPromotedAt: updatedAt, updatedAt });
-      await this.repository.promoteAgentRuntime({ tenantId: context.tenantId, agentId: context.agentId, runtimeId: target.runtimeId, runtimeArn: target.runtimeArn, runtimeVersion: target.runtimeVersion, runtimeEndpoint: resolved.agent.runtimeEndpoint!, runtimeEndpointName: PRODUCTION_RUNTIME_ENDPOINT, runtimeWorkloadIdentityArn: target.workloadIdentityArn, updatedAt });
+      await this.repository.updateRuntimeVersionStatus(context.tenantId, target.id, {
+        state: 'READY',
+        endpointName: PRODUCTION_RUNTIME_ENDPOINT,
+        endpointLiveVersion: target.runtimeVersion,
+        productionPromotedAt: updatedAt,
+        updatedAt
+      });
+      await this.repository.promoteAgentRuntime({
+        tenantId: context.tenantId,
+        agentId: context.agentId,
+        runtimeId: target.runtimeId,
+        runtimeArn: target.runtimeArn,
+        runtimeVersion: target.runtimeVersion,
+        runtimeEndpoint: resolved.agent.runtimeEndpoint!,
+        runtimeEndpointName: PRODUCTION_RUNTIME_ENDPOINT,
+        runtimeWorkloadIdentityArn: target.workloadIdentityArn,
+        updatedAt
+      });
       return 'READY' as const;
-    } catch (cause) { throw this.mapError(cause, 'ROLLBACK_HEALTH_CHECKING'); }
+    } catch (cause) {
+      // A rollback candidate is never declared live until its endpoint-qualified smoke check
+      // succeeds. Restore the known production version before surfacing the failed operation.
+      try {
+        await client.send(
+          new UpdateAgentRuntimeEndpointCommand({
+            agentRuntimeId: target.runtimeId,
+            endpointName: PRODUCTION_RUNTIME_ENDPOINT,
+            agentRuntimeVersion: resolved.deployment.fromRuntimeVersion!,
+            clientToken: rollbackClientToken(
+              context.deploymentId,
+              target.runtimeVersion,
+              resolved.deployment.fromRuntimeVersion!
+            )
+          })
+        );
+      } catch {
+        throw new DeploymentError(
+          'ROLLBACK_COMPENSATION_FAILED',
+          'ROLLBACK_HEALTH_CHECKING',
+          false,
+          'Rollback smoke check failed and the previous production version could not be restored.'
+        );
+      }
+      throw this.mapError(cause, 'ROLLBACK_HEALTH_CHECKING');
+    }
   }
 
   async deleteProductionEndpoint(context: DeploymentCommandInput) {
     const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_DELETING_ENDPOINT');
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      await client.send(new DeleteAgentRuntimeEndpointCommand({
-        agentRuntimeId: resolved.plan.runtimeId!, endpointName: PRODUCTION_RUNTIME_ENDPOINT,
-        clientToken: undeployClientToken(context.deploymentId, `runtime-endpoint:${resolved.plan.runtimeId}:production`)
-      }));
+      await client.send(
+        new DeleteAgentRuntimeEndpointCommand({
+          agentRuntimeId: resolved.plan.runtimeId!,
+          endpointName: PRODUCTION_RUNTIME_ENDPOINT,
+          clientToken: undeployClientToken(
+            context.deploymentId,
+            `runtime-endpoint:${resolved.plan.runtimeId}:production`
+          )
+        })
+      );
       return 'PENDING' as const;
     } catch (cause) {
       if (isNotFound(cause)) return 'READY' as const;
@@ -430,10 +557,18 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
 
   async getProductionEndpointDeletionStatus(context: DeploymentCommandInput) {
     const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_WAITING_ENDPOINT');
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: resolved.plan.runtimeId!, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
-      return endpoint.status === 'DELETING' ? 'PENDING' as const : 'FAILED' as const;
+      const endpoint = await client.send(
+        new GetAgentRuntimeEndpointCommand({
+          agentRuntimeId: resolved.plan.runtimeId!,
+          endpointName: PRODUCTION_RUNTIME_ENDPOINT
+        })
+      );
+      return endpoint.status === 'DELETING' ? ('PENDING' as const) : ('FAILED' as const);
     } catch (cause) {
       if (isNotFound(cause)) return 'READY' as const;
       throw this.mapError(cause, 'UNDEPLOY_WAITING_ENDPOINT');
@@ -442,12 +577,20 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
 
   async deleteRuntime(context: DeploymentCommandInput) {
     const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_DELETING_RUNTIME');
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      await client.send(new DeleteAgentRuntimeCommand({
-        agentRuntimeId: resolved.plan.runtimeId!,
-        clientToken: undeployClientToken(context.deploymentId, `runtime:${resolved.plan.runtimeId}`)
-      }));
+      await client.send(
+        new DeleteAgentRuntimeCommand({
+          agentRuntimeId: resolved.plan.runtimeId!,
+          clientToken: undeployClientToken(
+            context.deploymentId,
+            `runtime:${resolved.plan.runtimeId}`
+          )
+        })
+      );
       return 'PENDING' as const;
     } catch (cause) {
       if (isNotFound(cause)) return 'READY' as const;
@@ -457,10 +600,15 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
 
   async getRuntimeDeletionStatus(context: DeploymentCommandInput) {
     const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_WAITING_RUNTIME');
-    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    const client = this.createControlClient({
+      region: resolved.deployment.snapshot.region,
+      credentials: await this.credentials(resolved.connection, resolved.deployment)
+    });
     try {
-      const runtime = await client.send(new GetAgentRuntimeCommand({ agentRuntimeId: resolved.plan.runtimeId! }));
-      return runtime.status === 'DELETING' ? 'PENDING' as const : 'FAILED' as const;
+      const runtime = await client.send(
+        new GetAgentRuntimeCommand({ agentRuntimeId: resolved.plan.runtimeId! })
+      );
+      return runtime.status === 'DELETING' ? ('PENDING' as const) : ('FAILED' as const);
     } catch (cause) {
       if (isNotFound(cause)) return 'READY' as const;
       throw this.mapError(cause, 'UNDEPLOY_WAITING_RUNTIME');
@@ -507,10 +655,34 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
   private async resolveUndeploy(context: DeploymentCommandInput, stage: DeploymentError['stage']) {
     const deployment = await this.repository.getDeployment(context.tenantId, context.deploymentId);
     const agent = await this.repository.getAgent(context.tenantId, context.agentId);
-    const connection = deployment && await this.repository.getAwsConnection(context.tenantId, deployment.snapshot.awsConnectionId);
+    const connection =
+      deployment &&
+      (await this.repository.getAwsConnection(
+        context.tenantId,
+        deployment.snapshot.awsConnectionId
+      ));
     const plan = deployment?.cleanupPlan;
-    if (!deployment || deployment.operationType !== 'UNDEPLOY' || !agent || agent.status !== 'UNDEPLOYING' || !connection || connection.status !== 'VERIFIED' || !plan?.runtimeId || plan.endpointName !== PRODUCTION_RUNTIME_ENDPOINT || plan.accountId !== deployment.snapshot.accountId || plan.region !== deployment.snapshot.region || connection.accountId !== plan.accountId || connection.region !== plan.region || agent.runtimeId !== plan.runtimeId)
-      throw new DeploymentError('RESOURCE_OWNERSHIP_MISMATCH', stage, false, 'Trusted teardown ownership validation failed.');
+    if (
+      !deployment ||
+      deployment.operationType !== 'UNDEPLOY' ||
+      !agent ||
+      agent.status !== 'UNDEPLOYING' ||
+      !connection ||
+      connection.status !== 'VERIFIED' ||
+      !plan?.runtimeId ||
+      plan.endpointName !== PRODUCTION_RUNTIME_ENDPOINT ||
+      plan.accountId !== deployment.snapshot.accountId ||
+      plan.region !== deployment.snapshot.region ||
+      connection.accountId !== plan.accountId ||
+      connection.region !== plan.region ||
+      agent.runtimeId !== plan.runtimeId
+    )
+      throw new DeploymentError(
+        'RESOURCE_OWNERSHIP_MISMATCH',
+        stage,
+        false,
+        'Trusted teardown ownership validation failed.'
+      );
     return { deployment, agent, connection, plan };
   }
   private async credentials(connection: AwsConnection, deployment: Deployment) {
@@ -589,10 +761,27 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
       );
     return candidate;
   }
-  private rollbackTarget(versions: readonly RuntimeVersion[], deployment: Deployment, runtimeId: string | undefined) {
-    const target = versions.find((version) => version.runtimeVersion === deployment.targetRuntimeVersion);
-    if (!target || !runtimeId || target.runtimeId !== runtimeId || target.state !== 'READY' || !target.productionPromotedAt)
-      throw new DeploymentError('ROLLBACK_TARGET_NOT_FOUND', 'ROLLBACK_VERIFYING_TARGET', false, 'Trusted rollback target is unavailable.');
+  private rollbackTarget(
+    versions: readonly RuntimeVersion[],
+    deployment: Deployment,
+    runtimeId: string | undefined
+  ) {
+    const target = versions.find(
+      (version) => version.runtimeVersion === deployment.targetRuntimeVersion
+    );
+    if (
+      !target ||
+      !runtimeId ||
+      target.runtimeId !== runtimeId ||
+      target.state !== 'READY' ||
+      !target.productionPromotedAt
+    )
+      throw new DeploymentError(
+        'ROLLBACK_TARGET_NOT_FOUND',
+        'ROLLBACK_VERIFYING_TARGET',
+        false,
+        'Trusted rollback target is unavailable.'
+      );
     return target;
   }
   private validateResponse(

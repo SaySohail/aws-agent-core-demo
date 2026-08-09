@@ -149,7 +149,10 @@ export interface AgentRuntimeInvocationClient {
 }
 
 interface RuntimeDataPlaneClient {
-  send(command: InvokeAgentRuntimeCommand, options?: { abortSignal?: AbortSignal }): Promise<{
+  send(
+    command: InvokeAgentRuntimeCommand,
+    options?: { abortSignal?: AbortSignal }
+  ): Promise<{
     response?: unknown;
     contentType?: string;
     traceId?: string;
@@ -163,7 +166,8 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
     private readonly createClient: (input: {
       readonly region: string;
       readonly credentials: AssumedCustomerRoleCredentials;
-    }) => RuntimeDataPlaneClient = (input) => new BedrockAgentCoreClient({ ...input, maxAttempts: 1 })
+    }) => RuntimeDataPlaneClient = (input) =>
+      new BedrockAgentCoreClient({ ...input, maxAttempts: 1 })
   ) {}
 
   public async invoke(input: {
@@ -194,7 +198,10 @@ export class AgentRuntimeInvoker implements AgentRuntimeInvocationClient {
         }),
         { abortSignal: controller.signal }
       );
-      if (response.contentType && response.contentType.split(';', 1)[0]?.toLowerCase() !== 'application/json')
+      if (
+        response.contentType &&
+        response.contentType.split(';', 1)[0]?.toLowerCase() !== 'application/json'
+      )
         throw new RuntimeInvocationError('INVALID_RUNTIME_RESPONSE');
       const text = await readRuntimeResponse(response.response, MAX_RUNTIME_RESPONSE_BYTES);
       let parsed: unknown;
@@ -233,13 +240,17 @@ function safeCorrelationId(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= 512;
 }
 
-export async function readRuntimeResponse(body: unknown, maximumBytes = MAX_RUNTIME_RESPONSE_BYTES): Promise<string> {
+export async function readRuntimeResponse(
+  body: unknown,
+  maximumBytes = MAX_RUNTIME_RESPONSE_BYTES
+): Promise<string> {
   if (!body) return '';
   if (isAsyncIterable(body)) {
     const chunks: Uint8Array[] = [];
     let total = 0;
     for await (const chunk of body) {
-      const bytes = typeof chunk === 'string' ? new TextEncoder().encode(chunk) : new Uint8Array(chunk);
+      const bytes =
+        typeof chunk === 'string' ? new TextEncoder().encode(chunk) : new Uint8Array(chunk);
       total += bytes.byteLength;
       if (total > maximumBytes) throw new RuntimeInvocationError('RUNTIME_RESPONSE_TOO_LARGE');
       chunks.push(bytes);
