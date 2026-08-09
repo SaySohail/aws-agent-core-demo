@@ -7,7 +7,12 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { ControlPlaneRepository, DynamoDbPersistenceClient } from '@agent-launchpad/aws';
-import type { Agent, AgentTemplate, Tenant, TenantMembership } from '@agent-launchpad/schemas';
+import {
+  customerSupportTemplate,
+  type Agent,
+  type Tenant,
+  type TenantMembership
+} from '@agent-launchpad/schemas';
 import { ControlApi } from './http.js';
 
 const endpoint = process.env.DYNAMODB_ENDPOINT ?? 'http://127.0.0.1:8000';
@@ -16,7 +21,7 @@ const port = Number(process.env.CONTROL_API_PORT ?? 4000);
 const at = '2026-08-08T00:00:00.000Z';
 const tenantA = 'tnt_00000000-0000-4000-8000-000000000001';
 const tenantB = 'tnt_00000000-0000-4000-8000-000000000002';
-const templateId = 'tpl_00000000-0000-4000-8000-000000000001';
+const templateId = 'customer-support';
 const agentId = 'agt_00000000-0000-4000-8000-000000000001';
 
 function client() {
@@ -101,12 +106,7 @@ async function seed(): Promise<void> {
     { tenantId: tenantA, userId: 'user-a', role: 'ADMIN', createdAt: at },
     { tenantId: tenantB, userId: 'user-b', role: 'MEMBER', createdAt: at }
   ];
-  const template: AgentTemplate = {
-    templateId,
-    version: '1',
-    name: 'Customer support',
-    status: 'ACTIVE'
-  };
+  const template = customerSupportTemplate;
   const agents: Agent[] = [tenantA, tenantB].map((tenantId) => ({
     id: agentId,
     tenantId,
@@ -115,6 +115,20 @@ async function seed(): Promise<void> {
     name: `Support agent ${tenantId === tenantA ? 'A' : 'B'}`,
     model: 'amazon.nova-lite-v1:0',
     region: 'us-east-1',
+    configuration: {
+      configurationVersion: 1,
+      template: { id: templateId, version: '1' },
+      name: `Support agent ${tenantId === tenantA ? 'A' : 'B'}`,
+      deploymentTarget: {
+        awsConnectionId: 'awc_00000000-0000-4000-8000-000000000001',
+        accountId: '123456789012',
+        region: 'us-east-1'
+      },
+      model: { modelId: 'amazon.nova-lite-v1:0' },
+      capabilities: ['ORDER_LOOKUP'],
+      guardrails: { refunds: { enabled: false } }
+    },
+    revision: 1,
     status: 'DRAFT',
     createdAt: at,
     updatedAt: at

@@ -7,6 +7,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { redirect } from 'next/navigation';
 import { currentSession } from '../../lib/auth';
 import { AwsConnectionOnboarding } from './aws-connection';
+import { AgentTemplateCatalog } from './agent-catalog';
 
 export default async function DashboardPage() {
   const session = await currentSession();
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
           </VStack>
         </Card>
         <AwsConnectionOnboarding />
+        <AgentTemplateCatalog />
       </VStack>
     </AppShell>
   );

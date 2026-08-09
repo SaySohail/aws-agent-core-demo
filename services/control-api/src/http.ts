@@ -4,9 +4,12 @@ import {
   agentIdSchema,
   agentTemplateIdSchema,
   awsConnectionIdSchema,
-  createAgentId,
   createAgentRequestSchema,
   createAuditEventId,
+  bedrockModelCatalog,
+  customerSupportTemplate,
+  type AgentConfiguration,
+  type AgentTemplate,
   deploymentIdSchema,
   pageQuerySchema,
   tenantIdSchema,
@@ -246,11 +249,13 @@ export class ControlApi {
   }
 
   private async templates(request: HttpRequest): Promise<HttpResponse> {
+    await this.ensurePlatformTemplates();
     const listed = await this.repository.listAgentTemplates(options(request.queryParameters));
     return success(listed.items, 200, listed);
   }
 
   private async template(request: HttpRequest): Promise<HttpResponse> {
+    await this.ensurePlatformTemplates();
     const template = await this.repository.getAgentTemplate(
       path(request, 'templateId', agentTemplateIdSchema),
       parseVersion(request.pathParameters?.version)
@@ -470,17 +475,26 @@ export class ControlApi {
   private async createAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
     requireRole(context, 'ADMIN');
     const input = parse(createAgentRequestSchema, body(request));
+    await this.ensurePlatformTemplates();
     const template = await this.repository.getAgentTemplate(
       input.templateId,
       input.templateVersion
     );
     if (!template || template.status !== 'ACTIVE')
       throw new ApiError(404, 'NOT_FOUND', 'The agent template version was not found.');
+    const configuration = await this.normalizeAgentConfiguration(context, input, template);
     const now = this.clock().toISOString();
     const agent: Agent = {
-      id: createAgentId(),
+      // The normalized draft is the idempotency identity for create retries/double-clicks.
+      id: stableAgentId(context.tenantId, configuration),
       tenantId: context.tenantId,
-      ...input,
+      templateId: input.templateId,
+      templateVersion: input.templateVersion,
+      name: configuration.name,
+      model: configuration.model.modelId,
+      region: configuration.deploymentTarget.region,
+      configuration,
+      revision: 1,
       status: 'DRAFT',
       createdAt: now,
       updatedAt: now
@@ -494,10 +508,18 @@ export class ControlApi {
         action: 'AGENT_CREATED',
         resourceType: 'AGENT',
         resourceId: agent.id,
+        metadata: {
+          templateId: agent.templateId,
+          templateVersion: agent.templateVersion,
+          region: agent.region
+        },
         createdAt: now
       });
     } catch (cause) {
-      asConflict(cause);
+      if (!isConditional(cause)) throw cause;
+      const existing = await this.repository.getAgent(context.tenantId, agent.id);
+      if (!existing) asConflict(cause);
+      return success(existing);
     }
     return success(agent, 201);
   }
@@ -505,28 +527,160 @@ export class ControlApi {
   private async updateAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
     requireRole(context, 'ADMIN');
     const agent = await this.agent(context, request);
+    await this.ensurePlatformTemplates();
+    if (agent.status !== 'DRAFT')
+      throw new ApiError(409, 'CONFLICT', 'Only draft agents can be configured.');
     const changes = parse(updateAgentRequestSchema, body(request));
+    const template = await this.repository.getAgentTemplate(
+      changes.templateId,
+      changes.templateVersion
+    );
+    if (!template || template.status !== 'ACTIVE')
+      throw new ApiError(404, 'NOT_FOUND', 'The agent template version was not found.');
+    const configuration = await this.normalizeAgentConfiguration(context, changes, template);
     const updatedAt = this.clock().toISOString();
     try {
-      await this.repository.updateAgent(context, agent.id, {
-        ...(changes.name !== undefined ? { name: changes.name } : {}),
-        ...(changes.model !== undefined ? { model: changes.model } : {}),
-        ...(changes.region !== undefined ? { region: changes.region } : {}),
-        updatedAt
-      });
+      await this.repository.updateAgent(
+        context,
+        agent.id,
+        {
+          templateId: template.templateId,
+          templateVersion: template.version,
+          name: configuration.name,
+          model: configuration.model.modelId,
+          region: configuration.deploymentTarget.region,
+          configuration,
+          revision: agent.revision + 1,
+          updatedAt
+        },
+        changes.expectedRevision
+      );
       await this.repository.appendAuditEvent({
         id: createAuditEventId(),
         tenantId: context.tenantId,
         actorId: context.userId,
-        action: 'AGENT_UPDATED',
+        action: 'AGENT_CONFIGURATION_UPDATED',
         resourceType: 'AGENT',
         resourceId: agent.id,
+        metadata: {
+          templateId: template.templateId,
+          templateVersion: template.version,
+          revision: agent.revision + 1
+        },
         createdAt: updatedAt
       });
     } catch (cause) {
       asConflict(cause);
     }
-    return success({ ...agent, ...changes, updatedAt });
+    return success({
+      ...agent,
+      templateId: template.templateId,
+      templateVersion: template.version,
+      name: configuration.name,
+      model: configuration.model.modelId,
+      region: configuration.deploymentTarget.region,
+      configuration,
+      revision: agent.revision + 1,
+      updatedAt
+    });
+  }
+
+  private async normalizeAgentConfiguration(
+    context: TenantContext,
+    input: {
+      name: string;
+      templateId: string;
+      templateVersion: string;
+      modelId: string;
+      awsConnectionId: string;
+      capabilities: readonly string[];
+      guardrails: {
+        refunds: {
+          enabled: boolean;
+          autoApprovalLimitCents?: number | undefined;
+          currency?: 'GBP' | undefined;
+        };
+      };
+    },
+    template: AgentTemplate
+  ): Promise<AgentConfiguration> {
+    const connection = await this.repository.getAwsConnection(
+      context.tenantId,
+      input.awsConnectionId
+    );
+    if (!connection) throw new ApiError(404, 'NOT_FOUND', 'The AWS connection was not found.');
+    if (connection.status !== 'VERIFIED')
+      throw new ApiError(422, 'CONNECTION_NOT_READY', 'Select a verified AWS connection.');
+    const model = bedrockModelCatalog.find((value) => value.modelId === input.modelId);
+    if (
+      !model ||
+      model.status !== 'ACTIVE' ||
+      model.runtimeApi !== 'BEDROCK_CONVERSE' ||
+      !model.allowedTemplateIds.includes(template.templateId) ||
+      !model.supportedRegions.includes(connection.region)
+    )
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'The selected model is not supported in the target region.'
+      );
+    if (
+      new Set(input.capabilities).size !== input.capabilities.length ||
+      input.capabilities.some(
+        (capability) => !template.supportedCapabilities.includes(capability as never)
+      )
+    )
+      throw new ApiError(
+        400,
+        'VALIDATION_ERROR',
+        'One or more selected capabilities are not supported.'
+      );
+    const refundsEnabled = input.capabilities.includes('PROCESS_REFUND');
+    const suppliedRefunds = input.guardrails.refunds;
+    if (refundsEnabled) {
+      if (
+        !suppliedRefunds.enabled ||
+        !suppliedRefunds.autoApprovalLimitCents ||
+        suppliedRefunds.currency !== template.guardrails.refunds.currency ||
+        suppliedRefunds.autoApprovalLimitCents >
+          template.guardrails.refunds.maximumAutoApprovalLimitCents
+      )
+        throw new ApiError(
+          400,
+          'VALIDATION_ERROR',
+          'The refund automatic-approval limit is invalid.'
+        );
+    }
+    return {
+      configurationVersion: 1,
+      template: { id: template.templateId, version: template.version },
+      name: input.name.trim(),
+      deploymentTarget: {
+        awsConnectionId: connection.id,
+        accountId: connection.accountId,
+        region: connection.region
+      },
+      model: { modelId: model.modelId },
+      capabilities: [...input.capabilities] as AgentConfiguration['capabilities'],
+      guardrails: {
+        refunds: refundsEnabled
+          ? {
+              enabled: true,
+              autoApprovalLimitCents: suppliedRefunds.autoApprovalLimitCents,
+              currency: suppliedRefunds.currency
+            }
+          : { enabled: false }
+      }
+    };
+  }
+
+  /** A platform-owned seed is conditional and has no tenant/user mutation route. */
+  private async ensurePlatformTemplates(): Promise<void> {
+    try {
+      await this.repository.createAgentTemplate(customerSupportTemplate);
+    } catch (cause) {
+      if (!isConditional(cause)) throw cause;
+    }
   }
 }
 
@@ -548,6 +702,13 @@ function parseAwsConnectionId(value: unknown): string {
 function stableConnectionId(tenantId: string, accountId: string, region: string): string {
   const hex = createHash('sha1').update(`${tenantId}:${accountId}:${region}`).digest('hex');
   return `awc_${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+function stableAgentId(tenantId: string, configuration: AgentConfiguration): string {
+  const hex = createHash('sha1')
+    .update(`${tenantId}:${JSON.stringify(configuration)}`)
+    .digest('hex');
+  return `agt_${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 function isConditional(cause: unknown): boolean {

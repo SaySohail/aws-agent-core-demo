@@ -155,44 +155,37 @@ export class ControlPlaneRepository {
   async updateAgent(
     context: TenantContext,
     agentId: string,
-    changes: Partial<
-      Pick<
-        Agent,
-        | 'name'
-        | 'model'
-        | 'region'
-        | 'status'
-        | 'runtimeArn'
-        | 'runtimeVersion'
-        | 'runtimeEndpoint'
-        | 'runtimeWorkloadIdentityArn'
-        | 'gatewayArn'
-        | 'gatewayWorkloadIdentityArn'
-      >
-    > &
-      Pick<Agent, 'updatedAt'>
+    changes: Pick<
+      Agent,
+      | 'templateId'
+      | 'templateVersion'
+      | 'name'
+      | 'model'
+      | 'region'
+      | 'configuration'
+      | 'revision'
+      | 'updatedAt'
+    >,
+    expectedRevision: number
   ): Promise<void> {
     const parsed = agentSchema
       .pick({
         name: true,
+        templateId: true,
+        templateVersion: true,
         model: true,
         region: true,
-        status: true,
-        runtimeArn: true,
-        runtimeVersion: true,
-        runtimeEndpoint: true,
-        runtimeWorkloadIdentityArn: true,
-        gatewayArn: true,
-        gatewayWorkloadIdentityArn: true,
+        configuration: true,
+        revision: true,
         updatedAt: true
       })
-      .partial()
-      .required({ updatedAt: true })
       .parse(changes);
     await this.store.update({
       key: controlPlaneKeys.agent(context.tenantId, agentId),
       updates: parsed,
-      condition: existingCondition
+      condition: 'attribute_exists(pk) AND attribute_exists(sk) AND #revision = :expectedRevision',
+      conditionNames: { '#revision': 'revision' },
+      conditionValues: { ':expectedRevision': expectedRevision }
     });
   }
   async deleteAgent(context: TenantContext, agentId: string): Promise<void> {

@@ -44,6 +44,20 @@ const agent = (tenantId: string, id = agentId): Agent => ({
   name: 'Agent',
   model: 'model',
   region: 'us-east-1',
+  configuration: {
+    configurationVersion: 1,
+    template: { id: 'tpl_00000000-0000-4000-8000-000000000001', version: '1' },
+    name: 'Agent',
+    deploymentTarget: {
+      awsConnectionId: 'awc_00000000-0000-4000-8000-000000000001',
+      accountId: '123456789012',
+      region: 'us-east-1'
+    },
+    model: { modelId: 'amazon.nova-lite-v1:0' },
+    capabilities: ['ORDER_LOOKUP'],
+    guardrails: { refunds: { enabled: false } }
+  },
+  revision: 1,
   status: 'DRAFT',
   createdAt: at,
   updatedAt: at
@@ -147,24 +161,40 @@ test('tenant scoped resources cannot cross tenant partitions, update, or delete'
   assert.equal((await repo.getAgent(tenantA.id, agentId))?.tenantId, tenantA.id);
   assert.equal((await repo.getAgent(tenantB.id, agentId))?.tenantId, tenantB.id);
   const contextA = { userId: 'user-a', tenantId: tenantA.id, role: 'MEMBER' as const };
-  await repo.updateAgent(contextA, agentId, {
-    name: 'Agent A',
-    model: 'model',
-    region: 'us-east-1',
-    status: 'DRAFT',
-    updatedAt: at
-  });
+  await repo.updateAgent(
+    contextA,
+    agentId,
+    {
+      templateId: 'tpl_00000000-0000-4000-8000-000000000001',
+      templateVersion: '1',
+      name: 'Agent A',
+      model: 'model',
+      region: 'us-east-1',
+      configuration: { ...agent(tenantA.id).configuration, name: 'Agent A' },
+      revision: 2,
+      updatedAt: at
+    },
+    1
+  );
   assert.equal((await repo.getAgent(tenantB.id, agentId))?.name, 'Agent');
   await repo.deleteAgent(contextA, agentId);
   assert.equal((await repo.getAgent(tenantB.id, agentId))?.tenantId, tenantB.id);
   await assert.rejects(
-    repo.updateAgent(contextA, 'agt_00000000-0000-4000-8000-000000000099', {
-      name: 'x',
-      model: 'model',
-      region: 'us-east-1',
-      status: 'DRAFT',
-      updatedAt: at
-    })
+    repo.updateAgent(
+      contextA,
+      'agt_00000000-0000-4000-8000-000000000099',
+      {
+        templateId: 'tpl_00000000-0000-4000-8000-000000000001',
+        templateVersion: '1',
+        name: 'x',
+        model: 'model',
+        region: 'us-east-1',
+        configuration: { ...agent(tenantA.id).configuration, name: 'x' },
+        revision: 2,
+        updatedAt: at
+      },
+      1
+    )
   );
   await assert.rejects(repo.deleteAgent(contextA, 'agt_00000000-0000-4000-8000-000000000099'));
 });

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ControlPlaneRepository } from '@agent-launchpad/aws';
-import type { Agent, AgentTemplate, AwsConnection, TenantContext } from '@agent-launchpad/schemas';
+import {
+  customerSupportTemplate,
+  type Agent,
+  type AgentTemplate,
+  type AwsConnection,
+  type TenantContext
+} from '@agent-launchpad/schemas';
 import type { CustomerRoleAssumer } from '@agent-launchpad/aws';
 import { ControlApi, type HttpRequest } from './http.js';
 
@@ -9,12 +15,7 @@ const tenantA = 'tnt_00000000-0000-4000-8000-000000000001';
 const tenantB = 'tnt_00000000-0000-4000-8000-000000000002';
 const agentId = 'agt_00000000-0000-4000-8000-000000000001';
 const timestamp = '2026-01-01T00:00:00.000Z';
-const template: AgentTemplate = {
-  templateId: 'tpl_00000000-0000-4000-8000-000000000001',
-  version: '1',
-  name: 'Template',
-  status: 'ACTIVE'
-};
+const template: AgentTemplate = customerSupportTemplate;
 const agent: Agent = {
   id: agentId,
   tenantId: tenantA,
@@ -23,9 +24,44 @@ const agent: Agent = {
   name: 'A',
   model: 'model',
   region: 'us-east-1',
+  configuration: {
+    configurationVersion: 1,
+    template: { id: template.templateId, version: template.version },
+    name: 'A',
+    deploymentTarget: {
+      awsConnectionId: 'awc_00000000-0000-4000-8000-000000000001',
+      accountId: '123456789012',
+      region: 'us-east-1'
+    },
+    model: { modelId: 'amazon.nova-lite-v1:0' },
+    capabilities: ['ORDER_LOOKUP'],
+    guardrails: { refunds: { enabled: false } }
+  },
+  revision: 1,
   status: 'DRAFT',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z'
+};
+const verifiedConnection: AwsConnection = {
+  id: 'awc_00000000-0000-4000-8000-000000000001',
+  tenantId: tenantA,
+  accountId: '123456789012',
+  region: 'us-east-1',
+  roleArn: 'arn:aws:iam::123456789012:role/AgentLaunchpadDeploymentRole',
+  externalId: 'test',
+  status: 'VERIFIED',
+  createdBy: 'user-a',
+  createdAt: timestamp,
+  updatedAt: timestamp
+};
+const agentInput = {
+  name: 'x',
+  templateId: template.templateId,
+  templateVersion: '1',
+  modelId: 'amazon.nova-lite-v1:0',
+  awsConnectionId: verifiedConnection.id,
+  capabilities: ['ORDER_LOOKUP'],
+  guardrails: { refunds: { enabled: false } }
 };
 
 function request(route: string, overrides: Partial<HttpRequest> = {}): HttpRequest {
@@ -58,6 +94,8 @@ function repository(overrides: Partial<ControlPlaneRepository> = {}): ControlPla
           }
         : undefined,
     getAgentTemplate: async () => template,
+    createAgentTemplate: async () => undefined,
+    getAwsConnection: async () => verifiedConnection,
     createAgent: async () => undefined,
     appendAuditEvent: async () => undefined,
     listTenantContexts: async () => ({ items: [] }),
@@ -118,11 +156,7 @@ test('agent create rejects privileged fields and inactive/missing templates befo
     request('POST /tenants/{tenantId}/agents', {
       pathParameters: { tenantId: tenantA },
       body: JSON.stringify({
-        name: 'x',
-        templateId: template.templateId,
-        templateVersion: '1',
-        model: 'm',
-        region: 'us-east-1',
+        ...agentInput,
         tenantId: tenantB,
         status: 'READY'
       })
@@ -134,11 +168,7 @@ test('agent create rejects privileged fields and inactive/missing templates befo
     request('POST /tenants/{tenantId}/agents', {
       pathParameters: { tenantId: tenantA },
       body: JSON.stringify({
-        name: 'x',
-        templateId: template.templateId,
-        templateVersion: '1',
-        model: 'm',
-        region: 'us-east-1'
+        ...agentInput
       })
     })
   );
@@ -153,13 +183,7 @@ test('repository conflicts and unexpected errors are mapped without implementati
       }
     })
   );
-  const payload = JSON.stringify({
-    name: 'x',
-    templateId: template.templateId,
-    templateVersion: '1',
-    model: 'm',
-    region: 'us-east-1'
-  });
+  const payload = JSON.stringify(agentInput);
   assert.equal(
     (
       await conflict.handle(

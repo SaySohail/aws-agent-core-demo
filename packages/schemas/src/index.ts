@@ -16,7 +16,8 @@ export const awsConnectionIdSchema = prefixedIdSchema('awc_');
 export const agentIdSchema = prefixedIdSchema('agt_');
 export const deploymentIdSchema = prefixedIdSchema('dep_');
 export const auditEventIdSchema = prefixedIdSchema('evt_');
-export const agentTemplateIdSchema = prefixedIdSchema('tpl_');
+/** Platform template IDs are stable, human-readable product identifiers. */
+export const agentTemplateIdSchema = z.string().regex(/^(?:customer-support|tpl_[0-9a-f-]+)$/i);
 
 /** Customer-support tool contracts are shared by the agent and data-plane Lambda boundary. */
 export const supportOrderIdSchema = z
@@ -45,6 +46,51 @@ export const processRefundInputSchema = z
 
 /** Demo-only control: policy infrastructure renders this value into Cedar at deployment time. */
 export const REFUND_AUTO_APPROVAL_LIMIT_CENTS = 10_000;
+export const CUSTOMER_SUPPORT_TEMPLATE_ID = 'customer-support';
+export const CUSTOMER_SUPPORT_TEMPLATE_VERSION = '1';
+export const agentCapabilitySchema = z.enum([
+  'ORDER_LOOKUP',
+  'ORDER_SEARCH',
+  'CREATE_SUPPORT_TICKET',
+  'PROCESS_REFUND'
+]);
+export const customerSupportCapabilities = [
+  'ORDER_LOOKUP',
+  'ORDER_SEARCH',
+  'CREATE_SUPPORT_TICKET',
+  'PROCESS_REFUND'
+] as const;
+export const customerSupportCapabilityTools = {
+  ORDER_LOOKUP: 'get_order',
+  ORDER_SEARCH: 'search_orders',
+  CREATE_SUPPORT_TICKET: 'create_support_ticket',
+  PROCESS_REFUND: 'process_refund'
+} as const;
+
+export const refundGuardrailSchema = z.object({
+  enabled: z.boolean(),
+  autoApprovalLimitCents: z.number().int().positive().optional(),
+  currency: z.literal('GBP').optional()
+});
+export const agentConfigurationSchema = z
+  .object({
+    configurationVersion: z.literal(1),
+    template: z.object({ id: agentTemplateIdSchema, version: nonEmptyString.max(100) }).strict(),
+    name: nonEmptyString
+      .max(100)
+      .refine(noControlCharacters, 'Control characters are not allowed.'),
+    deploymentTarget: z
+      .object({
+        awsConnectionId: awsConnectionIdSchema,
+        accountId: z.string().regex(/^\d{12}$/),
+        region: nonEmptyString.max(64)
+      })
+      .strict(),
+    model: z.object({ modelId: nonEmptyString.max(512) }).strict(),
+    capabilities: z.array(agentCapabilitySchema).max(20),
+    guardrails: z.object({ refunds: refundGuardrailSchema }).strict()
+  })
+  .strict();
 
 export const customerSupportGatewayToolDefinitions = [
   {
@@ -115,22 +161,28 @@ export const pageQuerySchema = z
 
 export const createAgentRequestSchema = z
   .object({
-    name: nonEmptyString.max(200),
+    name: nonEmptyString.max(100).refine(noControlCharacters),
     templateId: agentTemplateIdSchema,
     templateVersion: nonEmptyString.max(100),
-    model: nonEmptyString.max(512),
-    region: nonEmptyString.max(64)
+    modelId: nonEmptyString.max(512),
+    awsConnectionId: awsConnectionIdSchema,
+    capabilities: z.array(agentCapabilitySchema).max(20),
+    guardrails: z.object({ refunds: refundGuardrailSchema }).strict()
   })
   .strict();
 
 export const updateAgentRequestSchema = z
   .object({
-    name: nonEmptyString.max(200).optional(),
-    model: nonEmptyString.max(512).optional(),
-    region: nonEmptyString.max(64).optional()
+    name: nonEmptyString.max(100).refine(noControlCharacters),
+    templateId: agentTemplateIdSchema,
+    templateVersion: nonEmptyString.max(100),
+    modelId: nonEmptyString.max(512),
+    awsConnectionId: awsConnectionIdSchema,
+    capabilities: z.array(agentCapabilitySchema).max(20),
+    guardrails: z.object({ refunds: refundGuardrailSchema }).strict(),
+    expectedRevision: z.number().int().positive()
   })
-  .strict()
-  .refine((value) => Object.keys(value).length > 0, 'At least one editable field is required.');
+  .strict();
 
 export const tenantStatusSchema = z.enum(['ACTIVE', 'SUSPENDED']);
 export const membershipRoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
@@ -141,7 +193,7 @@ export const awsConnectionStatusSchema = z.enum([
   'FAILED',
   'DISCONNECTED'
 ]);
-export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED']);
+export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED', 'DISABLED']);
 export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'FAILED', 'ARCHIVED']);
 export const deploymentStatusSchema = z.enum([
   'QUEUED',
@@ -197,12 +249,67 @@ export const createAwsConnectionRequestSchema = z
   .strict();
 
 /** Global catalog item. Templates deliberately have no tenantId. */
-export const agentTemplateSchema = z.object({
-  templateId: agentTemplateIdSchema,
-  version: nonEmptyString.max(100),
-  name: nonEmptyString.max(200),
-  status: agentTemplateStatusSchema
-});
+export const agentTemplateSchema = z
+  .object({
+    templateId: agentTemplateIdSchema,
+    version: nonEmptyString.max(100),
+    name: nonEmptyString.max(200),
+    description: nonEmptyString.max(2000),
+    status: agentTemplateStatusSchema,
+    supportedCapabilities: z.array(agentCapabilitySchema).min(1),
+    supportedModelIds: z.array(nonEmptyString.max(512)).min(1),
+    guardrails: z
+      .object({
+        refunds: z
+          .object({
+            defaultAutoApprovalLimitCents: z.number().int().positive(),
+            maximumAutoApprovalLimitCents: z.number().int().positive(),
+            currency: z.literal('GBP')
+          })
+          .strict()
+      })
+      .strict()
+  })
+  .strict();
+
+export const bedrockModelCatalogEntrySchema = z
+  .object({
+    modelId: nonEmptyString.max(512),
+    displayName: nonEmptyString.max(200),
+    status: z.enum(['ACTIVE', 'DISABLED']),
+    allowedTemplateIds: z.array(agentTemplateIdSchema).min(1),
+    supportedRegions: z.array(nonEmptyString.max(64)).min(1),
+    runtimeApi: z.literal('BEDROCK_CONVERSE')
+  })
+  .strict();
+
+/** Intentionally maintained platform data, never supplied by a browser or fetched from AWS. */
+export const customerSupportTemplate: AgentTemplate = {
+  templateId: CUSTOMER_SUPPORT_TEMPLATE_ID,
+  version: CUSTOMER_SUPPORT_TEMPLATE_VERSION,
+  name: 'Customer Support Agent',
+  description: 'Resolve customer order questions, support tickets, and approved demo refunds.',
+  status: 'ACTIVE',
+  supportedCapabilities: [...customerSupportCapabilities],
+  supportedModelIds: ['amazon.nova-lite-v1:0'],
+  guardrails: {
+    refunds: {
+      defaultAutoApprovalLimitCents: REFUND_AUTO_APPROVAL_LIMIT_CENTS,
+      maximumAutoApprovalLimitCents: REFUND_AUTO_APPROVAL_LIMIT_CENTS,
+      currency: 'GBP'
+    }
+  }
+};
+export const bedrockModelCatalog: readonly BedrockModelCatalogEntry[] = [
+  {
+    modelId: 'amazon.nova-lite-v1:0',
+    displayName: 'Amazon Nova Lite',
+    status: 'ACTIVE',
+    allowedTemplateIds: [CUSTOMER_SUPPORT_TEMPLATE_ID],
+    supportedRegions: ['us-east-1', 'us-west-2', 'eu-west-1'],
+    runtimeApi: 'BEDROCK_CONVERSE'
+  }
+];
 
 export const agentSchema = z.object({
   id: agentIdSchema,
@@ -212,6 +319,8 @@ export const agentSchema = z.object({
   name: nonEmptyString.max(200),
   model: nonEmptyString.max(512),
   region: nonEmptyString.max(64),
+  configuration: agentConfigurationSchema,
+  revision: z.number().int().positive(),
   status: agentStatusSchema,
   runtimeArn: nonEmptyString.max(2048).optional(),
   runtimeVersion: nonEmptyString.max(100).optional(),
@@ -264,6 +373,9 @@ export type Tenant = z.infer<typeof tenantSchema>;
 export type TenantMembership = z.infer<typeof tenantMembershipSchema>;
 export type AwsConnection = z.infer<typeof awsConnectionSchema>;
 export type AgentTemplate = z.infer<typeof agentTemplateSchema>;
+export type AgentConfiguration = z.infer<typeof agentConfigurationSchema>;
+export type AgentCapability = z.infer<typeof agentCapabilitySchema>;
+export type BedrockModelCatalogEntry = z.infer<typeof bedrockModelCatalogEntrySchema>;
 export type Agent = z.infer<typeof agentSchema>;
 export type Deployment = z.infer<typeof deploymentSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
@@ -279,8 +391,92 @@ export type UpdateAgentRequest = z.infer<typeof updateAgentRequestSchema>;
 export type PageQuery = z.infer<typeof pageQuerySchema>;
 export type CreateAwsConnectionRequest = z.infer<typeof createAwsConnectionRequestSchema>;
 
+export interface AgentDefinitionValidationIssue {
+  readonly code: string;
+  readonly message: string;
+}
+
+/** Static-only readiness check shared by packaging and deployment preflight callers. */
+export function validateAgentDefinitionForDeployment(
+  agent: Agent,
+  template: AgentTemplate | undefined,
+  connection: AwsConnection | undefined,
+  catalog: readonly BedrockModelCatalogEntry[] = bedrockModelCatalog
+): readonly AgentDefinitionValidationIssue[] {
+  const issues: AgentDefinitionValidationIssue[] = [];
+  if (agent.status !== 'DRAFT')
+    issues.push({ code: 'AGENT_NOT_DRAFT', message: 'Agent must be a draft.' });
+  if (
+    !template ||
+    template.templateId !== agent.templateId ||
+    template.version !== agent.templateVersion
+  )
+    issues.push({ code: 'TEMPLATE_NOT_FOUND', message: 'Exact template version is unavailable.' });
+  else if (template.status !== 'ACTIVE')
+    issues.push({ code: 'TEMPLATE_INACTIVE', message: 'Template is not active.' });
+  if (!connection)
+    issues.push({ code: 'CONNECTION_NOT_FOUND', message: 'AWS connection is unavailable.' });
+  else {
+    if (connection.status !== 'VERIFIED')
+      issues.push({ code: 'CONNECTION_NOT_VERIFIED', message: 'AWS connection is not verified.' });
+    if (
+      connection.id !== agent.configuration.deploymentTarget.awsConnectionId ||
+      connection.accountId !== agent.configuration.deploymentTarget.accountId ||
+      connection.region !== agent.configuration.deploymentTarget.region
+    )
+      issues.push({
+        code: 'TARGET_MISMATCH',
+        message: 'Stored deployment target is inconsistent.'
+      });
+  }
+  const model = catalog.find((item) => item.modelId === agent.configuration.model.modelId);
+  if (
+    !model ||
+    model.status !== 'ACTIVE' ||
+    model.runtimeApi !== 'BEDROCK_CONVERSE' ||
+    !model.allowedTemplateIds.includes(agent.templateId) ||
+    !model.supportedRegions.includes(agent.configuration.deploymentTarget.region)
+  )
+    issues.push({
+      code: 'MODEL_INVALID',
+      message: 'Model is not compatible with this deployment target.'
+    });
+  if (
+    !template ||
+    agent.configuration.capabilities.some(
+      (value) => !template.supportedCapabilities.includes(value)
+    )
+  )
+    issues.push({
+      code: 'CAPABILITIES_INVALID',
+      message: 'Selected capabilities are not supported.'
+    });
+  const refunds = agent.configuration.guardrails.refunds;
+  const refundEnabled = agent.configuration.capabilities.includes('PROCESS_REFUND');
+  if (
+    refundEnabled !== refunds.enabled ||
+    (refundEnabled &&
+      (!refunds.autoApprovalLimitCents ||
+        refunds.currency !== template?.guardrails.refunds.currency ||
+        refunds.autoApprovalLimitCents >
+          (template?.guardrails.refunds.maximumAutoApprovalLimitCents ?? 0)))
+  )
+    issues.push({
+      code: 'REFUND_GUARDRAIL_INVALID',
+      message: 'Refund governance configuration is invalid.'
+    });
+  return issues;
+}
+
 function generateId(prefix: string): string {
   return `${prefix}${crypto.randomUUID()}`;
+}
+
+function noControlCharacters(value: string): boolean {
+  return ![...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code < 32 || code === 127;
+  });
 }
 
 export const createTenantId = (): string => generateId('tnt_');
