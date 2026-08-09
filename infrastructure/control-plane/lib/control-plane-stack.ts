@@ -385,7 +385,14 @@ export class ControlPlaneStack extends Stack {
         methods: [apigwv2.HttpMethod.POST]
       },
       { path: '/tenants/{tenantId}/deployments', methods: [apigwv2.HttpMethod.GET] },
-      { path: '/tenants/{tenantId}/deployments/{deploymentId}', methods: [apigwv2.HttpMethod.GET] }
+      {
+        path: '/tenants/{tenantId}/deployments/{deploymentId}',
+        methods: [apigwv2.HttpMethod.GET]
+      },
+      {
+        path: '/tenants/{tenantId}/deployments/{deploymentId}/retry',
+        methods: [apigwv2.HttpMethod.POST]
+      }
     ];
     for (const route of authenticatedRoutes)
       httpApi.addRoutes({ ...route, integration: controlIntegration, authorizer: jwtAuthorizer });

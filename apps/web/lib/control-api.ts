@@ -5,19 +5,13 @@ import type {
   CreateAwsConnectionRequest as SharedCreateAwsConnectionRequest,
   CreateAgentRequest as SharedCreateAgentRequest,
   Deployment,
+  DeploymentDetail,
   MembershipRole,
   Tenant,
   UpdateAgentRequest as SharedUpdateAgentRequest
 } from '@agent-launchpad/schemas';
 
-export type ApiErrorCode =
-  | 'VALIDATION_ERROR'
-  | 'UNAUTHENTICATED'
-  | 'FORBIDDEN'
-  | 'NOT_FOUND'
-  | 'CONFLICT'
-  | 'RATE_LIMITED'
-  | 'INTERNAL_ERROR';
+export type ApiErrorCode = string;
 
 export interface ApiErrorBody {
   readonly code: ApiErrorCode;
@@ -89,6 +83,7 @@ interface SuccessEnvelope<T> {
 interface RequestOptions {
   readonly method?: 'GET' | 'POST' | 'PATCH';
   readonly body?: unknown;
+  readonly headers?: Record<string, string>;
 }
 
 /**
@@ -106,6 +101,7 @@ export function createControlApiClient(options: ControlApiClientOptions) {
       headers: {
         accept: 'application/json',
         ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...requestOptions.headers,
         ...(requestOptions.body === undefined ? {} : { 'content-type': 'application/json' })
       },
       ...(requestOptions.body === undefined ? {} : { body: JSON.stringify(requestOptions.body) })
@@ -206,7 +202,14 @@ export function createControlApiClient(options: ControlApiClientOptions) {
       list: (tenantId: string, query?: PageQuery) =>
         requestPage<Deployment>(`/tenants/${segment(tenantId)}/deployments${queryString(query)}`),
       get: (tenantId: string, deploymentId: string) =>
-        request<Deployment>(`/tenants/${segment(tenantId)}/deployments/${segment(deploymentId)}`),
+        request<DeploymentDetail>(
+          `/tenants/${segment(tenantId)}/deployments/${segment(deploymentId)}`
+        ),
+      retry: (tenantId: string, deploymentId: string, idempotencyKey: string) =>
+        request<{ deploymentId: string; status: Deployment['status'] }>(
+          `/tenants/${segment(tenantId)}/deployments/${segment(deploymentId)}/retry`,
+          { method: 'POST', body: {}, headers: { 'idempotency-key': idempotencyKey } }
+        ),
       listForAgent: (tenantId: string, agentId: string, query?: PageQuery) =>
         requestPage<Deployment>(
           `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/deployments${queryString(query)}`

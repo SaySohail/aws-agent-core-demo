@@ -169,6 +169,66 @@ test('deployment launch is asynchronous, idempotent, and locked per agent', asyn
   );
 });
 
+test('deployment detail is tenant-scoped and returns safe timeline and production metadata', async () => {
+  const deployment = {
+    id: 'dep_00000000-0000-4000-8000-000000000001',
+    tenantId: tenantA,
+    agentId,
+    status: 'READY' as const,
+    stage: 'READY' as const,
+    requestedBy: 'user-a',
+    configurationRevision: 1,
+    snapshot: {
+      templateId: template.templateId,
+      templateVersion: template.version,
+      awsConnectionId: verifiedConnection.id,
+      accountId: verifiedConnection.accountId,
+      region: verifiedConnection.region,
+      modelId: 'amazon.nova-lite-v1:0',
+      capabilities: ['ORDER_LOOKUP'],
+      guardrails: { refunds: { enabled: false } }
+    },
+    idempotencyKeyHash: 'a'.repeat(64),
+    requestHash: 'b'.repeat(64),
+    executionArn: 'arn:aws:states:us-east-1:123456789012:execution:internal:secret',
+    errorMessage: 'raw AWS exception must never reach the browser',
+    createdAt: timestamp
+  };
+  const api = new ControlApi(
+    repository({
+      getDeployment: async (tenantId: string) =>
+        tenantId === tenantA ? (deployment as never) : undefined,
+      listDeploymentEvents: async () => ({
+        items: [
+          {
+            id: 'dpe_00000000-0000-4000-8000-000000000001',
+            tenantId: tenantA,
+            deploymentId: deployment.id,
+            toStage: 'READY' as const,
+            status: 'READY' as const,
+            createdAt: timestamp
+          }
+        ]
+      }),
+      listRuntimeVersions: async () => []
+    })
+  );
+  const allowed = await api.handle(
+    request('GET /tenants/{tenantId}/deployments/{deploymentId}', {
+      pathParameters: { tenantId: tenantA, deploymentId: deployment.id }
+    })
+  );
+  assert.equal(allowed.statusCode, 200);
+  assert.doesNotMatch(allowed.body, /raw AWS exception|execution:internal|"requestHash"/);
+  const denied = await api.handle(
+    request('GET /tenants/{tenantId}/deployments/{deploymentId}', {
+      pathParameters: { tenantId: tenantB, deploymentId: deployment.id }
+    })
+  );
+  assert.equal(denied.statusCode, 403);
+  assert.doesNotMatch(denied.body, /dep_/);
+});
+
 test('missing JWT identity and malformed request input use controlled errors with request IDs', async () => {
   const api = new ControlApi(repository());
   const unauthenticated = await api.handle({

@@ -45,3 +45,23 @@ test('the typed client returns the API error contract including its request ID',
       error.body.requestId === 'request-123'
   );
 });
+
+test('deployment retries use only the authenticated control-plane API and carry an idempotency key', async () => {
+  let received: Request | undefined;
+  const api = createControlApiClient({
+    baseUrl: 'https://control.example.test',
+    getAccessToken: () => 'validated-cognito-jwt',
+    fetch: async (input, init) => {
+      received = new Request(input, init);
+      return Response.json({ data: { deploymentId: 'dep_123', status: 'QUEUED' } });
+    }
+  });
+  await api.deployments.retry('tnt_123', 'dep_123', 'retry-123');
+  assert.equal(
+    received?.url,
+    'https://control.example.test/tenants/tnt_123/deployments/dep_123/retry'
+  );
+  assert.equal(received?.method, 'POST');
+  assert.equal(received?.headers.get('idempotency-key'), 'retry-123');
+  assert.equal(received?.headers.get('authorization'), 'Bearer validated-cognito-jwt');
+});

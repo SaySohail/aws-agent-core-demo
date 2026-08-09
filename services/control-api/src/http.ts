@@ -18,6 +18,8 @@ import {
   updateAgentRequestSchema,
   type Agent,
   type AwsConnection,
+  type Deployment,
+  type DeploymentDetail,
   type MembershipRole,
   type TenantContext
 } from '@agent-launchpad/schemas';
@@ -60,6 +62,8 @@ export interface DeploymentWorkflowStarter {
     artifactId?: string;
   }): Promise<{ executionArn: string }>;
 }
+
+const retryableDeploymentErrorCodes = new Set(['AGENTCORE_THROTTLED']);
 
 export interface HttpResponse {
   readonly statusCode: number;
@@ -337,8 +341,10 @@ export class ControlApi {
         path(request, 'deploymentId', deploymentIdSchema)
       );
       if (!deployment) throw new ApiError(404, 'NOT_FOUND', 'The deployment was not found.');
-      return success(deployment);
+      return success(await this.deploymentDetail(context, deployment));
     }
+    if (request.route === 'POST /tenants/{tenantId}/deployments/{deploymentId}/retry')
+      return this.retryDeployment(context, request);
     if (request.route === 'GET /tenants/{tenantId}/agents/{agentId}/deployments') {
       const agentId = path(request, 'agentId', agentIdSchema);
       if (!(await this.repository.getAgent(context.tenantId, agentId)))
@@ -377,6 +383,187 @@ export class ControlApi {
         externalId: connection.externalId
       })
     };
+  }
+
+  private async deploymentDetail(
+    context: TenantContext,
+    deployment: Deployment
+  ): Promise<DeploymentDetail> {
+    const [events, versions, agent] = await Promise.all([
+      this.repository.listDeploymentEvents(context.tenantId, deployment.id, { limit: 100 }),
+      this.repository.listRuntimeVersions(context.tenantId, deployment.agentId),
+      this.repository.getAgent(context.tenantId, deployment.agentId)
+    ]);
+    if (!agent) throw new ApiError(404, 'NOT_FOUND', 'The deployment was not found.');
+    const candidate = versions.find((version) => version.deploymentId === deployment.id);
+    return {
+      agentName: agent.name,
+      deployment: {
+        id: deployment.id,
+        agentId: deployment.agentId,
+        status: deployment.status,
+        stage: deployment.stage,
+        requestedBy: deployment.requestedBy,
+        configurationRevision: deployment.configurationRevision,
+        snapshot: deployment.snapshot,
+        ...(deployment.runtimeVersion ? { runtimeVersion: deployment.runtimeVersion } : {}),
+        ...(deployment.runtimeId ? { runtimeId: deployment.runtimeId } : {}),
+        ...(deployment.runtimeEndpointArn
+          ? { runtimeEndpointArn: deployment.runtimeEndpointArn }
+          : {}),
+        ...(deployment.runtimeEndpointName
+          ? { runtimeEndpointName: deployment.runtimeEndpointName }
+          : {}),
+        ...(deployment.gatewayArn ? { gatewayArn: deployment.gatewayArn } : {}),
+        createdAt: deployment.createdAt,
+        ...(deployment.startedAt ? { startedAt: deployment.startedAt } : {}),
+        ...(deployment.completedAt ? { completedAt: deployment.completedAt } : {}),
+        ...(deployment.errorCode ? { errorCode: deployment.errorCode } : {})
+      },
+      events: events.items.map((event) => ({
+        id: event.id,
+        deploymentId: event.deploymentId,
+        ...(event.fromStage ? { fromStage: event.fromStage } : {}),
+        toStage: event.toStage,
+        status: event.status,
+        ...(event.errorCode ? { errorCode: event.errorCode } : {}),
+        createdAt: event.createdAt
+      })),
+      ...(candidate
+        ? {
+            candidateRuntimeVersion: {
+              id: candidate.id,
+              agentId: candidate.agentId,
+              deploymentId: candidate.deploymentId,
+              runtimeId: candidate.runtimeId,
+              runtimeArn: candidate.runtimeArn,
+              runtimeVersion: candidate.runtimeVersion,
+              artifactId: candidate.artifactId,
+              artifactSha256: candidate.artifactSha256,
+              configurationRevision: candidate.configurationRevision,
+              state: candidate.state,
+              ...(candidate.endpointName ? { endpointName: candidate.endpointName } : {}),
+              ...(candidate.endpointArn ? { endpointArn: candidate.endpointArn } : {}),
+              ...(candidate.endpointTargetVersion
+                ? { endpointTargetVersion: candidate.endpointTargetVersion }
+                : {}),
+              ...(candidate.endpointLiveVersion
+                ? { endpointLiveVersion: candidate.endpointLiveVersion }
+                : {}),
+              createdAt: candidate.createdAt,
+              updatedAt: candidate.updatedAt
+            }
+          }
+        : {}),
+      production: {
+        ...(agent.runtimeArn ? { runtimeArn: agent.runtimeArn } : {}),
+        ...(agent.runtimeId ? { runtimeId: agent.runtimeId } : {}),
+        ...(agent.runtimeEndpoint ? { endpointArn: agent.runtimeEndpoint } : {}),
+        ...(agent.runtimeEndpointName ? { endpointName: agent.runtimeEndpointName } : {}),
+        ...(agent.runtimeVersion ? { liveVersion: agent.runtimeVersion } : {})
+      },
+      retryable:
+        deployment.status === 'FAILED' &&
+        Boolean(deployment.errorCode && retryableDeploymentErrorCodes.has(deployment.errorCode)),
+      currentConfigurationRevision: agent.revision
+    };
+  }
+
+  private async retryDeployment(
+    context: TenantContext,
+    request: HttpRequest
+  ): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const source = await this.repository.getDeployment(
+      context.tenantId,
+      path(request, 'deploymentId', deploymentIdSchema)
+    );
+    if (!source) throw new ApiError(404, 'NOT_FOUND', 'The deployment was not found.');
+    if (
+      source.status !== 'FAILED' ||
+      !source.errorCode ||
+      !retryableDeploymentErrorCodes.has(source.errorCode)
+    )
+      throw new ApiError(409, 'RETRY_NOT_AVAILABLE', 'This deployment is not eligible for retry.');
+    const lock = await this.repository.getDeploymentLock(context.tenantId, source.agentId);
+    if (lock)
+      throw new ApiError(
+        409,
+        'DEPLOYMENT_ALREADY_IN_PROGRESS',
+        `A deployment is already in progress: ${lock.deploymentId}.`
+      );
+    if (!this.workflowStarter)
+      throw new ApiError(
+        503,
+        'DEPLOYMENT_UNAVAILABLE',
+        'Deployment orchestration is not configured.'
+      );
+    const idempotencyKeyHash = hash(normalizedIdempotencyKey(request.headers?.['idempotency-key']));
+    const existing = await this.repository.getDeploymentByIdempotency(
+      context.tenantId,
+      source.agentId,
+      idempotencyKeyHash
+    );
+    if (existing) {
+      const deployment = await this.repository.getDeployment(
+        context.tenantId,
+        existing.deploymentId
+      );
+      if (deployment)
+        return success({ deploymentId: deployment.id, status: deployment.status }, 202);
+    }
+    const now = this.clock().toISOString();
+    const deploymentId = createDeploymentId();
+    const retried: Deployment = {
+      id: deploymentId,
+      tenantId: source.tenantId,
+      agentId: source.agentId,
+      status: 'QUEUED',
+      stage: 'QUEUED',
+      requestedBy: context.userId,
+      configurationRevision: source.configurationRevision,
+      snapshot: source.snapshot,
+      idempotencyKeyHash,
+      requestHash: hash(`retry:${source.id}:${idempotencyKeyHash}`),
+      createdAt: now
+    };
+    await this.repository.acquireDeploymentLock({
+      tenantId: context.tenantId,
+      agentId: source.agentId,
+      deploymentId,
+      configurationRevision: source.configurationRevision,
+      acquiredAt: now
+    });
+    await this.repository.createDeploymentIdempotency({
+      tenantId: context.tenantId,
+      agentId: source.agentId,
+      idempotencyKeyHash,
+      requestHash: retried.requestHash,
+      deploymentId,
+      createdAt: now
+    });
+    await this.repository.createDeployment(retried);
+    await this.repository.appendDeploymentEvent({
+      id: createDeploymentEventId(),
+      tenantId: context.tenantId,
+      deploymentId,
+      toStage: 'QUEUED',
+      status: 'QUEUED',
+      createdAt: now
+    });
+    const execution = await this.workflowStarter.start({
+      deploymentId,
+      tenantId: context.tenantId,
+      agentId: source.agentId,
+      configurationRevision: source.configurationRevision,
+      ...(source.snapshot.artifactId ? { artifactId: source.snapshot.artifactId } : {})
+    });
+    await this.repository.setDeploymentExecutionArn(
+      context.tenantId,
+      deploymentId,
+      execution.executionArn
+    );
+    return success({ deploymentId, status: 'QUEUED' }, 202);
   }
 
   private async createAwsConnection(

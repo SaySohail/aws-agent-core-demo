@@ -453,6 +453,35 @@ export const runtimeVersionSchema = z
   })
   .strict();
 
+/** Safe control-plane view for the deployment lifecycle UI. Operational workflow internals stay server-side. */
+export const deploymentDetailSchema = z
+  .object({
+    agentName: nonEmptyString.max(200),
+    deployment: deploymentSchema.omit({
+      tenantId: true,
+      idempotencyKeyHash: true,
+      requestHash: true,
+      executionArn: true,
+      errorMessage: true
+    }),
+    events: z.array(deploymentEventSchema.omit({ tenantId: true })),
+    candidateRuntimeVersion: runtimeVersionSchema
+      .omit({ tenantId: true, workloadIdentityArn: true })
+      .optional(),
+    production: z
+      .object({
+        runtimeArn: nonEmptyString.max(2048).optional(),
+        runtimeId: nonEmptyString.max(512).optional(),
+        endpointArn: nonEmptyString.max(2048).optional(),
+        endpointName: nonEmptyString.max(128).optional(),
+        liveVersion: nonEmptyString.max(100).optional()
+      })
+      .strict(),
+    retryable: z.boolean(),
+    currentConfigurationRevision: z.number().int().positive()
+  })
+  .strict();
+
 export const auditEventSchema = z.object({
   id: auditEventIdSchema,
   tenantId: tenantIdSchema,
@@ -483,6 +512,7 @@ export type Deployment = z.infer<typeof deploymentSchema>;
 export type DeploymentEvent = z.infer<typeof deploymentEventSchema>;
 export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
 export type RuntimeVersion = z.infer<typeof runtimeVersionSchema>;
+export type DeploymentDetail = z.infer<typeof deploymentDetailSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
 export type TenantContext = z.infer<typeof tenantContextSchema>;
 export type TenantStatus = z.infer<typeof tenantStatusSchema>;

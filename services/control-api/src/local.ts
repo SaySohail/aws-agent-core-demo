@@ -186,6 +186,11 @@ function route(
       'GET /tenants/{tenantId}/deployments/{deploymentId}',
       /^\/tenants\/([^/]+)\/deployments\/([^/]+)$/,
       ['tenantId', 'deploymentId']
+    ],
+    [
+      'POST /tenants/{tenantId}/deployments/{deploymentId}/retry',
+      /^\/tenants\/([^/]+)\/deployments\/([^/]+)\/retry$/,
+      ['tenantId', 'deploymentId']
     ]
   ];
   for (const [key, pattern, names] of patterns) {

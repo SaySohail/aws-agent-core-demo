@@ -35,6 +35,7 @@ export function AgentTemplateCatalog() {
   const [saved, setSaved] = useState<Agent>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deploying, setDeploying] = useState(false);
 
   useEffect(() => {
     void load();
@@ -118,6 +119,23 @@ export function AgentTemplateCatalog() {
       setError(cause instanceof Error ? cause.message : 'Unable to save the agent draft.');
     } finally {
       setSaving(false);
+    }
+  }
+  async function deploy() {
+    if (!tenantId || !saved) return;
+    setDeploying(true);
+    setError(undefined);
+    try {
+      const result = await call<{ deploymentId: string }>(
+        `tenants/${tenantId}/agents/${saved.id}/deploy`,
+        'POST',
+        {},
+        { 'idempotency-key': `deploy-${crypto.randomUUID()}` }
+      );
+      window.location.assign(`/agents/${saved.id}/deployments/${result.deploymentId}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to start deployment.');
+      setDeploying(false);
     }
   }
 
@@ -244,6 +262,9 @@ export function AgentTemplateCatalog() {
               isLoading={saving}
               isDisabled={!target || !name.trim()}
             />
+            {saved ? (
+              <Button label="Deploy saved configuration" onClick={deploy} isLoading={deploying} />
+            ) : null}
           </>
         ) : null}
       </VStack>
@@ -251,12 +272,18 @@ export function AgentTemplateCatalog() {
   );
 }
 
-async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+async function call<T>(
+  path: string,
+  method = 'GET',
+  body?: unknown,
+  headers?: Record<string, string>
+): Promise<T> {
   const response = await fetch(`/api/control/${path}`, {
     method,
+    ...(headers ? { headers } : {}),
     ...(body === undefined
       ? {}
-      : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      : { headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) })
   });
   const value = await response.json();
   if (!response.ok) throw new Error(value.error?.message ?? 'Control API request failed.');
