@@ -15,6 +15,8 @@
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present typecheck",
     "build": "pnpm -r --if-present build",
+    "validate:security": "pnpm test && pnpm --filter @agent-launchpad/customer-bootstrap-infrastructure test && pnpm --filter @agent-launchpad/agent-template-infrastructure test",
+    "validate:aws-e2e": "node scripts/validate-aws-e2e.mjs",
     "clean": "pnpm -r --if-present clean"
   },
   "devDependencies": {

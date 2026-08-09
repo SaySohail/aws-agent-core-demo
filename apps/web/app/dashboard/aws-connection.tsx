@@ -117,7 +117,7 @@ export function AwsConnectionOnboarding() {
                 description="Launch CloudFormation, wait for CREATE_COMPLETE, then verify."
               />
             )}
-            {connection.status !== 'VERIFIED' ? (
+            {connection.status !== 'VERIFIED' && connection.quickCreateUrl ? (
               <Button
                 label="Launch AWS CloudFormation"
                 href={connection.quickCreateUrl}

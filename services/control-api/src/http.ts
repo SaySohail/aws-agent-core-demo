@@ -85,7 +85,8 @@ export interface HttpResponse {
 }
 
 export interface AwsConnectionOnboardingResponse extends Omit<AwsConnection, 'externalId'> {
-  readonly quickCreateUrl: string;
+  /** Present only until the customer has installed the bootstrap trust contract. */
+  readonly quickCreateUrl?: string;
 }
 
 export interface AwsConnectionConfiguration {
@@ -479,12 +480,18 @@ export class ControlApi {
       ...(connection.lastVerificationErrorCode
         ? { lastVerificationErrorCode: connection.lastVerificationErrorCode }
         : {}),
-      quickCreateUrl: buildCustomerBootstrapQuickCreateUrl({
-        region: connection.region,
-        templateUrl: this.connections.templateUrl,
-        trustedControlPlanePrincipalArn: this.connections.trustedControlPlanePrincipalArn,
-        externalId: connection.externalId
-      })
+      // The bootstrap URL necessarily carries the one-time CloudFormation parameter. Once the
+      // connection is verified, never return an ExternalId-bearing URL to browser-visible state.
+      ...(connection.status === 'VERIFIED'
+        ? {}
+        : {
+            quickCreateUrl: buildCustomerBootstrapQuickCreateUrl({
+              region: connection.region,
+              templateUrl: this.connections.templateUrl,
+              trustedControlPlanePrincipalArn: this.connections.trustedControlPlanePrincipalArn,
+              externalId: connection.externalId
+            })
+          })
     };
   }
 
@@ -671,7 +678,11 @@ export class ControlApi {
 
   private async listVersions(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
     const agent = await this.agent(context, request);
-    const listed = await this.repository.listRuntimeVersionsPage(context.tenantId, agent.id, options(request.queryParameters));
+    const listed = await this.repository.listRuntimeVersionsPage(
+      context.tenantId,
+      agent.id,
+      options(request.queryParameters)
+    );
     const active = await this.repository.getDeploymentLock(context.tenantId, agent.id);
     return success(
       listed.items.map((version) => ({
@@ -714,52 +725,182 @@ export class ControlApi {
     const agent = await this.agent(context, request);
     const input = parse(rollbackRequestSchema, body(request));
     if (!agent.runtimeId || !agent.runtimeVersion)
-      throw new ApiError(409, 'ROLLBACK_TARGET_NOT_FOUND', 'Production Runtime metadata is unavailable.');
-    const key = normalizedIdempotencyKey(request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']);
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_FOUND',
+        'Production Runtime metadata is unavailable.'
+      );
+    const key = normalizedIdempotencyKey(
+      request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']
+    );
     const idempotencyKeyHash = hash(key);
-    const requestHash = hash(JSON.stringify({ tenantId: context.tenantId, agentId: agent.id, from: agent.runtimeVersion, target: input.targetRuntimeVersion }));
-    const existing = await this.repository.getDeploymentByIdempotency(context.tenantId, agent.id, idempotencyKeyHash);
+    const requestHash = hash(
+      JSON.stringify({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        from: agent.runtimeVersion,
+        target: input.targetRuntimeVersion
+      })
+    );
+    const existing = await this.repository.getDeploymentByIdempotency(
+      context.tenantId,
+      agent.id,
+      idempotencyKeyHash
+    );
     if (existing) {
       if (existing.requestHash !== requestHash)
-        throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'This idempotency key was used for a different rollback request.');
-      const operation = await this.repository.getDeployment(context.tenantId, existing.deploymentId);
-      if (!operation) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'The previous rollback cannot be recovered.');
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'This idempotency key was used for a different rollback request.'
+        );
+      const operation = await this.repository.getDeployment(
+        context.tenantId,
+        existing.deploymentId
+      );
+      if (!operation)
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'The previous rollback cannot be recovered.'
+        );
       return success({ deploymentId: operation.id, status: operation.status }, 202);
     }
     const versions = await this.repository.listRuntimeVersions(context.tenantId, agent.id);
     const target = versions.find((value) => value.runtimeVersion === input.targetRuntimeVersion);
-    if (!target) throw new ApiError(404, 'ROLLBACK_TARGET_NOT_FOUND', 'The requested Runtime version was not found.');
-    if (target.runtimeId !== agent.runtimeId) throw new ApiError(409, 'ROLLBACK_TARGET_NOT_FOUND', 'The requested Runtime version does not belong to production.');
-    if (target.runtimeVersion === agent.runtimeVersion) throw new ApiError(409, 'ROLLBACK_TARGET_NOT_READY', 'This version is already serving production.');
-    if (target.state !== 'READY') throw new ApiError(409, 'ROLLBACK_TARGET_NOT_READY', 'The requested Runtime version is not ready.');
-    if (!target.productionPromotedAt) throw new ApiError(409, 'ROLLBACK_TARGET_NOT_PREVIOUSLY_PRODUCTION', 'The requested Runtime version was not previously promoted.');
+    if (!target)
+      throw new ApiError(
+        404,
+        'ROLLBACK_TARGET_NOT_FOUND',
+        'The requested Runtime version was not found.'
+      );
+    if (target.runtimeId !== agent.runtimeId)
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_FOUND',
+        'The requested Runtime version does not belong to production.'
+      );
+    if (target.runtimeVersion === agent.runtimeVersion)
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_READY',
+        'This version is already serving production.'
+      );
+    if (target.state !== 'READY')
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_READY',
+        'The requested Runtime version is not ready.'
+      );
+    if (!target.productionPromotedAt)
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_PREVIOUSLY_PRODUCTION',
+        'The requested Runtime version was not previously promoted.'
+      );
     const current = versions.find((value) => value.runtimeVersion === agent.runtimeVersion);
-    if (!current?.compatibilityFingerprint || !target.compatibilityFingerprint || current.compatibilityFingerprint !== target.compatibilityFingerprint)
-      throw new ApiError(409, 'ROLLBACK_VERSION_INCOMPATIBLE', 'The Runtime version is incompatible with the current data-plane contract.');
-    const source = (await this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 })).items.find((value) => value.status === 'READY');
-    if (!source) throw new ApiError(409, 'ROLLBACK_TARGET_NOT_FOUND', 'The trusted deployment snapshot is unavailable.');
-    if (!this.workflowStarter) throw new ApiError(503, 'DEPLOYMENT_UNAVAILABLE', 'Deployment orchestration is not configured.');
+    if (
+      !current?.compatibilityFingerprint ||
+      !target.compatibilityFingerprint ||
+      current.compatibilityFingerprint !== target.compatibilityFingerprint
+    )
+      throw new ApiError(
+        409,
+        'ROLLBACK_VERSION_INCOMPATIBLE',
+        'The Runtime version is incompatible with the current data-plane contract.'
+      );
+    const source = (
+      await this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 })
+    ).items.find((value) => value.status === 'READY');
+    if (!source)
+      throw new ApiError(
+        409,
+        'ROLLBACK_TARGET_NOT_FOUND',
+        'The trusted deployment snapshot is unavailable.'
+      );
+    if (!this.workflowStarter)
+      throw new ApiError(
+        503,
+        'DEPLOYMENT_UNAVAILABLE',
+        'Deployment orchestration is not configured.'
+      );
     const now = this.clock().toISOString();
     const deploymentId = createDeploymentId();
     const operation: Deployment = {
-      id: deploymentId, tenantId: context.tenantId, agentId: agent.id, operationType: 'ROLLBACK',
-      fromRuntimeVersion: agent.runtimeVersion, targetRuntimeVersion: target.runtimeVersion,
-      status: 'QUEUED', stage: 'QUEUED', requestedBy: context.userId,
-      configurationRevision: agent.revision, snapshot: source.snapshot,
-      idempotencyKeyHash, requestHash, createdAt: now
+      id: deploymentId,
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      operationType: 'ROLLBACK',
+      fromRuntimeVersion: agent.runtimeVersion,
+      targetRuntimeVersion: target.runtimeVersion,
+      status: 'QUEUED',
+      stage: 'QUEUED',
+      requestedBy: context.userId,
+      configurationRevision: agent.revision,
+      snapshot: source.snapshot,
+      idempotencyKeyHash,
+      requestHash,
+      createdAt: now
     };
     try {
-      await this.repository.acquireDeploymentLock({ tenantId: context.tenantId, agentId: agent.id, deploymentId, configurationRevision: agent.revision, acquiredAt: now });
+      await this.repository.acquireDeploymentLock({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        deploymentId,
+        configurationRevision: agent.revision,
+        acquiredAt: now
+      });
     } catch (cause) {
-      if (isConditional(cause)) throw new ApiError(409, 'DEPLOYMENT_ALREADY_IN_PROGRESS', 'A lifecycle operation is already in progress for this agent.');
+      if (isConditional(cause))
+        throw new ApiError(
+          409,
+          'DEPLOYMENT_ALREADY_IN_PROGRESS',
+          'A lifecycle operation is already in progress for this agent.'
+        );
       throw cause;
     }
-    await this.repository.createDeploymentIdempotency({ tenantId: context.tenantId, agentId: agent.id, idempotencyKeyHash, requestHash, deploymentId, createdAt: now });
+    await this.repository.createDeploymentIdempotency({
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      idempotencyKeyHash,
+      requestHash,
+      deploymentId,
+      createdAt: now
+    });
     await this.repository.createDeployment(operation);
-    await this.repository.appendDeploymentEvent({ id: createDeploymentEventId(), tenantId: context.tenantId, deploymentId, toStage: 'QUEUED', status: 'QUEUED', createdAt: now });
-    await this.repository.appendAuditEvent({ id: createAuditEventId(), tenantId: context.tenantId, actorId: context.userId, action: auditActions.ROLLBACK_REQUESTED, resourceType: 'DEPLOYMENT', resourceId: deploymentId, metadata: { agentId: agent.id, fromVersion: agent.runtimeVersion, targetVersion: target.runtimeVersion }, createdAt: now });
-    const execution = await this.workflowStarter.start({ deploymentId, tenantId: context.tenantId, agentId: agent.id, configurationRevision: agent.revision });
-    await this.repository.setDeploymentExecutionArn(context.tenantId, deploymentId, execution.executionArn);
+    await this.repository.appendDeploymentEvent({
+      id: createDeploymentEventId(),
+      tenantId: context.tenantId,
+      deploymentId,
+      toStage: 'QUEUED',
+      status: 'QUEUED',
+      createdAt: now
+    });
+    await this.repository.appendAuditEvent({
+      id: createAuditEventId(),
+      tenantId: context.tenantId,
+      actorId: context.userId,
+      action: auditActions.ROLLBACK_REQUESTED,
+      resourceType: 'DEPLOYMENT',
+      resourceId: deploymentId,
+      metadata: {
+        agentId: agent.id,
+        fromVersion: agent.runtimeVersion,
+        targetVersion: target.runtimeVersion
+      },
+      createdAt: now
+    });
+    const execution = await this.workflowStarter.start({
+      deploymentId,
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      configurationRevision: agent.revision
+    });
+    await this.repository.setDeploymentExecutionArn(
+      context.tenantId,
+      deploymentId,
+      execution.executionArn
+    );
     return success({ deploymentId, status: 'QUEUED' }, 202);
   }
 
@@ -768,62 +909,176 @@ export class ControlApi {
     const agent = await this.agent(context, request);
     parse(undeployRequestSchema, body(request));
     if (agent.status !== 'ACTIVE' || !agent.runtimeId)
-      throw new ApiError(409, 'UNDEPLOY_NOT_AVAILABLE', 'Only an active deployed agent can be undeployed.');
+      throw new ApiError(
+        409,
+        'UNDEPLOY_NOT_AVAILABLE',
+        'Only an active deployed agent can be undeployed.'
+      );
     if (!this.workflowStarter)
-      throw new ApiError(503, 'DEPLOYMENT_UNAVAILABLE', 'Deployment orchestration is not configured.');
-    const key = normalizedIdempotencyKey(request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']);
+      throw new ApiError(
+        503,
+        'DEPLOYMENT_UNAVAILABLE',
+        'Deployment orchestration is not configured.'
+      );
+    const key = normalizedIdempotencyKey(
+      request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']
+    );
     const idempotencyKeyHash = hash(key);
-    const artifacts = (await this.repository.listAgentArtifacts(context.tenantId, { limit: 100 })).items
+    const artifacts = (
+      await this.repository.listAgentArtifacts(context.tenantId, { limit: 100 })
+    ).items
       .filter((artifact) => artifact.agentId === agent.id && artifact.status === 'READY')
       .sort((left, right) => left.id.localeCompare(right.id));
-    const requestHash = hash(JSON.stringify({
-      tenantId: context.tenantId, agentId: agent.id, operation: 'UNDEPLOY', runtimeId: agent.runtimeId,
-      endpoint: agent.runtimeEndpointName ?? 'production', artifacts: artifacts.map((artifact) => [artifact.id, artifact.bucket, artifact.objectKey, artifact.s3VersionId])
-    }));
-    const existing = await this.repository.getDeploymentByIdempotency(context.tenantId, agent.id, idempotencyKeyHash);
+    const requestHash = hash(
+      JSON.stringify({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        operation: 'UNDEPLOY',
+        runtimeId: agent.runtimeId,
+        endpoint: agent.runtimeEndpointName ?? 'production',
+        artifacts: artifacts.map((artifact) => [
+          artifact.id,
+          artifact.bucket,
+          artifact.objectKey,
+          artifact.s3VersionId
+        ])
+      })
+    );
+    const existing = await this.repository.getDeploymentByIdempotency(
+      context.tenantId,
+      agent.id,
+      idempotencyKeyHash
+    );
     if (existing) {
       if (existing.requestHash !== requestHash)
-        throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'This idempotency key was used for a different undeploy request.');
-      const operation = await this.repository.getDeployment(context.tenantId, existing.deploymentId);
-      if (!operation) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'The previous undeploy cannot be recovered.');
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'This idempotency key was used for a different undeploy request.'
+        );
+      const operation = await this.repository.getDeployment(
+        context.tenantId,
+        existing.deploymentId
+      );
+      if (!operation)
+        throw new ApiError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'The previous undeploy cannot be recovered.'
+        );
       return success({ deploymentId: operation.id, status: operation.status }, 202);
     }
-    const source = (await this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 })).items
-      .find((deployment) => deployment.status === 'READY');
-    if (!source) throw new ApiError(409, 'UNDEPLOY_PLAN_UNAVAILABLE', 'Trusted deployment metadata is unavailable.');
+    const source = (
+      await this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 })
+    ).items.find((deployment) => deployment.status === 'READY');
+    if (!source)
+      throw new ApiError(
+        409,
+        'UNDEPLOY_PLAN_UNAVAILABLE',
+        'Trusted deployment metadata is unavailable.'
+      );
     const now = this.clock().toISOString();
     const deploymentId = createDeploymentId();
     const operation: Deployment = {
-      id: deploymentId, tenantId: context.tenantId, agentId: agent.id, operationType: 'UNDEPLOY',
-      status: 'QUEUED', stage: 'UNDEPLOY_QUEUED', requestedBy: context.userId, configurationRevision: agent.revision,
-      snapshot: source.snapshot, idempotencyKeyHash, requestHash, createdAt: now,
+      id: deploymentId,
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      operationType: 'UNDEPLOY',
+      status: 'QUEUED',
+      stage: 'UNDEPLOY_QUEUED',
+      requestedBy: context.userId,
+      configurationRevision: agent.revision,
+      snapshot: source.snapshot,
+      idempotencyKeyHash,
+      requestHash,
+      createdAt: now,
       cleanupPlan: {
-        runtimeId: agent.runtimeId, ...(agent.runtimeArn ? { runtimeArn: agent.runtimeArn } : {}),
-        endpointName: 'production', ...(agent.runtimeEndpoint ? { endpointArn: agent.runtimeEndpoint } : {}),
-        artifactIds: artifacts.map((artifact) => artifact.id), accountId: source.snapshot.accountId, region: source.snapshot.region
+        runtimeId: agent.runtimeId,
+        ...(agent.runtimeArn ? { runtimeArn: agent.runtimeArn } : {}),
+        endpointName: 'production',
+        ...(agent.runtimeEndpoint ? { endpointArn: agent.runtimeEndpoint } : {}),
+        artifactIds: artifacts.map((artifact) => artifact.id),
+        accountId: source.snapshot.accountId,
+        region: source.snapshot.region
       },
       cleanupLedger: [
-        { kind: 'RUNTIME_ENDPOINT', logicalId: `${agent.runtimeId}:production`, status: 'PENDING', updatedAt: now },
+        {
+          kind: 'RUNTIME_ENDPOINT',
+          logicalId: `${agent.runtimeId}:production`,
+          status: 'PENDING',
+          updatedAt: now
+        },
         { kind: 'RUNTIME', logicalId: agent.runtimeId, status: 'PENDING', updatedAt: now },
-        ...artifacts.map((artifact) => ({ kind: 'ARTIFACT' as const, logicalId: artifact.id, status: 'PENDING' as const, updatedAt: now }))
+        ...artifacts.map((artifact) => ({
+          kind: 'ARTIFACT' as const,
+          logicalId: artifact.id,
+          status: 'PENDING' as const,
+          updatedAt: now
+        }))
       ]
     };
     try {
-      await this.repository.acquireDeploymentLock({ tenantId: context.tenantId, agentId: agent.id, deploymentId, configurationRevision: agent.revision, acquiredAt: now });
+      await this.repository.acquireDeploymentLock({
+        tenantId: context.tenantId,
+        agentId: agent.id,
+        deploymentId,
+        configurationRevision: agent.revision,
+        acquiredAt: now
+      });
     } catch (cause) {
       if (isConditional(cause)) {
         const lock = await this.repository.getDeploymentLock(context.tenantId, agent.id);
-        throw new ApiError(409, 'DEPLOYMENT_ALREADY_IN_PROGRESS', `A lifecycle operation is already in progress (${lock?.deploymentId ?? 'unknown'}).`);
+        throw new ApiError(
+          409,
+          'DEPLOYMENT_ALREADY_IN_PROGRESS',
+          `A lifecycle operation is already in progress (${lock?.deploymentId ?? 'unknown'}).`
+        );
       }
       throw cause;
     }
-    await this.repository.createDeploymentIdempotency({ tenantId: context.tenantId, agentId: agent.id, idempotencyKeyHash, requestHash, deploymentId, createdAt: now });
+    await this.repository.createDeploymentIdempotency({
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      idempotencyKeyHash,
+      requestHash,
+      deploymentId,
+      createdAt: now
+    });
     await this.repository.createDeployment(operation);
-    await this.repository.appendDeploymentEvent({ id: createDeploymentEventId(), tenantId: context.tenantId, deploymentId, toStage: 'UNDEPLOY_QUEUED', status: 'QUEUED', createdAt: now });
-    await this.repository.appendAuditEvent({ id: createAuditEventId(), tenantId: context.tenantId, actorId: context.userId, action: auditActions.UNDEPLOY_REQUESTED, resourceType: 'DEPLOYMENT', resourceId: deploymentId, metadata: { agentId: agent.id, runtimeId: agent.runtimeId, resourceCount: operation.cleanupLedger?.length ?? 0 }, createdAt: now });
+    await this.repository.appendDeploymentEvent({
+      id: createDeploymentEventId(),
+      tenantId: context.tenantId,
+      deploymentId,
+      toStage: 'UNDEPLOY_QUEUED',
+      status: 'QUEUED',
+      createdAt: now
+    });
+    await this.repository.appendAuditEvent({
+      id: createAuditEventId(),
+      tenantId: context.tenantId,
+      actorId: context.userId,
+      action: auditActions.UNDEPLOY_REQUESTED,
+      resourceType: 'DEPLOYMENT',
+      resourceId: deploymentId,
+      metadata: {
+        agentId: agent.id,
+        runtimeId: agent.runtimeId,
+        resourceCount: operation.cleanupLedger?.length ?? 0
+      },
+      createdAt: now
+    });
     await this.repository.markAgentUndeploying(context.tenantId, agent.id, now);
-    const execution = await this.workflowStarter.start({ deploymentId, tenantId: context.tenantId, agentId: agent.id, configurationRevision: agent.revision });
-    await this.repository.setDeploymentExecutionArn(context.tenantId, deploymentId, execution.executionArn);
+    const execution = await this.workflowStarter.start({
+      deploymentId,
+      tenantId: context.tenantId,
+      agentId: agent.id,
+      configurationRevision: agent.revision
+    });
+    await this.repository.setDeploymentExecutionArn(
+      context.tenantId,
+      deploymentId,
+      execution.executionArn
+    );
     return success({ deploymentId, status: 'QUEUED' }, 202);
   }
 
@@ -953,7 +1208,11 @@ export class ControlApi {
     const input = parse(playgroundInvokeRequestSchema, body(request));
     const agent = await this.agent(context, request);
     if (agent.status === 'UNDEPLOYING' || agent.status === 'UNDEPLOYED')
-      throw new ApiError(409, 'PLAYGROUND_NOT_READY', 'This agent is being undeployed or is no longer deployed.');
+      throw new ApiError(
+        409,
+        'PLAYGROUND_NOT_READY',
+        'This agent is being undeployed or is no longer deployed.'
+      );
     const [deployments, versions] = await Promise.all([
       this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 }),
       this.repository.listRuntimeVersions(context.tenantId, agent.id)

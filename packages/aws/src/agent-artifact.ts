@@ -51,7 +51,10 @@ export interface BuiltAgentArtifact {
   readonly sizeBytes: number;
   readonly uncompressedSizeBytes: number;
   readonly runtime: typeof AGENTCORE_RUNTIME;
-  readonly entryPoint: readonly [typeof AGENT_ARTIFACT_ENTRY_POINT[0], typeof AGENT_ARTIFACT_ENTRY_POINT[1]];
+  readonly entryPoint: readonly [
+    (typeof AGENT_ARTIFACT_ENTRY_POINT)[0],
+    (typeof AGENT_ARTIFACT_ENTRY_POINT)[1]
+  ];
   readonly configurationVersion: number;
   readonly manifest: Readonly<Record<string, unknown>>;
 }
@@ -85,7 +88,9 @@ export class AgentArtifactBuilder {
         logLevel: 'silent'
       });
       const app = await readFile(appPath);
-      this.assertNoNativeDependencies([{ path: AGENT_ARTIFACT_APPLICATION_ENTRY_POINT, data: app }]);
+      this.assertNoNativeDependencies([
+        { path: AGENT_ARTIFACT_APPLICATION_ENTRY_POINT, data: app }
+      ]);
       const config = canonicalJson(runtimeConfiguration(configuration));
       const manifest = {
         schemaVersion: 1,
@@ -148,10 +153,7 @@ export class AgentArtifactBuilder {
         'INVALID_PACKAGE_STRUCTURE',
         'Artifact is missing the ADOT instrumentation executable or dependency.'
       );
-    if (
-      !isInstrumentedEntryPoint(manifest.entryPoint) ||
-      manifest.runtime !== AGENTCORE_RUNTIME
-    )
+    if (!isInstrumentedEntryPoint(manifest.entryPoint) || manifest.runtime !== AGENTCORE_RUNTIME)
       throw new AgentArtifactError(
         'INVALID_PACKAGE_STRUCTURE',
         'Artifact entry point/runtime is invalid.'
@@ -373,8 +375,12 @@ async function collectFiles(sourceRoot: string, destinationRoot: string): Promis
       return;
     }
     if (stat.isDirectory()) {
-      for (const name of (await readdir(source)).sort((a, b) => a.localeCompare(b)))
+      for (const name of (await readdir(source)).sort((a, b) => a.localeCompare(b))) {
+        // Package tests and VCS metadata are neither executable runtime dependencies nor safe
+        // deployment payload. Excluding them also keeps the artifact boundary deterministic.
+        if (['.git', 'test', 'tests', 'fixture', 'fixtures'].includes(name)) continue;
         await visit(join(source, name), `${destination}/${name}`);
+      }
       return;
     }
     if (!stat.isFile()) return;

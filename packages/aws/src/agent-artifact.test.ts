@@ -93,6 +93,14 @@ test('build is byte reproducible and configuration changes affect the digest', a
   });
   assert.equal(first.manifest.runtime, 'NODE_22');
   assert.ok(!first.bytes.toString('utf8').includes('not-packaged'));
+  assert.ok(
+    paths.every(
+      (path) =>
+        !/(^|\/)\.git(?:\/|$)|(^|\/)\.env(?:$|\.)|(^|\/)(?:test|tests|fixtures)(?:\/|$)|\.(?:node|so)$/i.test(
+          path
+        )
+    )
+  );
 });
 
 test('extracted package starts and responds to ping', async () => {
@@ -107,10 +115,7 @@ test('extracted package starts and responds to ping', async () => {
     await writeFile(join(directory, entry.path), entry.data);
   }
   const port = 51899;
-  const child = spawn(
-    process.execPath,
-    ['--require', `${ADOT_PACKAGE}/register`, 'dist/app.js'],
-    {
+  const child = spawn(process.execPath, ['--require', `${ADOT_PACKAGE}/register`, 'dist/app.js'], {
     cwd: directory,
     env: {
       ...process.env,
@@ -119,9 +124,8 @@ test('extracted package starts and responds to ping', async () => {
       BEDROCK_MODEL_ID: 'test',
       AGENT_GATEWAY_URL: 'http://127.0.0.1:9'
     },
-      stdio: 'ignore'
-    }
-  );
+    stdio: 'ignore'
+  });
   try {
     await waitForPing(port);
   } finally {

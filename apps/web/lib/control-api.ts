@@ -92,7 +92,7 @@ export type CreateAgentRequest = SharedCreateAgentRequest;
 export type UpdateAgentRequest = SharedUpdateAgentRequest;
 export type CreateAwsConnectionRequest = SharedCreateAwsConnectionRequest;
 export type AwsConnectionOnboarding = Omit<AwsConnection, 'externalId'> & {
-  readonly quickCreateUrl: string;
+  readonly quickCreateUrl?: string;
 };
 
 export interface ControlApiClientOptions {
@@ -221,13 +221,20 @@ export function createControlApiClient(options: ControlApiClientOptions) {
         requestPage<AgentVersionHistoryItem>(
           `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/versions${queryString(query)}`
         ),
-      rollback: (tenantId: string, agentId: string, targetRuntimeVersion: string, idempotencyKey: string) =>
-        request<RollbackResponse>(`/tenants/${segment(tenantId)}/agents/${segment(agentId)}/rollback`, {
-          method: 'POST',
-          body: { targetRuntimeVersion },
-          headers: { 'idempotency-key': idempotencyKey }
-        })
-      ,
+      rollback: (
+        tenantId: string,
+        agentId: string,
+        targetRuntimeVersion: string,
+        idempotencyKey: string
+      ) =>
+        request<RollbackResponse>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/rollback`,
+          {
+            method: 'POST',
+            body: { targetRuntimeVersion },
+            headers: { 'idempotency-key': idempotencyKey }
+          }
+        ),
       /** No AWS resource identity can cross this browser boundary. */
       undeploy: (tenantId: string, agentId: string, idempotencyKey: string) =>
         request<{ deploymentId: string; status: Deployment['status'] }>(

@@ -370,6 +370,17 @@ test('AWS connection creation owns ExternalId and duplicate requests reuse its p
   assert.equal(injected.statusCode, 400);
 });
 
+test('verified AWS connection responses do not retain an ExternalId-bearing bootstrap URL', async () => {
+  const api = new ControlApi(repository({ getAwsConnection: async () => verifiedConnection }));
+  const response = await api.handle(
+    request('GET /tenants/{tenantId}/aws-connections/{connectionId}', {
+      pathParameters: { tenantId: tenantA, connectionId: verifiedConnection.id }
+    })
+  );
+  assert.equal(response.statusCode, 200);
+  assert.doesNotMatch(response.body, /quickCreateUrl|externalId|test/);
+});
+
 test('verification uses assumed credentials in memory, validates identity, and writes verified audit state', async () => {
   const connection: AwsConnection = {
     id: 'awc_00000000-0000-5000-a000-000000000001',
