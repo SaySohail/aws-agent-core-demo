@@ -208,7 +208,10 @@ export class ControlPlaneRepository {
   ): Promise<AgentArtifact | undefined> {
     let nextToken: string | undefined;
     do {
-      const artifacts = await this.listAgentArtifacts(tenantId, { limit: 100, nextToken });
+      const artifacts = await this.listAgentArtifacts(tenantId, {
+        limit: 100,
+        ...(nextToken ? { nextToken } : {})
+      });
       const found = artifacts.items.find(
         (artifact) => artifact.agentId === agentId && artifact.sha256 === sha256
       );
@@ -512,6 +515,52 @@ export class ControlPlaneRepository {
       condition: 'attribute_exists(pk) AND attribute_exists(sk) AND #stage = :fromStage',
       conditionNames: { '#stage': 'stage' },
       conditionValues: { ':fromStage': input.fromStage }
+    });
+  }
+  /** Durable stage evidence is append-only; duplicate redrives leave the already-recorded stage intact. */
+  async recordDeploymentStage(input: {
+    tenantId: string;
+    deploymentId: string;
+    fromStage: Deployment['stage'];
+    toStage: Deployment['stage'];
+    status: Deployment['status'];
+    event: DeploymentEvent;
+    updatedAt: string;
+    errorCode?: string;
+    errorMessage?: string;
+    completedAt?: string;
+  }): Promise<void> {
+    await this.transitionDeployment(input);
+    await this.appendDeploymentEvent(input.event);
+  }
+  async updateDeploymentCleanupLedger(
+    tenantId: string,
+    deploymentId: string,
+    cleanupLedger: NonNullable<Deployment['cleanupLedger']>
+  ): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.deployment(tenantId, deploymentId),
+      updates: { cleanupLedger },
+      condition: existingCondition
+    });
+  }
+  async setDeploymentDependencyOutput(input: {
+    tenantId: string;
+    deploymentId: string;
+    dependencyStackName: string;
+    gatewayArn: string;
+    gatewayUrl: string;
+  }): Promise<void> {
+    const deployment = await this.getDeployment(input.tenantId, input.deploymentId);
+    if (!deployment) throw new Error('Deployment does not exist.');
+    await this.store.update({
+      key: controlPlaneKeys.deployment(input.tenantId, input.deploymentId),
+      updates: {
+        dependencyStackName: input.dependencyStackName,
+        gatewayArn: input.gatewayArn,
+        snapshot: { ...deployment.snapshot, gatewayUrl: input.gatewayUrl }
+      },
+      condition: existingCondition
     });
   }
   async getDeployment(tenantId: string, id: string): Promise<Deployment | undefined> {

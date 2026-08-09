@@ -10,6 +10,8 @@ export interface EnvironmentConfig {
   readonly removalPolicy: 'destroy' | 'retain';
   readonly webOrigin: string;
   readonly customerBootstrapTemplateUrl: string;
+  /** Versioned public template for one agent-owned dependency stack. */
+  readonly agentDependencyTemplateUrl: string;
 }
 
 const VALID_ENVIRONMENTS: readonly EnvironmentName[] = ['dev', 'prod'];
@@ -41,7 +43,7 @@ function requiredWebOrigin(environment: EnvironmentName): string {
 
 function requiredHttpsSetting(
   environment: EnvironmentName,
-  setting: 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL'
+  setting: 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL' | 'AGENT_DEPENDENCY_TEMPLATE_URL'
 ): string {
   const value = process.env[`CONTROL_PLANE_${environment.toUpperCase()}_${setting}`];
   if (!value || new URL(value).protocol !== 'https:')
@@ -63,6 +65,7 @@ export function resolveEnvironmentConfig(environment: string): EnvironmentConfig
     pointInTimeRecovery: name === 'prod',
     removalPolicy: name === 'prod' ? 'retain' : 'destroy',
     webOrigin: requiredWebOrigin(name),
-    customerBootstrapTemplateUrl: requiredHttpsSetting(name, 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL')
+    customerBootstrapTemplateUrl: requiredHttpsSetting(name, 'CUSTOMER_BOOTSTRAP_TEMPLATE_URL'),
+    agentDependencyTemplateUrl: requiredHttpsSetting(name, 'AGENT_DEPENDENCY_TEMPLATE_URL')
   };
 }

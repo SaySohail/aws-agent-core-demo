@@ -73,6 +73,7 @@ export interface DeploymentWorkflowStarter {
     agentId: string;
     configurationRevision: number;
     artifactId?: string;
+    operationType?: 'DEPLOY' | 'ROLLBACK' | 'UNDEPLOY';
   }): Promise<{ executionArn: string }>;
 }
 
@@ -632,6 +633,7 @@ export class ControlApi {
       stage: 'QUEUED',
       requestedBy: context.userId,
       configurationRevision: source.configurationRevision,
+      operationType: 'DEPLOY',
       snapshot: source.snapshot,
       idempotencyKeyHash,
       requestHash: hash(`retry:${source.id}:${idempotencyKeyHash}`),
@@ -894,7 +896,8 @@ export class ControlApi {
       deploymentId,
       tenantId: context.tenantId,
       agentId: agent.id,
-      configurationRevision: agent.revision
+      configurationRevision: agent.revision,
+      operationType: 'ROLLBACK'
     });
     await this.repository.setDeploymentExecutionArn(
       context.tenantId,
@@ -997,6 +1000,7 @@ export class ControlApi {
         ...(agent.runtimeArn ? { runtimeArn: agent.runtimeArn } : {}),
         endpointName: 'production',
         ...(agent.runtimeEndpoint ? { endpointArn: agent.runtimeEndpoint } : {}),
+        ...(source.dependencyStackName ? { dependencyStackName: source.dependencyStackName } : {}),
         artifactIds: artifacts.map((artifact) => artifact.id),
         accountId: source.snapshot.accountId,
         region: source.snapshot.region
@@ -1009,6 +1013,16 @@ export class ControlApi {
           updatedAt: now
         },
         { kind: 'RUNTIME', logicalId: agent.runtimeId, status: 'PENDING', updatedAt: now },
+        ...(source.dependencyStackName
+          ? [
+              {
+                kind: 'DEPENDENCY_STACK' as const,
+                logicalId: source.dependencyStackName,
+                status: 'PENDING' as const,
+                updatedAt: now
+              }
+            ]
+          : []),
         ...artifacts.map((artifact) => ({
           kind: 'ARTIFACT' as const,
           logicalId: artifact.id,
@@ -1072,7 +1086,8 @@ export class ControlApi {
       deploymentId,
       tenantId: context.tenantId,
       agentId: agent.id,
-      configurationRevision: agent.revision
+      configurationRevision: agent.revision,
+      operationType: 'UNDEPLOY'
     });
     await this.repository.setDeploymentExecutionArn(
       context.tenantId,
@@ -1610,7 +1625,8 @@ export class ControlApi {
         deploymentId,
         tenantId: context.tenantId,
         agentId: agent.id,
-        configurationRevision: agent.revision
+        configurationRevision: agent.revision,
+        operationType: 'DEPLOY'
       });
       await this.repository.setDeploymentExecutionArn(
         context.tenantId,

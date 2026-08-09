@@ -12,6 +12,7 @@ import {
 import {
   bedrockModelCatalog,
   createAgentArtifactId,
+  createDeploymentEventId,
   validateAgentDefinitionForDeployment,
   type Deployment,
   type DeploymentStage
@@ -81,6 +82,16 @@ export interface DependencyProvisioner {
   compensate(context: DeploymentCommandInput): Promise<void>;
 }
 
+export interface UndeployDependencyPort {
+  delete(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getDeletionStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+}
+
+export interface ArtifactCleanupPort {
+  deleteExactVersions(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  verifyAbsent(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+}
+
 export interface BedrockPreflightChecker {
   check(input: { modelId: string; region: string }): Promise<void>;
 }
@@ -107,6 +118,8 @@ export interface DeploymentWorkerDependencies {
   readonly runtime: RuntimeDeploymentPort;
   readonly artifactPipeline: DeploymentArtifactPipeline;
   readonly undeployRuntime?: UndeployRuntimePort;
+  readonly undeployDependencies?: UndeployDependencyPort;
+  readonly artifactCleanup?: ArtifactCleanupPort;
   readonly now?: () => Date;
 }
 
@@ -275,8 +288,40 @@ export class DeploymentWorker {
     input: DeploymentCommandInput
   ): Promise<{ status: 'PENDING' | 'READY' | 'FAILED' }> {
     const deployment = await this.deployment(input);
-    if (deployment.operationType === 'ROLLBACK') return this.rollback(stage, input);
-    if (deployment.operationType === 'UNDEPLOY') return this.undeploy(stage, input);
+    await this.persistStage(deployment, stage);
+    try {
+      const result =
+        deployment.operationType === 'ROLLBACK'
+          ? await this.rollback(stage, input)
+          : deployment.operationType === 'UNDEPLOY'
+            ? await this.undeploy(stage, input)
+            : await this.deploy(stage, input, deployment);
+      if (this.isTerminalSuccess(stage, result.status))
+        await this.persistTerminal(
+          deployment,
+          deployment.operationType === 'UNDEPLOY' ? 'UNDEPLOYED' : 'READY'
+        );
+      return result;
+    } catch (cause) {
+      const error =
+        cause instanceof DeploymentError
+          ? cause
+          : new DeploymentError(
+              'DEPLOYMENT_WORKER_FAILED',
+              stage,
+              false,
+              'Deployment worker failed.'
+            );
+      if (!error.retryable) await this.persistFailure(deployment, error);
+      throw error;
+    }
+  }
+
+  private async deploy(
+    stage: DeploymentStage,
+    input: DeploymentCommandInput,
+    deployment: Deployment
+  ): Promise<{ status: 'PENDING' | 'READY' | 'FAILED' }> {
     switch (stage) {
       case 'VALIDATING':
         return this.validate(deployment);
@@ -352,7 +397,10 @@ export class DeploymentWorker {
     }
   }
 
-  private async undeploy(stage: DeploymentStage, input: DeploymentCommandInput) {
+  private async undeploy(
+    stage: DeploymentStage,
+    input: DeploymentCommandInput
+  ): Promise<{ status: 'PENDING' | 'READY' | 'FAILED' }> {
     const runtime = this.dependencies.undeployRuntime;
     if (!runtime)
       throw new DeploymentError(
@@ -366,23 +414,41 @@ export class DeploymentWorker {
       case 'UNDEPLOY_DISABLING_INVOCATION':
         return { status: 'READY' as const };
       case 'UNDEPLOY_DELETING_ENDPOINT':
-        return { status: await runtime.deleteProductionEndpoint(input) };
-      case 'UNDEPLOY_WAITING_ENDPOINT':
-        return { status: await runtime.getProductionEndpointDeletionStatus(input) };
-      case 'UNDEPLOY_DELETING_RUNTIME':
-        return { status: await runtime.deleteRuntime(input) };
-      case 'UNDEPLOY_WAITING_RUNTIME':
-        return { status: await runtime.getRuntimeDeletionStatus(input) };
-      case 'UNDEPLOY_DELETING_DEPENDENCIES':
-      case 'UNDEPLOY_WAITING_DEPENDENCIES':
-      case 'UNDEPLOY_DELETING_ARTIFACTS':
-      case 'UNDEPLOY_VERIFYING':
-        throw new DeploymentError(
-          'UNDEPLOY_PLAN_INCOMPLETE',
-          stage,
-          false,
-          'Trusted dependency cleanup metadata is unavailable.'
+        return this.cleanupResult(
+          input,
+          'RUNTIME_ENDPOINT',
+          await runtime.deleteProductionEndpoint(input)
         );
+      case 'UNDEPLOY_WAITING_ENDPOINT':
+        return this.cleanupResult(
+          input,
+          'RUNTIME_ENDPOINT',
+          await runtime.getProductionEndpointDeletionStatus(input)
+        );
+      case 'UNDEPLOY_DELETING_RUNTIME':
+        return this.cleanupResult(input, 'RUNTIME', await runtime.deleteRuntime(input));
+      case 'UNDEPLOY_WAITING_RUNTIME':
+        return this.cleanupResult(input, 'RUNTIME', await runtime.getRuntimeDeletionStatus(input));
+      case 'UNDEPLOY_DELETING_DEPENDENCIES':
+        return this.cleanupResult(
+          input,
+          'DEPENDENCY_STACK',
+          await this.requireUndeployDependencies(stage).delete(input)
+        );
+      case 'UNDEPLOY_WAITING_DEPENDENCIES':
+        return this.cleanupResult(
+          input,
+          'DEPENDENCY_STACK',
+          await this.requireUndeployDependencies(stage).getDeletionStatus(input)
+        );
+      case 'UNDEPLOY_DELETING_ARTIFACTS':
+        return this.cleanupResult(
+          input,
+          'ARTIFACT',
+          await this.requireArtifactCleanup(stage).deleteExactVersions(input)
+        );
+      case 'UNDEPLOY_VERIFYING':
+        return { status: await this.requireArtifactCleanup(stage).verifyAbsent(input) };
       default:
         throw new DeploymentError(
           'INVALID_STAGE',
@@ -583,6 +649,145 @@ export class DeploymentWorker {
       configurationRevision: deployment.configurationRevision
     });
     return this.preflightStorage(resolved);
+  }
+  private requireUndeployDependencies(stage: DeploymentStage): UndeployDependencyPort {
+    if (this.dependencies.undeployDependencies) return this.dependencies.undeployDependencies;
+    throw new DeploymentError(
+      'UNDEPLOY_NOT_CONFIGURED',
+      stage,
+      false,
+      'Dependency teardown is not configured.'
+    );
+  }
+  private requireArtifactCleanup(stage: DeploymentStage): ArtifactCleanupPort {
+    if (this.dependencies.artifactCleanup) return this.dependencies.artifactCleanup;
+    throw new DeploymentError(
+      'UNDEPLOY_NOT_CONFIGURED',
+      stage,
+      false,
+      'Artifact cleanup is not configured.'
+    );
+  }
+  private async persistStage(deployment: Deployment, stage: DeploymentStage) {
+    if (deployment.stage === stage) return;
+    const now = (this.dependencies.now?.() ?? new Date()).toISOString();
+    await this.dependencies.repository.recordDeploymentStage({
+      tenantId: deployment.tenantId,
+      deploymentId: deployment.id,
+      fromStage: deployment.stage,
+      toStage: stage,
+      status: 'IN_PROGRESS',
+      updatedAt: now,
+      event: {
+        id: createDeploymentEventId(),
+        tenantId: deployment.tenantId,
+        deploymentId: deployment.id,
+        fromStage: deployment.stage,
+        toStage: stage,
+        status: 'IN_PROGRESS',
+        createdAt: now
+      }
+    });
+  }
+  private async persistTerminal(deployment: Deployment, terminal: 'READY' | 'UNDEPLOYED') {
+    const current = await this.deployment({
+      deploymentId: deployment.id,
+      tenantId: deployment.tenantId,
+      agentId: deployment.agentId,
+      configurationRevision: deployment.configurationRevision
+    });
+    if (current.stage === terminal) return;
+    const now = (this.dependencies.now?.() ?? new Date()).toISOString();
+    await this.dependencies.repository.recordDeploymentStage({
+      tenantId: deployment.tenantId,
+      deploymentId: deployment.id,
+      fromStage: current.stage,
+      toStage: terminal,
+      status: 'READY',
+      updatedAt: now,
+      completedAt: now,
+      event: {
+        id: createDeploymentEventId(),
+        tenantId: deployment.tenantId,
+        deploymentId: deployment.id,
+        fromStage: current.stage,
+        toStage: terminal,
+        status: 'READY',
+        createdAt: now
+      }
+    });
+    if (terminal === 'UNDEPLOYED')
+      await this.dependencies.repository.completeAgentUndeploy(
+        deployment.tenantId,
+        deployment.agentId,
+        now
+      );
+  }
+  private async persistFailure(deployment: Deployment, error: DeploymentError) {
+    const current = await this.deployment({
+      deploymentId: deployment.id,
+      tenantId: deployment.tenantId,
+      agentId: deployment.agentId,
+      configurationRevision: deployment.configurationRevision
+    });
+    if (current.stage === 'FAILED') return;
+    const now = (this.dependencies.now?.() ?? new Date()).toISOString();
+    await this.dependencies.repository.recordDeploymentStage({
+      tenantId: deployment.tenantId,
+      deploymentId: deployment.id,
+      fromStage: current.stage,
+      toStage: 'FAILED',
+      status: 'FAILED',
+      updatedAt: now,
+      completedAt: now,
+      errorCode: error.code,
+      errorMessage: error.message,
+      event: {
+        id: createDeploymentEventId(),
+        tenantId: deployment.tenantId,
+        deploymentId: deployment.id,
+        fromStage: current.stage,
+        toStage: 'FAILED',
+        status: 'FAILED',
+        errorCode: error.code,
+        createdAt: now
+      }
+    });
+  }
+  private isTerminalSuccess(stage: DeploymentStage, status: 'PENDING' | 'READY' | 'FAILED') {
+    return (
+      status === 'READY' && (stage === 'WAITING_FOR_ENDPOINT' || stage === 'UNDEPLOY_VERIFYING')
+    );
+  }
+  private async cleanupResult(
+    input: DeploymentCommandInput,
+    kind: 'RUNTIME_ENDPOINT' | 'RUNTIME' | 'DEPENDENCY_STACK' | 'ARTIFACT',
+    status: 'PENDING' | 'READY' | 'FAILED'
+  ) {
+    const deployment = await this.deployment(input);
+    const now = (this.dependencies.now?.() ?? new Date()).toISOString();
+    const next = (deployment.cleanupLedger ?? []).map((entry) =>
+      entry.kind !== kind || entry.status === 'DELETED' || entry.status === 'SKIPPED'
+        ? entry
+        : {
+            ...entry,
+            status:
+              status === 'READY'
+                ? ('DELETED' as const)
+                : status === 'FAILED'
+                  ? ('FAILED' as const)
+                  : ('DELETING' as const),
+            updatedAt: now,
+            ...(status === 'READY' ? { deletedAt: now, errorCode: undefined } : {})
+          }
+    );
+    if (next.length)
+      await this.dependencies.repository.updateDeploymentCleanupLedger(
+        input.tenantId,
+        input.deploymentId,
+        next
+      );
+    return { status };
   }
 }
 

@@ -199,7 +199,15 @@ export const awsConnectionStatusSchema = z.enum([
   'DISCONNECTED'
 ]);
 export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED', 'DISABLED']);
-export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'UNDEPLOYING', 'UNDEPLOYED', 'FAILED', 'ARCHIVED']);
+export const agentStatusSchema = z.enum([
+  'DRAFT',
+  'ACTIVE',
+  'DEPLOYING',
+  'UNDEPLOYING',
+  'UNDEPLOYED',
+  'FAILED',
+  'ARCHIVED'
+]);
 export const deploymentStageSchema = z.enum([
   'QUEUED',
   'VALIDATING',
@@ -241,16 +249,29 @@ export const deploymentStageSchema = z.enum([
 /** Status is deliberately terminal-oriented; stage supplies product-facing progress. */
 export const deploymentStatusSchema = z.enum(['QUEUED', 'IN_PROGRESS', 'READY', 'FAILED']);
 export const agentArtifactStatusSchema = z.enum(['BUILDING', 'UPLOADING', 'READY', 'FAILED']);
-export const cleanupResourceKindSchema = z.enum(['RUNTIME_ENDPOINT', 'RUNTIME', 'DEPENDENCY_STACK', 'ARTIFACT']);
-export const cleanupResourceStatusSchema = z.enum(['PENDING', 'DELETING', 'DELETED', 'FAILED', 'SKIPPED']);
-export const cleanupLedgerEntrySchema = z.object({
-  kind: cleanupResourceKindSchema,
-  logicalId: nonEmptyString.max(512),
-  status: cleanupResourceStatusSchema,
-  updatedAt: timestampSchema,
-  errorCode: nonEmptyString.max(128).optional(),
-  deletedAt: timestampSchema.optional()
-}).strict();
+export const cleanupResourceKindSchema = z.enum([
+  'RUNTIME_ENDPOINT',
+  'RUNTIME',
+  'DEPENDENCY_STACK',
+  'ARTIFACT'
+]);
+export const cleanupResourceStatusSchema = z.enum([
+  'PENDING',
+  'DELETING',
+  'DELETED',
+  'FAILED',
+  'SKIPPED'
+]);
+export const cleanupLedgerEntrySchema = z
+  .object({
+    kind: cleanupResourceKindSchema,
+    logicalId: nonEmptyString.max(512),
+    status: cleanupResourceStatusSchema,
+    updatedAt: timestampSchema,
+    errorCode: nonEmptyString.max(128).optional(),
+    deletedAt: timestampSchema.optional()
+  })
+  .strict();
 
 export const tenantSchema = z.object({
   id: tenantIdSchema,
@@ -422,17 +443,22 @@ export const deploymentSchema = z.object({
   runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   gatewayArn: nonEmptyString.max(2048).optional(),
   gatewayWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
+  /** Deterministic, agent-owned CloudFormation stack; never a shared bootstrap stack. */
+  dependencyStackName: nonEmptyString.max(256).optional(),
   /** Immutable server-derived resource identity. Never accepts browser-provided AWS identifiers. */
-  cleanupPlan: z.object({
-    runtimeId: nonEmptyString.max(512).optional(),
-    runtimeArn: nonEmptyString.max(2048).optional(),
-    endpointName: z.literal('production').optional(),
-    endpointArn: nonEmptyString.max(2048).optional(),
-    dependencyStackName: nonEmptyString.max(256).optional(),
-    artifactIds: z.array(agentArtifactIdSchema).max(100),
-    accountId: z.string().regex(/^\d{12}$/),
-    region: nonEmptyString.max(64)
-  }).strict().optional(),
+  cleanupPlan: z
+    .object({
+      runtimeId: nonEmptyString.max(512).optional(),
+      runtimeArn: nonEmptyString.max(2048).optional(),
+      endpointName: z.literal('production').optional(),
+      endpointArn: nonEmptyString.max(2048).optional(),
+      dependencyStackName: nonEmptyString.max(256).optional(),
+      artifactIds: z.array(agentArtifactIdSchema).max(100),
+      accountId: z.string().regex(/^\d{12}$/),
+      region: nonEmptyString.max(64)
+    })
+    .strict()
+    .optional(),
   cleanupLedger: z.array(cleanupLedgerEntrySchema).max(110).optional(),
   createdAt: timestampSchema,
   startedAt: timestampSchema.optional(),
@@ -490,7 +516,10 @@ export const runtimeVersionSchema = z
     artifactSha256: z.string().regex(/^[a-f0-9]{64}$/),
     configurationRevision: z.number().int().positive(),
     /** Stable deployment-input fingerprint; mutable endpoint state never changes this value. */
-    compatibilityFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    compatibilityFingerprint: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     workloadIdentityArn: nonEmptyString.max(2048),
     state: z.enum(['CREATING', 'UPDATING', 'READY', 'FAILED']),
     endpointName: nonEmptyString.max(128).optional(),

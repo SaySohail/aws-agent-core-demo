@@ -229,7 +229,8 @@ export class ControlPlaneStack extends Stack {
       timeout: Duration.minutes(1),
       environment: {
         CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName,
-        AGENT_RUNTIME_SOURCE_PATH: '/var/task/runtime-source/app.ts'
+        AGENT_RUNTIME_SOURCE_PATH: '/var/task/runtime-source/app.ts',
+        AGENT_DEPENDENCY_TEMPLATE_URL: configuration.agentDependencyTemplateUrl
       },
       bundling: {
         minify: true,
@@ -383,8 +384,56 @@ export class ControlPlaneStack extends Stack {
       .next(dependencyChoice);
     tasks[9]!.next(tasks[10]!).next(runtimeChoice);
     tasks[11]!.next(tasks[12]!).next(tasks[13]!).next(tasks[14]!).next(endpointChoice);
+    const undeployStages = [
+      'UNDEPLOY_VALIDATING',
+      'UNDEPLOY_DISABLING_INVOCATION',
+      'UNDEPLOY_DELETING_ENDPOINT',
+      'UNDEPLOY_WAITING_ENDPOINT',
+      'UNDEPLOY_DELETING_RUNTIME',
+      'UNDEPLOY_WAITING_RUNTIME',
+      'UNDEPLOY_DELETING_DEPENDENCIES',
+      'UNDEPLOY_WAITING_DEPENDENCIES',
+      'UNDEPLOY_DELETING_ARTIFACTS',
+      'UNDEPLOY_VERIFYING'
+    ].map(invoke);
+    const undeployEndpointWait = new sfn.Wait(this, 'UndeployEndpointWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const undeployRuntimeWait = new sfn.Wait(this, 'UndeployRuntimeWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const undeployDependenciesWait = new sfn.Wait(this, 'UndeployDependenciesWait', {
+      time: sfn.WaitTime.duration(Duration.seconds(20))
+    });
+    const undeployReady = new sfn.Succeed(this, 'UndeployReady');
+    const poll = (id: string, task: sfn.State, wait: sfn.Wait) =>
+      new sfn.Choice(this, id)
+        .when(sfn.Condition.stringEquals('$.task.Payload.status', 'READY'), task)
+        .when(sfn.Condition.stringEquals('$.task.Payload.status', 'FAILED'), failed)
+        .otherwise(wait);
+    const endpointDeleted = poll('EndpointDeleted?', undeployStages[4]!, undeployEndpointWait);
+    const runtimeDeleted = poll('RuntimeDeleted?', undeployStages[6]!, undeployRuntimeWait);
+    const dependenciesDeleted = poll(
+      'DependenciesDeleted?',
+      undeployStages[8]!,
+      undeployDependenciesWait
+    );
+    undeployEndpointWait.next(undeployStages[3]!);
+    undeployRuntimeWait.next(undeployStages[5]!);
+    undeployDependenciesWait.next(undeployStages[7]!);
+    undeployStages[0]!
+      .next(undeployStages[1]!)
+      .next(undeployStages[2]!)
+      .next(undeployStages[3]!)
+      .next(endpointDeleted);
+    undeployStages[4]!.next(undeployStages[5]!).next(runtimeDeleted);
+    undeployStages[6]!.next(undeployStages[7]!).next(dependenciesDeleted);
+    undeployStages[8]!.next(undeployStages[9]!).next(undeployReady);
+    const operationChoice = new sfn.Choice(this, 'LifecycleOperation')
+      .when(sfn.Condition.stringEquals('$.operationType', 'UNDEPLOY'), undeployStages[0]!)
+      .otherwise(tasks[0]!);
     const deploymentStateMachine = new sfn.StateMachine(this, 'DeploymentStateMachine', {
-      definitionBody: sfn.DefinitionBody.fromChainable(tasks[0]!),
+      definitionBody: sfn.DefinitionBody.fromChainable(operationChoice),
       stateMachineType: sfn.StateMachineType.STANDARD,
       timeout: Duration.hours(2),
       tracingEnabled: true,
