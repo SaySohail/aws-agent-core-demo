@@ -72,18 +72,23 @@ export class DynamoDbPersistenceClient implements PersistenceClient {
   async update({ key, updates, condition, conditionNames, conditionValues }: UpdateInput) {
     const names: Record<string, string> = {};
     const values: Record<string, unknown> = {};
-    const assignments = Object.entries(updates).map(([field, value], index) => {
-      const name = `#f${index}`;
-      const placeholder = `:v${index}`;
+    const fields = Object.keys(updates);
+    const assignments = Object.entries(updates).flatMap(([field, value], position) => {
+      const name = `#f${position}`;
       names[name] = field;
+      if (value === undefined) return [];
+      const placeholder = `:v${position}`;
       values[placeholder] = value;
       return `${name} = ${placeholder}`;
     });
+    const removals = Object.entries(updates)
+      .filter(([, value]) => value === undefined)
+      .map(([field]) => `#f${fields.indexOf(field)}`);
     await this.documentClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: key,
-        UpdateExpression: `SET ${assignments.join(', ')}`,
+        UpdateExpression: [assignments.length ? `SET ${assignments.join(', ')}` : '', removals.length ? `REMOVE ${removals.join(', ')}` : ''].filter(Boolean).join(' '),
         ExpressionAttributeNames: { ...names, ...conditionNames },
         ExpressionAttributeValues: values,
         ConditionExpression: condition,

@@ -199,7 +199,7 @@ export const awsConnectionStatusSchema = z.enum([
   'DISCONNECTED'
 ]);
 export const agentTemplateStatusSchema = z.enum(['ACTIVE', 'DEPRECATED', 'DISABLED']);
-export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'FAILED', 'ARCHIVED']);
+export const agentStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'DEPLOYING', 'UNDEPLOYING', 'UNDEPLOYED', 'FAILED', 'ARCHIVED']);
 export const deploymentStageSchema = z.enum([
   'QUEUED',
   'VALIDATING',
@@ -223,12 +223,34 @@ export const deploymentStageSchema = z.enum([
   'ROLLBACK_WAITING_FOR_ENDPOINT',
   'ROLLBACK_HEALTH_CHECKING',
   'ROLLBACK_REVERTING_ENDPOINT',
+  'UNDEPLOY_QUEUED',
+  'UNDEPLOY_VALIDATING',
+  'UNDEPLOY_DISABLING_INVOCATION',
+  'UNDEPLOY_DELETING_ENDPOINT',
+  'UNDEPLOY_WAITING_ENDPOINT',
+  'UNDEPLOY_DELETING_RUNTIME',
+  'UNDEPLOY_WAITING_RUNTIME',
+  'UNDEPLOY_DELETING_DEPENDENCIES',
+  'UNDEPLOY_WAITING_DEPENDENCIES',
+  'UNDEPLOY_DELETING_ARTIFACTS',
+  'UNDEPLOY_VERIFYING',
+  'UNDEPLOYED',
   'READY',
   'FAILED'
 ]);
 /** Status is deliberately terminal-oriented; stage supplies product-facing progress. */
 export const deploymentStatusSchema = z.enum(['QUEUED', 'IN_PROGRESS', 'READY', 'FAILED']);
 export const agentArtifactStatusSchema = z.enum(['BUILDING', 'UPLOADING', 'READY', 'FAILED']);
+export const cleanupResourceKindSchema = z.enum(['RUNTIME_ENDPOINT', 'RUNTIME', 'DEPENDENCY_STACK', 'ARTIFACT']);
+export const cleanupResourceStatusSchema = z.enum(['PENDING', 'DELETING', 'DELETED', 'FAILED', 'SKIPPED']);
+export const cleanupLedgerEntrySchema = z.object({
+  kind: cleanupResourceKindSchema,
+  logicalId: nonEmptyString.max(512),
+  status: cleanupResourceStatusSchema,
+  updatedAt: timestampSchema,
+  errorCode: nonEmptyString.max(128).optional(),
+  deletedAt: timestampSchema.optional()
+}).strict();
 
 export const tenantSchema = z.object({
   id: tenantIdSchema,
@@ -362,7 +384,7 @@ export const deploymentSchema = z.object({
   id: deploymentIdSchema,
   tenantId: tenantIdSchema,
   agentId: agentIdSchema,
-  operationType: z.enum(['DEPLOY', 'ROLLBACK']).optional(),
+  operationType: z.enum(['DEPLOY', 'ROLLBACK', 'UNDEPLOY']).optional(),
   /** Captured from the production endpoint before an endpoint-only rollback. */
   fromRuntimeVersion: nonEmptyString.max(100).optional(),
   targetRuntimeVersion: nonEmptyString.max(100).optional(),
@@ -400,6 +422,18 @@ export const deploymentSchema = z.object({
   runtimeWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
   gatewayArn: nonEmptyString.max(2048).optional(),
   gatewayWorkloadIdentityArn: nonEmptyString.max(2048).optional(),
+  /** Immutable server-derived resource identity. Never accepts browser-provided AWS identifiers. */
+  cleanupPlan: z.object({
+    runtimeId: nonEmptyString.max(512).optional(),
+    runtimeArn: nonEmptyString.max(2048).optional(),
+    endpointName: z.literal('production').optional(),
+    endpointArn: nonEmptyString.max(2048).optional(),
+    dependencyStackName: nonEmptyString.max(256).optional(),
+    artifactIds: z.array(agentArtifactIdSchema).max(100),
+    accountId: z.string().regex(/^\d{12}$/),
+    region: nonEmptyString.max(64)
+  }).strict().optional(),
+  cleanupLedger: z.array(cleanupLedgerEntrySchema).max(110).optional(),
   createdAt: timestampSchema,
   startedAt: timestampSchema.optional(),
   completedAt: timestampSchema.optional(),
@@ -502,6 +536,8 @@ export const playgroundInvokeRequestSchema = z
 export const rollbackRequestSchema = z
   .object({ targetRuntimeVersion: nonEmptyString.max(100) })
   .strict();
+/** Deliberately empty: all destructive resource identity is resolved on the server. */
+export const undeployRequestSchema = z.object({}).strict();
 
 export const playgroundInvokeResponseSchema = runtimeResponseSchema.extend({
   sessionId: z.string().uuid()
@@ -616,12 +652,14 @@ export type Agent = z.infer<typeof agentSchema>;
 export type Deployment = z.infer<typeof deploymentSchema>;
 export type DeploymentEvent = z.infer<typeof deploymentEventSchema>;
 export type AgentArtifact = z.infer<typeof agentArtifactSchema>;
+export type CleanupLedgerEntry = z.infer<typeof cleanupLedgerEntrySchema>;
 export type RuntimeVersion = z.infer<typeof runtimeVersionSchema>;
 export type RuntimeInvocationRequest = z.infer<typeof runtimeInvocationRequestSchema>;
 export type RuntimeResponse = z.infer<typeof runtimeResponseSchema>;
 export type ToolActivity = z.infer<typeof toolActivitySchema>;
 export type PlaygroundInvokeRequest = z.infer<typeof playgroundInvokeRequestSchema>;
 export type RollbackRequest = z.infer<typeof rollbackRequestSchema>;
+export type UndeployRequest = z.infer<typeof undeployRequestSchema>;
 export type PlaygroundInvokeResponse = z.infer<typeof playgroundInvokeResponseSchema>;
 export type DeploymentDetail = z.infer<typeof deploymentDetailSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;

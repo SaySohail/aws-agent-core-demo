@@ -227,6 +227,13 @@ export function createControlApiClient(options: ControlApiClientOptions) {
           body: { targetRuntimeVersion },
           headers: { 'idempotency-key': idempotencyKey }
         })
+      ,
+      /** No AWS resource identity can cross this browser boundary. */
+      undeploy: (tenantId: string, agentId: string, idempotencyKey: string) =>
+        request<{ deploymentId: string; status: Deployment['status'] }>(
+          `/tenants/${segment(tenantId)}/agents/${segment(agentId)}/undeploy`,
+          { method: 'POST', body: {}, headers: { 'idempotency-key': idempotencyKey } }
+        )
     },
     awsConnections: {
       list: (tenantId: string, query?: PageQuery) =>

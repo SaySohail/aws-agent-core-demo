@@ -2,6 +2,8 @@ import {
   BedrockAgentCoreControlClient,
   CreateAgentRuntimeCommand,
   CreateAgentRuntimeEndpointCommand,
+  DeleteAgentRuntimeCommand,
+  DeleteAgentRuntimeEndpointCommand,
   GetAgentRuntimeCommand,
   GetAgentRuntimeEndpointCommand,
   UpdateAgentRuntimeCommand,
@@ -62,6 +64,10 @@ export function agentCoreClientToken(input: {
 
 export function rollbackClientToken(operationId: string, fromVersion: string, targetVersion: string): string {
   return `al-rollback-${createHash('sha256').update(`${operationId}|${fromVersion}|${targetVersion}`).digest('hex')}`;
+}
+
+export function undeployClientToken(operationId: string, resource: string): string {
+  return `al-undeploy-${createHash('sha256').update(`${operationId}|${resource}`).digest('hex')}`;
 }
 
 /** Stable contract identifier: only versioned deployment inputs, never clocks or endpoint state. */
@@ -407,6 +413,60 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
     } catch (cause) { throw this.mapError(cause, 'ROLLBACK_HEALTH_CHECKING'); }
   }
 
+  async deleteProductionEndpoint(context: DeploymentCommandInput) {
+    const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_DELETING_ENDPOINT');
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      await client.send(new DeleteAgentRuntimeEndpointCommand({
+        agentRuntimeId: resolved.plan.runtimeId!, endpointName: PRODUCTION_RUNTIME_ENDPOINT,
+        clientToken: undeployClientToken(context.deploymentId, `runtime-endpoint:${resolved.plan.runtimeId}:production`)
+      }));
+      return 'PENDING' as const;
+    } catch (cause) {
+      if (isNotFound(cause)) return 'READY' as const;
+      throw this.mapError(cause, 'UNDEPLOY_DELETING_ENDPOINT');
+    }
+  }
+
+  async getProductionEndpointDeletionStatus(context: DeploymentCommandInput) {
+    const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_WAITING_ENDPOINT');
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      const endpoint = await client.send(new GetAgentRuntimeEndpointCommand({ agentRuntimeId: resolved.plan.runtimeId!, endpointName: PRODUCTION_RUNTIME_ENDPOINT }));
+      return endpoint.status === 'DELETING' ? 'PENDING' as const : 'FAILED' as const;
+    } catch (cause) {
+      if (isNotFound(cause)) return 'READY' as const;
+      throw this.mapError(cause, 'UNDEPLOY_WAITING_ENDPOINT');
+    }
+  }
+
+  async deleteRuntime(context: DeploymentCommandInput) {
+    const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_DELETING_RUNTIME');
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      await client.send(new DeleteAgentRuntimeCommand({
+        agentRuntimeId: resolved.plan.runtimeId!,
+        clientToken: undeployClientToken(context.deploymentId, `runtime:${resolved.plan.runtimeId}`)
+      }));
+      return 'PENDING' as const;
+    } catch (cause) {
+      if (isNotFound(cause)) return 'READY' as const;
+      throw this.mapError(cause, 'UNDEPLOY_DELETING_RUNTIME');
+    }
+  }
+
+  async getRuntimeDeletionStatus(context: DeploymentCommandInput) {
+    const resolved = await this.resolveUndeploy(context, 'UNDEPLOY_WAITING_RUNTIME');
+    const client = this.createControlClient({ region: resolved.deployment.snapshot.region, credentials: await this.credentials(resolved.connection, resolved.deployment) });
+    try {
+      const runtime = await client.send(new GetAgentRuntimeCommand({ agentRuntimeId: resolved.plan.runtimeId! }));
+      return runtime.status === 'DELETING' ? 'PENDING' as const : 'FAILED' as const;
+    } catch (cause) {
+      if (isNotFound(cause)) return 'READY' as const;
+      throw this.mapError(cause, 'UNDEPLOY_WAITING_RUNTIME');
+    }
+  }
+
   private async resolve(context: DeploymentCommandInput) {
     const deployment = await this.repository.getDeployment(context.tenantId, context.deploymentId);
     const agent = await this.repository.getAgent(context.tenantId, context.agentId);
@@ -443,6 +503,15 @@ export class AgentCoreRuntimeDeploymentPort implements RuntimeDeploymentPort {
       artifact,
       versions: await this.repository.listRuntimeVersions(context.tenantId, context.agentId)
     };
+  }
+  private async resolveUndeploy(context: DeploymentCommandInput, stage: DeploymentError['stage']) {
+    const deployment = await this.repository.getDeployment(context.tenantId, context.deploymentId);
+    const agent = await this.repository.getAgent(context.tenantId, context.agentId);
+    const connection = deployment && await this.repository.getAwsConnection(context.tenantId, deployment.snapshot.awsConnectionId);
+    const plan = deployment?.cleanupPlan;
+    if (!deployment || deployment.operationType !== 'UNDEPLOY' || !agent || agent.status !== 'UNDEPLOYING' || !connection || connection.status !== 'VERIFIED' || !plan?.runtimeId || plan.endpointName !== PRODUCTION_RUNTIME_ENDPOINT || plan.accountId !== deployment.snapshot.accountId || plan.region !== deployment.snapshot.region || connection.accountId !== plan.accountId || connection.region !== plan.region || agent.runtimeId !== plan.runtimeId)
+      throw new DeploymentError('RESOURCE_OWNERSHIP_MISMATCH', stage, false, 'Trusted teardown ownership validation failed.');
+    return { deployment, agent, connection, plan };
   }
   private async credentials(connection: AwsConnection, deployment: Deployment) {
     return this.assumer.assumeCustomerRole({

@@ -202,6 +202,11 @@ function route(
       ['tenantId', 'agentId']
     ],
     [
+      'POST /tenants/{tenantId}/agents/{agentId}/undeploy',
+      /^\/tenants\/([^/]+)\/agents\/([^/]+)\/undeploy$/,
+      ['tenantId', 'agentId']
+    ],
+    [
       'POST /tenants/{tenantId}/agents/{agentId}/invoke',
       /^\/tenants\/([^/]+)\/agents\/([^/]+)\/invoke$/,
       ['tenantId', 'agentId']

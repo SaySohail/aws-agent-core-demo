@@ -53,6 +53,14 @@ export interface RuntimeDeploymentPort {
   checkRollbackHealth(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
 }
 
+/** Teardown only receives a trusted operation context, never browser-selected AWS identifiers. */
+export interface UndeployRuntimePort {
+  deleteProductionEndpoint(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getProductionEndpointDeletionStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  deleteRuntime(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+  getRuntimeDeletionStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
+}
+
 export interface DependencyProvisioner {
   reconcile(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
   getStatus(context: DeploymentCommandInput): Promise<'PENDING' | 'READY' | 'FAILED'>;
@@ -83,6 +91,7 @@ export interface DeploymentWorkerDependencies {
   readonly bedrock: BedrockPreflightChecker;
   readonly dependencies: DependencyProvisioner;
   readonly runtime: RuntimeDeploymentPort;
+  readonly undeployRuntime?: UndeployRuntimePort;
   readonly now?: () => Date;
 }
 
@@ -95,6 +104,7 @@ export class DeploymentWorker {
   ): Promise<{ status: 'PENDING' | 'READY' | 'FAILED' }> {
     const deployment = await this.deployment(input);
     if (deployment.operationType === 'ROLLBACK') return this.rollback(stage, input);
+    if (deployment.operationType === 'UNDEPLOY') return this.undeploy(stage, input);
     switch (stage) {
       case 'VALIDATING':
         return this.validate(deployment);
@@ -149,12 +159,46 @@ export class DeploymentWorker {
       case 'ROLLBACK_WAITING_FOR_ENDPOINT':
       case 'ROLLBACK_HEALTH_CHECKING':
       case 'ROLLBACK_REVERTING_ENDPOINT':
+      case 'UNDEPLOY_QUEUED':
+      case 'UNDEPLOY_VALIDATING':
+      case 'UNDEPLOY_DISABLING_INVOCATION':
+      case 'UNDEPLOY_DELETING_ENDPOINT':
+      case 'UNDEPLOY_WAITING_ENDPOINT':
+      case 'UNDEPLOY_DELETING_RUNTIME':
+      case 'UNDEPLOY_WAITING_RUNTIME':
+      case 'UNDEPLOY_DELETING_DEPENDENCIES':
+      case 'UNDEPLOY_WAITING_DEPENDENCIES':
+      case 'UNDEPLOY_DELETING_ARTIFACTS':
+      case 'UNDEPLOY_VERIFYING':
+      case 'UNDEPLOYED':
         throw new DeploymentError(
           'INVALID_STAGE',
           stage,
           false,
           'Terminal stages are not worker commands.'
         );
+    }
+  }
+
+  private async undeploy(stage: DeploymentStage, input: DeploymentCommandInput) {
+    const runtime = this.dependencies.undeployRuntime;
+    if (!runtime)
+      throw new DeploymentError('UNDEPLOY_NOT_CONFIGURED', stage, false, 'Teardown processing is not configured.');
+    switch (stage) {
+      case 'UNDEPLOY_VALIDATING':
+      case 'UNDEPLOY_DISABLING_INVOCATION':
+        return { status: 'READY' as const };
+      case 'UNDEPLOY_DELETING_ENDPOINT': return { status: await runtime.deleteProductionEndpoint(input) };
+      case 'UNDEPLOY_WAITING_ENDPOINT': return { status: await runtime.getProductionEndpointDeletionStatus(input) };
+      case 'UNDEPLOY_DELETING_RUNTIME': return { status: await runtime.deleteRuntime(input) };
+      case 'UNDEPLOY_WAITING_RUNTIME': return { status: await runtime.getRuntimeDeletionStatus(input) };
+      case 'UNDEPLOY_DELETING_DEPENDENCIES':
+      case 'UNDEPLOY_WAITING_DEPENDENCIES':
+      case 'UNDEPLOY_DELETING_ARTIFACTS':
+      case 'UNDEPLOY_VERIFYING':
+        throw new DeploymentError('UNDEPLOY_PLAN_INCOMPLETE', stage, false, 'Trusted dependency cleanup metadata is unavailable.');
+      default:
+        throw new DeploymentError('INVALID_STAGE', stage, false, 'Terminal stages are not worker commands.');
     }
   }
 

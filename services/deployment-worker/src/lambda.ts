@@ -30,7 +30,8 @@ const worker = new DeploymentWorker({
     getStatus: async () => 'READY',
     compensate: async () => {}
   },
-  runtime: new AgentCoreRuntimeDeploymentPort(repository, assumer)
+  runtime: new AgentCoreRuntimeDeploymentPort(repository, assumer),
+  undeployRuntime: new AgentCoreRuntimeDeploymentPort(repository, assumer)
 });
 
 export async function handler(event: DeploymentCommandInput & { stage: DeploymentStage }) {

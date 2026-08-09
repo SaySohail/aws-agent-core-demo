@@ -10,12 +10,14 @@
     "clean": "tsc --build --clean"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-agentcore-control": "3.1106.0",
-    "@aws-sdk/client-dynamodb": "3.969.0",
-    "@aws-sdk/lib-dynamodb": "3.969.0",
     "@agent-launchpad/aws": "workspace:*",
     "@agent-launchpad/schemas": "workspace:*",
-    "@agent-launchpad/shared": "workspace:*"
+    "@agent-launchpad/shared": "workspace:*",
+    "@aws-sdk/client-bedrock-agentcore-control": "3.1106.0",
+    "@aws-sdk/client-cloudformation": "3.969.0",
+    "@aws-sdk/client-dynamodb": "3.969.0",
+    "@aws-sdk/client-s3": "3.969.0",
+    "@aws-sdk/lib-dynamodb": "3.969.0"
   },
   "devDependencies": {
     "tsx": "4.20.6"

@@ -64,6 +64,18 @@ const stageLabels: Record<DeploymentStage, string> = {
   ROLLBACK_WAITING_FOR_ENDPOINT: 'Wait for production endpoint',
   ROLLBACK_HEALTH_CHECKING: 'Verify rollback health',
   ROLLBACK_REVERTING_ENDPOINT: 'Restore production endpoint',
+  UNDEPLOY_QUEUED: 'Undeploy queued',
+  UNDEPLOY_VALIDATING: 'Validate cleanup plan',
+  UNDEPLOY_DISABLING_INVOCATION: 'Disable agent invocations',
+  UNDEPLOY_DELETING_ENDPOINT: 'Delete production endpoint',
+  UNDEPLOY_WAITING_ENDPOINT: 'Wait for production endpoint deletion',
+  UNDEPLOY_DELETING_RUNTIME: 'Delete AgentCore Runtime',
+  UNDEPLOY_WAITING_RUNTIME: 'Wait for Runtime deletion',
+  UNDEPLOY_DELETING_DEPENDENCIES: 'Delete agent infrastructure',
+  UNDEPLOY_WAITING_DEPENDENCIES: 'Wait for infrastructure deletion',
+  UNDEPLOY_DELETING_ARTIFACTS: 'Delete agent artifacts',
+  UNDEPLOY_VERIFYING: 'Verify cleanup',
+  UNDEPLOYED: 'Agent undeployed',
   READY: 'Deployment ready',
   FAILED: 'Deployment failed'
 };

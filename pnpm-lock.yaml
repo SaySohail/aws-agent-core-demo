@@ -283,7 +283,13 @@ importers:
       '@aws-sdk/client-bedrock-agentcore-control':
         specifier: 3.1106.0
         version: 3.1106.0
+      '@aws-sdk/client-cloudformation':
+        specifier: 3.969.0
+        version: 3.969.0
       '@aws-sdk/client-dynamodb':
+        specifier: 3.969.0
+        version: 3.969.0
+      '@aws-sdk/client-s3':
         specifier: 3.969.0
         version: 3.969.0
       '@aws-sdk/lib-dynamodb':
@@ -396,6 +402,10 @@ packages:
 
   '@aws-sdk/client-bedrock-runtime@3.1105.0':
     resolution: {integrity: sha512-ITKOkgdFFzqEgi2D36tvXTzLqK0RhEGp4EDCh9kK417RYLwKXR29KRBC+B7ZdPP1LxqQ35jPf2ZXpKqNCSAuLQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-cloudformation@3.969.0':
+    resolution: {integrity: sha512-itQDn+a6fFs8zlhCj2x/X87oFIpRcI9moimQk2FYxvyzfoxD1Yh27B0mGSils2ZHDG/xTfKNctcDzr8urlX6ig==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-cloudwatch-logs@3.1045.0':
@@ -3505,6 +3515,51 @@ snapshots:
       '@smithy/node-http-handler': 4.9.13
       '@smithy/types': 4.16.1
       tslib: 2.8.1
+
+  '@aws-sdk/client-cloudformation@3.969.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.969.0
+      '@aws-sdk/credential-provider-node': 3.969.0
+      '@aws-sdk/middleware-host-header': 3.969.0
+      '@aws-sdk/middleware-logger': 3.969.0
+      '@aws-sdk/middleware-recursion-detection': 3.969.0
+      '@aws-sdk/middleware-user-agent': 3.969.0
+      '@aws-sdk/region-config-resolver': 3.969.0
+      '@aws-sdk/types': 3.969.0
+      '@aws-sdk/util-endpoints': 3.969.0
+      '@aws-sdk/util-user-agent-browser': 3.969.0
+      '@aws-sdk/util-user-agent-node': 3.969.0
+      '@smithy/config-resolver': 4.6.16
+      '@smithy/core': 3.31.1
+      '@smithy/fetch-http-handler': 5.6.13
+      '@smithy/hash-node': 4.4.16
+      '@smithy/invalid-dependency': 4.4.16
+      '@smithy/middleware-content-length': 4.4.16
+      '@smithy/middleware-endpoint': 4.6.16
+      '@smithy/middleware-retry': 4.7.16
+      '@smithy/middleware-serde': 4.4.16
+      '@smithy/middleware-stack': 4.4.16
+      '@smithy/node-config-provider': 4.5.16
+      '@smithy/node-http-handler': 4.9.13
+      '@smithy/protocol-http': 5.5.16
+      '@smithy/smithy-client': 4.14.16
+      '@smithy/types': 4.16.1
+      '@smithy/url-parser': 4.4.16
+      '@smithy/util-base64': 4.5.16
+      '@smithy/util-body-length-browser': 4.4.16
+      '@smithy/util-body-length-node': 4.4.16
+      '@smithy/util-defaults-mode-browser': 4.5.16
+      '@smithy/util-defaults-mode-node': 4.4.16
+      '@smithy/util-endpoints': 3.6.16
+      '@smithy/util-middleware': 4.4.16
+      '@smithy/util-retry': 4.5.16
+      '@smithy/util-utf8': 4.4.16
+      '@smithy/util-waiter': 4.5.16
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - aws-crt
 
   '@aws-sdk/client-cloudwatch-logs@3.1045.0':
     dependencies:

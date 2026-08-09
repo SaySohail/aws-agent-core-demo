@@ -19,6 +19,7 @@ import {
   updateAgentRequestSchema,
   playgroundInvokeRequestSchema,
   rollbackRequestSchema,
+  undeployRequestSchema,
   playgroundInvokeResponseSchema,
   type Agent,
   type AwsConnection,
@@ -399,6 +400,8 @@ export class ControlApi {
       return this.updateAgent(context, request);
     if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/deploy')
       return this.deployAgent(context, request);
+    if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/undeploy')
+      return this.undeployAgent(context, request);
     if (request.route === 'POST /tenants/{tenantId}/agents/{agentId}/invoke')
       return this.invokeAgent(context, request);
     if (request.route === 'GET /tenants/{tenantId}/agents/{agentId}/executions')
@@ -760,6 +763,70 @@ export class ControlApi {
     return success({ deploymentId, status: 'QUEUED' }, 202);
   }
 
+  private async undeployAgent(context: TenantContext, request: HttpRequest): Promise<HttpResponse> {
+    requireRole(context, 'ADMIN');
+    const agent = await this.agent(context, request);
+    parse(undeployRequestSchema, body(request));
+    if (agent.status !== 'ACTIVE' || !agent.runtimeId)
+      throw new ApiError(409, 'UNDEPLOY_NOT_AVAILABLE', 'Only an active deployed agent can be undeployed.');
+    if (!this.workflowStarter)
+      throw new ApiError(503, 'DEPLOYMENT_UNAVAILABLE', 'Deployment orchestration is not configured.');
+    const key = normalizedIdempotencyKey(request.headers?.['idempotency-key'] ?? request.headers?.['Idempotency-Key']);
+    const idempotencyKeyHash = hash(key);
+    const artifacts = (await this.repository.listAgentArtifacts(context.tenantId, { limit: 100 })).items
+      .filter((artifact) => artifact.agentId === agent.id && artifact.status === 'READY')
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const requestHash = hash(JSON.stringify({
+      tenantId: context.tenantId, agentId: agent.id, operation: 'UNDEPLOY', runtimeId: agent.runtimeId,
+      endpoint: agent.runtimeEndpointName ?? 'production', artifacts: artifacts.map((artifact) => [artifact.id, artifact.bucket, artifact.objectKey, artifact.s3VersionId])
+    }));
+    const existing = await this.repository.getDeploymentByIdempotency(context.tenantId, agent.id, idempotencyKeyHash);
+    if (existing) {
+      if (existing.requestHash !== requestHash)
+        throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'This idempotency key was used for a different undeploy request.');
+      const operation = await this.repository.getDeployment(context.tenantId, existing.deploymentId);
+      if (!operation) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'The previous undeploy cannot be recovered.');
+      return success({ deploymentId: operation.id, status: operation.status }, 202);
+    }
+    const source = (await this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 })).items
+      .find((deployment) => deployment.status === 'READY');
+    if (!source) throw new ApiError(409, 'UNDEPLOY_PLAN_UNAVAILABLE', 'Trusted deployment metadata is unavailable.');
+    const now = this.clock().toISOString();
+    const deploymentId = createDeploymentId();
+    const operation: Deployment = {
+      id: deploymentId, tenantId: context.tenantId, agentId: agent.id, operationType: 'UNDEPLOY',
+      status: 'QUEUED', stage: 'UNDEPLOY_QUEUED', requestedBy: context.userId, configurationRevision: agent.revision,
+      snapshot: source.snapshot, idempotencyKeyHash, requestHash, createdAt: now,
+      cleanupPlan: {
+        runtimeId: agent.runtimeId, ...(agent.runtimeArn ? { runtimeArn: agent.runtimeArn } : {}),
+        endpointName: 'production', ...(agent.runtimeEndpoint ? { endpointArn: agent.runtimeEndpoint } : {}),
+        artifactIds: artifacts.map((artifact) => artifact.id), accountId: source.snapshot.accountId, region: source.snapshot.region
+      },
+      cleanupLedger: [
+        { kind: 'RUNTIME_ENDPOINT', logicalId: `${agent.runtimeId}:production`, status: 'PENDING', updatedAt: now },
+        { kind: 'RUNTIME', logicalId: agent.runtimeId, status: 'PENDING', updatedAt: now },
+        ...artifacts.map((artifact) => ({ kind: 'ARTIFACT' as const, logicalId: artifact.id, status: 'PENDING' as const, updatedAt: now }))
+      ]
+    };
+    try {
+      await this.repository.acquireDeploymentLock({ tenantId: context.tenantId, agentId: agent.id, deploymentId, configurationRevision: agent.revision, acquiredAt: now });
+    } catch (cause) {
+      if (isConditional(cause)) {
+        const lock = await this.repository.getDeploymentLock(context.tenantId, agent.id);
+        throw new ApiError(409, 'DEPLOYMENT_ALREADY_IN_PROGRESS', `A lifecycle operation is already in progress (${lock?.deploymentId ?? 'unknown'}).`);
+      }
+      throw cause;
+    }
+    await this.repository.createDeploymentIdempotency({ tenantId: context.tenantId, agentId: agent.id, idempotencyKeyHash, requestHash, deploymentId, createdAt: now });
+    await this.repository.createDeployment(operation);
+    await this.repository.appendDeploymentEvent({ id: createDeploymentEventId(), tenantId: context.tenantId, deploymentId, toStage: 'UNDEPLOY_QUEUED', status: 'QUEUED', createdAt: now });
+    await this.repository.appendAuditEvent({ id: createAuditEventId(), tenantId: context.tenantId, actorId: context.userId, action: auditActions.UNDEPLOY_REQUESTED, resourceType: 'DEPLOYMENT', resourceId: deploymentId, metadata: { agentId: agent.id, runtimeId: agent.runtimeId, resourceCount: operation.cleanupLedger?.length ?? 0 }, createdAt: now });
+    await this.repository.markAgentUndeploying(context.tenantId, agent.id, now);
+    const execution = await this.workflowStarter.start({ deploymentId, tenantId: context.tenantId, agentId: agent.id, configurationRevision: agent.revision });
+    await this.repository.setDeploymentExecutionArn(context.tenantId, deploymentId, execution.executionArn);
+    return success({ deploymentId, status: 'QUEUED' }, 202);
+  }
+
   private async createAwsConnection(
     context: TenantContext,
     request: HttpRequest
@@ -885,6 +952,8 @@ export class ControlApi {
     requireRole(context, 'ADMIN');
     const input = parse(playgroundInvokeRequestSchema, body(request));
     const agent = await this.agent(context, request);
+    if (agent.status === 'UNDEPLOYING' || agent.status === 'UNDEPLOYED')
+      throw new ApiError(409, 'PLAYGROUND_NOT_READY', 'This agent is being undeployed or is no longer deployed.');
     const [deployments, versions] = await Promise.all([
       this.repository.listDeploymentsForAgent(context.tenantId, agent.id, { limit: 100 }),
       this.repository.listRuntimeVersions(context.tenantId, agent.id)

@@ -423,6 +423,7 @@ export class ControlPlaneStack extends Stack {
       },
       { path: '/tenants/{tenantId}/agents/{agentId}/versions', methods: [apigwv2.HttpMethod.GET] },
       { path: '/tenants/{tenantId}/agents/{agentId}/rollback', methods: [apigwv2.HttpMethod.POST] },
+      { path: '/tenants/{tenantId}/agents/{agentId}/undeploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/deploy', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/invoke', methods: [apigwv2.HttpMethod.POST] },
       { path: '/tenants/{tenantId}/agents/{agentId}/executions', methods: [apigwv2.HttpMethod.GET] },

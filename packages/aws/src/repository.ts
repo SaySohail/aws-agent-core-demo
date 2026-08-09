@@ -278,6 +278,28 @@ export class ControlPlaneRepository {
       condition: existingCondition
     });
   }
+  /** Marks an Agent unavailable before destructive work. Runtime pointers are retained until verification succeeds. */
+  async markAgentUndeploying(tenantId: string, agentId: string, updatedAt: string): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.agent(tenantId, agentId),
+      updates: { status: 'UNDEPLOYING', updatedAt, gsi3pk: undefined, gsi3sk: undefined },
+      condition: existingCondition
+    });
+  }
+  /** Historical deployments and RuntimeVersions remain; only live production pointers are removed. */
+  async completeAgentUndeploy(tenantId: string, agentId: string, updatedAt: string): Promise<void> {
+    await this.store.update({
+      key: controlPlaneKeys.agent(tenantId, agentId),
+      updates: {
+        status: 'UNDEPLOYED', updatedAt,
+        runtimeArn: undefined, runtimeId: undefined, runtimeVersion: undefined,
+        runtimeEndpoint: undefined, runtimeEndpointName: undefined,
+        runtimeWorkloadIdentityArn: undefined, gatewayArn: undefined,
+        gatewayWorkloadIdentityArn: undefined, gsi3pk: undefined, gsi3sk: undefined
+      },
+      condition: existingCondition
+    });
+  }
   async updateAgent(
     context: TenantContext,
     agentId: string,
