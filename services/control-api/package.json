@@ -10,6 +10,7 @@
     "local:setup": "tsx src/local.ts setup",
     "local:serve": "tsx src/local.ts serve",
     "local:reset": "tsx src/local.ts reset",
+    "seed-demo": "tsx src/seed-demo.ts",
     "clean": "tsc --build --clean"
   },
   "dependencies": {

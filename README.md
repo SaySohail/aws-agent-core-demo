@@ -2,10 +2,6 @@
 
 Agent Launchpad is a multi-tenant control plane for configuring and deploying an AI agent into a customer's AWS account with Amazon Bedrock AgentCore. The control plane owns tenant configuration, governance, lifecycle orchestration, and operator UX; the customer owns the resources that execute the agent and process its data.
 
-> **Current status:** local architecture and security validation are implemented, but the SAY-107 cloud release gate is **not approved**. Agent-specific provisioning and ownership-checked cleanup have mocked coverage; real cloud end-to-end evidence is still outstanding. See the [validation report](docs/validation-report.md).
-
-## What the demo proves
-
 - Tenant-scoped control-plane records and operator authorization.
 - Cross-account deployment using STS temporary credentials, not stored customer keys.
 - A Node.js 22 AgentCore Runtime with IAM/SigV4 invocation and Gateway-backed tools.
@@ -122,7 +118,7 @@ packages/shared                   environment and shared utilities
 infrastructure/control-plane      CDK control-plane resources and state machine
 infrastructure/customer-bootstrap customer-owned persistent bootstrap template
 infrastructure/agent-template     Customer Support Gateway, policy, tools, and demo-data stack
-docs                              validation evidence and interviewer walkthrough
+docs                              validation evidence 
 ```
 
 ## Local setup
@@ -178,9 +174,7 @@ pnpm --dir infrastructure/control-plane run synth
 
 ## Demo walkthrough
 
-The agent-template stack contains deterministic fake data: `ORD-1023` for `demo.customer@example.test`, status `IN_TRANSIT`, total £150.00, and no refund. Its CloudFormation custom resource upserts that record during stack create/update, but the repository has no standalone customer-account seed/reset command. Do not claim that a stack update resets mutable refunds or tickets.
-
-For a reliable 3–5 minute interviewer walkthrough, have a known-good deployed agent, a completed deployment detail, and untouched canonical demo data ready before the call. Do not rely on a cold AWS deployment or fresh CloudWatch datapoint completing on camera. The operational script, preflight checklist, console views, talking points, and fallbacks are in [docs/demo-script.md](docs/demo-script.md).
+The agent-template stack contains deterministic fake data: `ORD-1023` for `demo.customer@example.test`, status `IN_TRANSIT`, total £150.00, and no refund. Its CloudFormation custom resource upserts that record during stack create/update, but the repository has no standalone customer-account seed/reset command. 
 
 ## Deliberate tradeoffs
 
@@ -203,6 +197,3 @@ For a reliable 3–5 minute interviewer walkthrough, have a known-good deployed 
 
 Likely follow-up work includes additional templates, environment promotion, private networking, policy-authoring UX, cost controls, and multi-Region resilience. None is part of this repository's current demo.
 
-## Validation
-
-Read the [SAY-107 validation report](docs/validation-report.md) before treating the project as release-ready. It records the local checks and the scope they cover: tenant isolation, ExternalId exposure prevention, Runtime/Gateway IAM construction, policy/tool behavior, idempotency, rollback, fail-open observability, and cleanup isolation guards. It also documents why the cloud release/security gate remains FAIL.

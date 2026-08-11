@@ -1,0 +1,11 @@
+{
+  "ControlPlane-dev": {
+    "ArtifactBucketName": "controlplane-dev-artifactbucket7410c9ef-1x6lm5rp3hv3",
+    "CognitoUserPoolId": "eu-west-2_FopEQUSke",
+    "CognitoWebClientId": "6s9dert07v6g0kd0klkb4jt8jj",
+    "CognitoIssuer": "https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_FopEQUSke",
+    "ApiEndpoint": "https://i5coizh3p6.execute-api.eu-west-2.amazonaws.com",
+    "ControlPlaneTableName": "ControlPlane-dev-ControlPlaneTable34018A4D-1TRP5DN8CY2ZE",
+    "CognitoDomain": "https://agent-launchpad-dev-804260298217.auth.eu-west-2.amazoncognito.com"
+  }
+}

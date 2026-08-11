@@ -2,8 +2,8 @@ import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { lstat, mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { lstat, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   agentConfigurationSchema,
@@ -148,7 +148,7 @@ export class AgentArtifactBuilder {
       !paths.includes(AGENT_ARTIFACT_APPLICATION_ENTRY_POINT) ||
       !paths.includes('manifest.json') ||
       !paths.includes('node_modules/.bin/opentelemetry-instrument') ||
-      !paths.includes(`node_modules/${ADOT_PACKAGE}/package.json`)
+      !paths.includes('dist/adot-register.cjs')
     )
       throw new AgentArtifactError(
         'INVALID_PACKAGE_STRUCTURE',
@@ -165,8 +165,9 @@ export class AgentArtifactBuilder {
     for (const entry of entries)
       if (
         /(^|\/)\.env|\.(pem|key)$/i.test(entry.path) ||
-        (entry.path !== AGENT_ARTIFACT_APPLICATION_ENTRY_POINT &&
-          /AKIA[0-9A-Z]{16}|aws_secret_access_key|sessiontoken/i.test(entry.data.toString('utf8')))
+        /AKIA[0-9A-Z]{16}/.test(entry.data.toString('utf8')) ||
+        (![AGENT_ARTIFACT_APPLICATION_ENTRY_POINT, 'dist/adot-register.cjs'].includes(entry.path) &&
+          /aws_secret_access_key|sessiontoken/i.test(entry.data.toString('utf8')))
       )
         throw new AgentArtifactError(
           'FORBIDDEN_ARTIFACT_CONTENT',
@@ -207,19 +208,30 @@ export class AgentArtifactBuilder {
         'ADOT_DEPENDENCY_VERSION_INVALID',
         `Expected ${ADOT_PACKAGE}@${ADOT_PACKAGE_VERSION}.`
       );
-    // pnpm stores the production dependency closure beside the resolved package. Copy that
-    // logical node_modules tree rather than the monorepo root or just ADOT itself: register()
-    // loads ADOT dependencies lazily after Runtime startup.
-    const files = await collectFiles(dirname(dirname(packageRoot)), 'node_modules');
-    files.push({
-      path: 'node_modules/.bin/opentelemetry-instrument',
-      data: Buffer.from(
-        '#!/bin/sh\nexec node --require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register "$@"\n',
-        'utf8'
-      ),
-      mode: 0o100755
+    const bundled = await build({
+      entryPoints: [registerModule],
+      bundle: true,
+      write: false,
+      format: 'cjs',
+      platform: 'node',
+      target: 'node22',
+      external: ['@langchain/core/*'],
+      logLevel: 'silent'
     });
-    return files;
+    const bundle = bundled.outputFiles[0];
+    if (!bundle)
+      throw new AgentArtifactError(
+        'ADOT_DEPENDENCY_MISSING',
+        'ADOT instrumentation bundle was not created.'
+      );
+    return [
+      { path: 'dist/adot-register.cjs', data: Buffer.from(bundle.contents), mode: 0o100644 },
+      {
+        path: 'node_modules/.bin/opentelemetry-instrument',
+        data: Buffer.from('#!/bin/sh\nexec node --require ./dist/adot-register.cjs "$@"\n', 'utf8'),
+        mode: 0o100755
+      }
+    ];
   }
 }
 
@@ -457,32 +469,6 @@ interface ArtifactFile {
 }
 interface ZipEntry extends ArtifactFile {
   readonly uncompressedSize: number;
-}
-async function collectFiles(sourceRoot: string, destinationRoot: string): Promise<ArtifactFile[]> {
-  const files: ArtifactFile[] = [];
-  const visit = async (source: string, destination: string): Promise<void> => {
-    const stat = await lstat(source);
-    if (stat.isSymbolicLink()) {
-      await visit(await realpath(source), destination);
-      return;
-    }
-    if (stat.isDirectory()) {
-      for (const name of (await readdir(source)).sort((a, b) => a.localeCompare(b))) {
-        // Package tests and VCS metadata are neither executable runtime dependencies nor safe
-        // deployment payload. Excluding them also keeps the artifact boundary deterministic.
-        if (['.git', 'test', 'tests', 'fixture', 'fixtures'].includes(name)) continue;
-        await visit(join(source, name), `${destination}/${name}`);
-      }
-      return;
-    }
-    if (!stat.isFile()) return;
-    const normalized = relative(destinationRoot, destination).replaceAll('\\', '/');
-    if (normalized.startsWith('../') || normalized === '')
-      throw new AgentArtifactError('INVALID_PACKAGE_STRUCTURE', 'Unsafe dependency path.');
-    files.push({ path: destination, data: await readFile(source), mode: 0o100644 });
-  };
-  await visit(sourceRoot, destinationRoot);
-  return files;
 }
 async function packageRootFor(source: string): Promise<string> {
   let current = dirname(source);

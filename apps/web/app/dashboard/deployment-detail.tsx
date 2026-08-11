@@ -97,6 +97,12 @@ export function DeploymentDetail({ deploymentId }: Readonly<{ deploymentId: stri
         `/agents/${query.data?.deployment.agentId}/deployments/${nextDeploymentId}`
       )
   });
+  const agentId = query.data?.deployment.agentId;
+  const history = useQuery({
+    queryKey: ['deployment-history', tenantId, agentId],
+    queryFn: () => api().deployments.listForAgent(tenantId!, agentId!, { pageSize: 10 }),
+    enabled: Boolean(tenantId && agentId)
+  });
 
   if (!query.data && query.isLoading)
     return (
@@ -140,11 +146,6 @@ export function DeploymentDetail({ deploymentId }: Readonly<{ deploymentId: stri
   const failed = deployment.status === 'FAILED';
   const error = deploymentError(deployment.errorCode);
   const candidate = detail.candidateRuntimeVersion;
-  const history = useQuery({
-    queryKey: ['deployment-history', tenantId, deployment.agentId],
-    queryFn: () => api().deployments.listForAgent(tenantId!, deployment.agentId, { pageSize: 10 }),
-    enabled: Boolean(tenantId)
-  });
 
   return (
     <VStack gap={4} aria-live="polite">

@@ -6,6 +6,11 @@
       "Description": "Exact Agent Launchpad control-plane IAM principal ARN allowed to assume the deployment role.",
       "MinLength": 20
     },
+    "TrustedDeploymentWorkerPrincipalArn": {
+      "Type": "String",
+      "Description": "Exact Agent Launchpad deployment-worker IAM principal ARN allowed to assume the deployment role.",
+      "MinLength": 20
+    },
     "ExternalId": {
       "Type": "String",
       "Description": "Unique Agent Launchpad AWS connection identifier used for STS confused-deputy protection.",
@@ -378,39 +383,6 @@
                   ]
                 ]
               }
-            },
-            {
-              "Action": "bedrock-agentcore:InvokeGateway",
-              "Condition": {
-                "StringEquals": {
-                  "aws:RequestedRegion": {
-                    "Ref": "AWS::Region"
-                  },
-                  "aws:ResourceTag/ManagedBy": "AgentLaunchpad",
-                  "aws:ResourceTag/Purpose": "CustomerSupportTools"
-                }
-              },
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:",
-                    {
-                      "Ref": "AWS::Partition"
-                    },
-                    ":bedrock-agentcore:",
-                    {
-                      "Ref": "AWS::Region"
-                    },
-                    ":",
-                    {
-                      "Ref": "AWS::AccountId"
-                    },
-                    ":gateway/*"
-                  ]
-                ]
-              }
             }
           ],
           "Version": "2012-10-17"
@@ -430,8 +402,20 @@
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
           "Statement": [
             {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [
+                  {
+                    "Ref": "TrustedControlPlanePrincipalArn"
+                  },
+                  {
+                    "Ref": "TrustedDeploymentWorkerPrincipalArn"
+                  }
+                ]
+              },
               "Action": "sts:AssumeRole",
               "Condition": {
                 "StringEquals": {
@@ -439,16 +423,9 @@
                     "Ref": "ExternalId"
                   }
                 }
-              },
-              "Effect": "Allow",
-              "Principal": {
-                "AWS": {
-                  "Ref": "TrustedControlPlanePrincipalArn"
-                }
               }
             }
-          ],
-          "Version": "2012-10-17"
+          ]
         },
         "Description": "Cross-account role used by Agent Launchpad to manage only its customer-account resources.",
         "RoleName": "AgentLaunchpadDeploymentRole",
@@ -484,7 +461,134 @@
               }
             },
             {
-              "Action": "bedrock-agentcore:InvokeAgentRuntime",
+              "Action": "cloudwatch:GetMetricData",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:CreateGateway",
+                "bedrock-agentcore:UpdateGateway",
+                "bedrock-agentcore:GetGateway",
+                "bedrock-agentcore:DeleteGateway",
+                "bedrock-agentcore:ListGateways",
+                "bedrock-agentcore:CreateGatewayTarget",
+                "bedrock-agentcore:UpdateGatewayTarget",
+                "bedrock-agentcore:GetGatewayTarget",
+                "bedrock-agentcore:DeleteGatewayTarget",
+                "bedrock-agentcore:ListGatewayTargets",
+                "bedrock-agentcore:InvokeGateway",
+                "bedrock-agentcore:ManageResourceScopedPolicy"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  },
+                  "aws:ResourceTag/ManagedBy": "AgentLaunchpad"
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":gateway/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:CreatePolicyEngine",
+                "bedrock-agentcore:UpdatePolicyEngine",
+                "bedrock-agentcore:GetPolicyEngine",
+                "bedrock-agentcore:DeletePolicyEngine",
+                "bedrock-agentcore:ListPolicyEngines"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  }
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":policy-engine/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:CreatePolicy",
+                "bedrock-agentcore:UpdatePolicy",
+                "bedrock-agentcore:GetPolicy",
+                "bedrock-agentcore:DeletePolicy",
+                "bedrock-agentcore:ListPolicies"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "aws:RequestedRegion": {
+                    "Ref": "AWS::Region"
+                  }
+                }
+              },
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":bedrock-agentcore:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":policy-engine/*/policy/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": [
+                "bedrock-agentcore:ManageResourceScopedPolicy",
+                "bedrock-agentcore:PutResourcePolicy"
+              ],
               "Condition": {
                 "StringEquals": {
                   "aws:RequestedRegion": {
@@ -552,7 +656,8 @@
             {
               "Action": [
                 "bedrock-agentcore:CreateAgentRuntime",
-                "bedrock-agentcore:ListAgentRuntimes"
+                "bedrock-agentcore:ListAgentRuntimes",
+                "bedrock-agentcore:CreateAgentRuntimeEndpoint"
               ],
               "Condition": {
                 "StringEquals": {
@@ -561,7 +666,7 @@
                   }
                 },
                 "ForAllValues:StringEquals": {
-                  "aws:TagKeys": ["ManagedBy", "Plane", "Purpose"]
+                  "aws:TagKeys": ["ManagedBy", "AgentId", "Plane", "Purpose"]
                 },
                 "ForAllValues:StringEqualsIfExists": {
                   "aws:RequestTag/ManagedBy": "AgentLaunchpad",
@@ -576,7 +681,9 @@
               "Action": [
                 "bedrock-agentcore:DeleteAgentRuntime",
                 "bedrock-agentcore:GetAgentRuntime",
-                "bedrock-agentcore:UpdateAgentRuntime"
+                "bedrock-agentcore:UpdateAgentRuntime",
+                "bedrock-agentcore:GetAgentRuntimeEndpoint",
+                "bedrock-agentcore:UpdateAgentRuntimeEndpoint"
               ],
               "Condition": {
                 "StringEquals": {
@@ -584,26 +691,48 @@
                 }
               },
               "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:",
-                    {
-                      "Ref": "AWS::Partition"
-                    },
-                    ":bedrock-agentcore:",
-                    {
-                      "Ref": "AWS::Region"
-                    },
-                    ":",
-                    {
-                      "Ref": "AWS::AccountId"
-                    },
-                    ":runtime/*"
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":bedrock-agentcore:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":runtime/*"
+                    ]
                   ]
-                ]
-              }
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":bedrock-agentcore:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":runtime/*/runtime-endpoint/*"
+                    ]
+                  ]
+                }
+              ]
             }
           ],
           "Version": "2012-10-17"

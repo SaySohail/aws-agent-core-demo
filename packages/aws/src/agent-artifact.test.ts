@@ -86,8 +86,8 @@ test('build is byte reproducible and configuration changes affect the digest', a
   const paths = zipPaths(first.bytes);
   assert.ok(paths.includes('config/agent-config.json'));
   assert.ok(paths.includes('dist/app.js'));
+  assert.ok(paths.includes('dist/adot-register.cjs'));
   assert.ok(paths.includes('node_modules/.bin/opentelemetry-instrument'));
-  assert.ok(paths.includes(`node_modules/${ADOT_PACKAGE}/package.json`));
   assert.deepEqual(first.entryPoint, AGENT_ARTIFACT_ENTRY_POINT);
   assert.deepEqual(first.manifest.entryPoint, AGENT_ARTIFACT_ENTRY_POINT);
   assert.deepEqual(first.manifest.observability, {
@@ -197,7 +197,7 @@ test('extracted package starts and responds to ping', async () => {
     await writeFile(join(directory, entry.path), entry.data);
   }
   const port = 51899;
-  const child = spawn(process.execPath, ['--require', `${ADOT_PACKAGE}/register`, 'dist/app.js'], {
+  const child = spawn(process.execPath, ['--require', './dist/adot-register.cjs', 'dist/app.js'], {
     cwd: directory,
     env: {
       ...process.env,

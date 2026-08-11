@@ -11,10 +11,10 @@ import { useEffect, useState } from 'react';
 import type { AwsConnectionOnboarding } from '../../lib/control-api';
 import { useActiveTenant } from '../../lib/active-tenant';
 
-const regions = ['us-east-1', 'us-west-2', 'eu-west-1'];
+const regions = ['us-east-1', 'us-west-2', 'eu-west-1', 'eu-west-2'];
 
 export function AwsConnectionOnboarding() {
-  const { tenant } = useActiveTenant();
+  const { tenant, isLoading: isTenantLoading } = useActiveTenant();
   const tenantId = tenant?.tenantId;
   const [accountId, setAccountId] = useState('');
   const [region, setRegion] = useState(regions[0]);
@@ -22,17 +22,33 @@ export function AwsConnectionOnboarding() {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    void load();
-  }, [tenantId]);
-  async function load() {
-    try {
-      if (!tenantId) return setError('No active tenant membership is available.');
-      const listed = await call<AwsConnectionOnboarding[]>(`tenants/${tenantId}/aws-connections`);
-      setConnection(listed.find((item) => item.status !== 'DISCONNECTED'));
-    } catch {
-      setError('Unable to load AWS connection settings.');
+    let isCurrent = true;
+
+    async function load() {
+      setError(undefined);
+      setConnection(undefined);
+
+      if (isTenantLoading) return;
+      if (!tenantId) {
+        setError('No active tenant membership is available.');
+        return;
+      }
+
+      try {
+        const listed = await call<AwsConnectionOnboarding[]>(
+          `tenants/${tenantId}/aws-connections`
+        );
+        if (isCurrent) setConnection(listed.find((item) => item.status !== 'DISCONNECTED'));
+      } catch {
+        if (isCurrent) setError('Unable to load AWS connection settings.');
+      }
     }
-  }
+
+    void load();
+    return () => {
+      isCurrent = false;
+    };
+  }, [isTenantLoading, tenantId]);
   async function create() {
     if (!tenantId) return;
     setLoading(true);

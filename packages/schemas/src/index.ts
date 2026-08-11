@@ -372,7 +372,7 @@ export const bedrockModelCatalog: readonly BedrockModelCatalogEntry[] = [
     displayName: 'Amazon Nova Lite',
     status: 'ACTIVE',
     allowedTemplateIds: [CUSTOMER_SUPPORT_TEMPLATE_ID],
-    supportedRegions: ['us-east-1', 'us-west-2', 'eu-west-1'],
+    supportedRegions: ['us-east-1', 'us-west-2', 'eu-west-1', 'eu-west-2'],
     runtimeApi: 'BEDROCK_CONVERSE'
   }
 ];

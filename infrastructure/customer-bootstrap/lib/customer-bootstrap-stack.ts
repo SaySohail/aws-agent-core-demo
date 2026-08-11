@@ -19,6 +19,16 @@ export class CustomerBootstrapStack extends Stack {
           'Exact Agent Launchpad control-plane IAM principal ARN allowed to assume the deployment role.'
       }
     );
+    const trustedDeploymentWorkerPrincipalArn = new cdk.CfnParameter(
+      this,
+      'TrustedDeploymentWorkerPrincipalArn',
+      {
+        type: 'String',
+        minLength: 20,
+        description:
+          'Exact Agent Launchpad deployment-worker IAM principal ARN allowed to assume the deployment role.'
+      }
+    );
     const externalId = new cdk.CfnParameter(this, 'ExternalId', {
       type: 'String',
       minLength: 1,
@@ -123,12 +133,25 @@ export class CustomerBootstrapStack extends Stack {
       roleName: 'AgentLaunchpadDeploymentRole',
       description:
         'Cross-account role used by Agent Launchpad to manage only its customer-account resources.',
-      assumedBy: new iam.ArnPrincipal(trustedControlPlanePrincipalArn.valueAsString).withConditions(
-        {
-          StringEquals: { 'sts:ExternalId': externalId.valueAsString }
-        }
-      )
+      assumedBy: new iam.ArnPrincipal(trustedControlPlanePrincipalArn.valueAsString)
     });
+    const deploymentRoleResource = deploymentRole.node.defaultChild as iam.CfnRole;
+    deploymentRoleResource.assumeRolePolicyDocument = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: {
+            AWS: [
+              trustedControlPlanePrincipalArn.valueAsString,
+              trustedDeploymentWorkerPrincipalArn.valueAsString
+            ]
+          },
+          Action: 'sts:AssumeRole',
+          Condition: { StringEquals: { 'sts:ExternalId': externalId.valueAsString } }
+        }
+      ]
+    };
 
     deploymentRole.addToPolicy(
       new iam.PolicyStatement({

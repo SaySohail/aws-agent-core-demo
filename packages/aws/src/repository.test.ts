@@ -8,6 +8,7 @@ import type {
   Tenant,
   TenantMembership
 } from '@agent-launchpad/schemas';
+import { customerSupportTemplate } from '@agent-launchpad/schemas';
 import {
   ControlPlaneRepository,
   controlPlaneKeys,
@@ -182,6 +183,13 @@ test('domain records round-trip through persistence while physical keys stay int
   assert.equal(persisted.pk, `TENANT#${tenantA.id}`);
   assert.equal(persisted.sk, `AGENT#${agentId}`);
   assert.deepEqual(fromPersistence.agent(persisted), agent(tenantA.id));
+});
+
+test('agent templates round-trip through persistence while physical keys stay internal', () => {
+  const persisted = toPersistence.agentTemplate(customerSupportTemplate);
+  assert.equal(persisted.pk, `TEMPLATE#${customerSupportTemplate.templateId}`);
+  assert.equal(persisted.sk, `VERSION#${customerSupportTemplate.version}`);
+  assert.deepEqual(fromPersistence.agentTemplate(persisted), customerSupportTemplate);
 });
 
 test('tenant scoped resources cannot cross tenant partitions, update, or delete', async () => {

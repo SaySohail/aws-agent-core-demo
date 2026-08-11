@@ -322,6 +322,32 @@ test('repository conflicts and unexpected errors are mapped without implementati
   assert.doesNotMatch(response.body, /DynamoDB secret details/);
 });
 
+test('unhandled agent template errors log only the safe request diagnostics', async (t) => {
+  const errorLog = t.mock.method(console, 'error');
+  const api = new ControlApi(
+    repository({
+      listAgentTemplates: async () => {
+        throw new Error('DynamoDB secret details');
+      }
+    })
+  );
+
+  const response = await api.handle(request('GET /agent-templates'));
+
+  assert.equal(response.statusCode, 500);
+  assert.doesNotMatch(response.body, /DynamoDB secret details/);
+  assert.deepEqual(errorLog.mock.calls[0]?.arguments, [
+    'Control API unhandled error',
+    {
+      requestId: 'request-1',
+      route: 'GET /agent-templates',
+      errorName: 'Error',
+      errorMessage: 'DynamoDB secret details'
+    }
+  ]);
+  assert.equal(errorLog.mock.callCount(), 1);
+});
+
 test('AWS connection creation owns ExternalId and duplicate requests reuse its pending connection', async () => {
   let saved: AwsConnection | undefined;
   const api = new ControlApi(
@@ -336,6 +362,7 @@ test('AWS connection creation owns ExternalId and duplicate requests reuse its p
     {
       templateUrl: 'https://assets.example.test/bootstrap.json',
       trustedControlPlanePrincipalArn: 'arn:aws:iam::111111111111:role/ControlApi',
+      trustedDeploymentWorkerPrincipalArn: 'arn:aws:iam::111111111111:role/DeploymentWorker',
       allowedRegions: ['us-east-1']
     }
   );

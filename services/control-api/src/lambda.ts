@@ -17,11 +17,13 @@ const repository = new ControlPlaneRepository(
 );
 const templateUrl = process.env.CUSTOMER_BOOTSTRAP_TEMPLATE_URL;
 const trustedControlPlanePrincipalArn = process.env.CONTROL_API_EXECUTION_ROLE_ARN;
+const trustedDeploymentWorkerPrincipalArn = process.env.DEPLOYMENT_WORKER_ROLE_ARN;
 const allowedRegions = process.env.CUSTOMER_CONNECTION_ALLOWED_REGIONS?.split(',').filter(Boolean);
 const deploymentStateMachineArn = process.env.DEPLOYMENT_STATE_MACHINE_ARN;
 if (
   !templateUrl ||
   !trustedControlPlanePrincipalArn ||
+  !trustedDeploymentWorkerPrincipalArn ||
   !allowedRegions?.length ||
   !deploymentStateMachineArn
 )
@@ -49,7 +51,12 @@ const workflowStarter = {
 const api = new ControlApi(
   repository,
   () => new Date(),
-  { templateUrl, trustedControlPlanePrincipalArn, allowedRegions },
+  {
+    templateUrl,
+    trustedControlPlanePrincipalArn,
+    trustedDeploymentWorkerPrincipalArn,
+    allowedRegions
+  },
   new StsCustomerRoleAssumer(),
   workflowStarter
 );

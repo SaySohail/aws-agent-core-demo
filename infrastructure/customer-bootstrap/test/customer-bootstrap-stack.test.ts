@@ -45,16 +45,22 @@ test('requires the exact deployment principal and external ID trust contract', (
   const template = synthesized();
   const parameters = template.Parameters as Record<string, Record<string, unknown>>;
   const trustedParameter = parameters.TrustedControlPlanePrincipalArn;
+  const trustedDeploymentWorkerParameter = parameters.TrustedDeploymentWorkerPrincipalArn;
   const externalIdParameter = parameters.ExternalId;
   assert.ok(trustedParameter);
+  assert.ok(trustedDeploymentWorkerParameter);
   assert.ok(externalIdParameter);
   assert.equal(trustedParameter.Default, undefined);
+  assert.equal(trustedDeploymentWorkerParameter.Default, undefined);
   assert.equal(externalIdParameter.Default, undefined);
   assert.equal(externalIdParameter.MinLength, 1);
 
   const deploymentRole = roleByName(template, 'AgentLaunchpadDeploymentRole');
   const statement = deploymentRole.Properties.AssumeRolePolicyDocument.Statement[0];
-  assert.deepEqual(statement.Principal.AWS, { Ref: 'TrustedControlPlanePrincipalArn' });
+  assert.deepEqual(statement.Principal.AWS, [
+    { Ref: 'TrustedControlPlanePrincipalArn' },
+    { Ref: 'TrustedDeploymentWorkerPrincipalArn' }
+  ]);
   assert.deepEqual(statement.Condition.StringEquals['sts:ExternalId'], { Ref: 'ExternalId' });
 });
 

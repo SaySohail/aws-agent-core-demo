@@ -314,7 +314,6 @@ export class ControlPlaneStack extends Stack {
           'tenantId.$': '$.tenantId',
           'agentId.$': '$.agentId',
           'configurationRevision.$': '$.configurationRevision',
-          'artifactId.$': '$.artifactId',
           'operationType.$': '$.operationType'
         }),
         resultPath: '$.task',
@@ -505,6 +504,7 @@ export class ControlPlaneStack extends Stack {
         CONTROL_PLANE_TABLE_NAME: controlPlaneTable.tableName,
         CUSTOMER_BOOTSTRAP_TEMPLATE_URL: configuration.customerBootstrapTemplateUrl,
         CONTROL_API_EXECUTION_ROLE_ARN: controlApiExecutionRole.roleArn,
+        DEPLOYMENT_WORKER_ROLE_ARN: deploymentWorkerRole.roleArn,
         CUSTOMER_CONNECTION_ALLOWED_REGIONS: configuration.region,
         DEPLOYMENT_STATE_MACHINE_ARN: deploymentStateMachine.stateMachineArn
       },

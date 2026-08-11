@@ -29,6 +29,20 @@ import { controlPlaneKeys } from './keys.js';
 
 type Item = Record<string, unknown>;
 
+const persistenceAttributeNames = new Set([
+  'pk',
+  'sk',
+  'gsi1pk',
+  'gsi1sk',
+  'gsi2pk',
+  'gsi2sk',
+  'gsi3pk',
+  'gsi3sk',
+  'gsi4pk',
+  'gsi4sk',
+  'entityType'
+]);
+
 function reverseTimestamp(value: string): string {
   const time = Date.parse(value);
   if (Number.isNaN(time)) throw new Error('Runtime version timestamp must be valid.');
@@ -42,7 +56,10 @@ export class PersistenceValidationError extends Error {
 }
 
 function domain<T>(schema: z.ZodType<T>, item: Item, entity: string): T {
-  const result = schema.safeParse(item);
+  const domainItem = Object.fromEntries(
+    Object.entries(item).filter(([key]) => !persistenceAttributeNames.has(key))
+  );
+  const result = schema.safeParse(domainItem);
   if (!result.success) throw new PersistenceValidationError(entity);
   return result.data;
 }

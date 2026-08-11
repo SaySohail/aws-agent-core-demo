@@ -1,6 +1,7 @@
 export interface QuickCreateParameters {
   readonly templateUrl: string;
   readonly trustedControlPlanePrincipalArn: string;
+  readonly trustedDeploymentWorkerPrincipalArn: string;
   readonly externalId: string;
   readonly stackName?: string;
 }
@@ -11,6 +12,7 @@ export const buildQuickCreateUrl = (parameters: QuickCreateParameters): string =
     templateURL: parameters.templateUrl,
     stackName: parameters.stackName ?? 'AgentLaunchpadBootstrap',
     param_TrustedControlPlanePrincipalArn: parameters.trustedControlPlanePrincipalArn,
+    param_TrustedDeploymentWorkerPrincipalArn: parameters.trustedDeploymentWorkerPrincipalArn,
     param_ExternalId: parameters.externalId
   });
 

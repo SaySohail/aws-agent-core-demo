@@ -10,6 +10,7 @@ Use the committed [`customer-bootstrap.template.json`](./customer-bootstrap.temp
 build it with `pnpm --dir infrastructure/customer-bootstrap run template`. The template requires:
 
 - `TrustedControlPlanePrincipalArn`: exact IAM role ARN in the Agent Launchpad control-plane account.
+- `TrustedDeploymentWorkerPrincipalArn`: exact deployment-worker IAM role ARN in the Agent Launchpad control-plane account.
 - `ExternalId`: unique Agent Launchpad-generated AWS connection identifier used for STS
   confused-deputy protection. It is not a password or secret.
 
@@ -17,7 +18,7 @@ The control plane supplies those values and hosts a versioned template URL. Its 
 contract is:
 
 ```
-https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=<url-encoded-hosted-template-url>&stackName=AgentLaunchpadBootstrap&param_TrustedControlPlanePrincipalArn=<url-encoded-arn>&param_ExternalId=<url-encoded-connection-id>
+https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=<url-encoded-hosted-template-url>&stackName=AgentLaunchpadBootstrap&param_TrustedControlPlanePrincipalArn=<url-encoded-arn>&param_TrustedDeploymentWorkerPrincipalArn=<url-encoded-arn>&param_ExternalId=<url-encoded-connection-id>
 ```
 
 `buildQuickCreateUrl` in `lib/quick-create.ts` constructs that URL once the template publisher

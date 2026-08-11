@@ -1,0 +1,3580 @@
+{
+ "Description": "Agent Launchpad control plane (dev)",
+ "Resources": {
+  "ControlPlaneTable34018A4D": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "sk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi1pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi1sk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi3pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi3sk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi4pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi4sk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi2pk",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "gsi2sk",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "MembershipsByUser",
+      "KeySchema": [
+       {
+        "AttributeName": "gsi1pk",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "gsi1sk",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "ActiveAgents",
+      "KeySchema": [
+       {
+        "AttributeName": "gsi3pk",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "gsi3sk",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "RuntimeVersionsByAgent",
+      "KeySchema": [
+       {
+        "AttributeName": "gsi4pk",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "gsi4sk",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     },
+     {
+      "IndexName": "DeploymentsByAgent",
+      "KeySchema": [
+       {
+        "AttributeName": "gsi2pk",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "gsi2sk",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "pk",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "sk",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneTable/Resource"
+   }
+  },
+  "ArtifactBucket7410C9EF": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+       },
+       "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+       },
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "Tags": [
+     {
+      "Key": "aws-cdk:auto-delete-objects",
+      "Value": "true"
+     },
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ],
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ArtifactBucket/Resource"
+   }
+  },
+  "ArtifactBucketPolicy4B4B7752": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "ArtifactBucket7410C9EF"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactBucket7410C9EF",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactBucket7410C9EF",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:PutBucketPolicy",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::GetAtt": [
+          "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+          "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ArtifactBucket7410C9EF",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ArtifactBucket7410C9EF",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ArtifactBucket/Policy/Resource"
+   }
+  },
+  "ArtifactBucketAutoDeleteObjectsCustomResource0BB47FD6": {
+   "Type": "Custom::S3AutoDeleteObjects",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
+      "Arn"
+     ]
+    },
+    "BucketName": {
+     "Ref": "ArtifactBucket7410C9EF"
+    }
+   },
+   "DependsOn": [
+    "ArtifactBucketPolicy4B4B7752"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ArtifactBucket/AutoDeleteObjectsCustomResource/Default"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role"
+   }
+  },
+  "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+     "S3Key": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "index.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs24.x",
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Lambda function for auto-deleting objects in ",
+       {
+        "Ref": "ArtifactBucket7410C9EF"
+       },
+       " S3 bucket."
+      ]
+     ]
+    }
+   },
+   "DependsOn": [
+    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+    "aws:asset:property": "Code"
+   }
+  },
+  "HealthLogGroupB28CD87A": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 14,
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/HealthLogGroup/Resource"
+   }
+  },
+  "HealthExecutionRoleB401190D": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Execution role for the control-plane health endpoint.",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/HealthExecutionRole/Resource"
+   }
+  },
+  "HealthExecutionRoleDefaultPolicyEB9BE0AF": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "HealthLogGroupB28CD87A",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "HealthExecutionRoleDefaultPolicyEB9BE0AF",
+    "Roles": [
+     {
+      "Ref": "HealthExecutionRoleB401190D"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/HealthExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "HealthFunction19D7724A": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+     "S3Key": "68b30d7f4e14183e7c7f1200ab4b24fd6a44688ceb25450b3e8f2be908e3a159.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "ENVIRONMENT": "dev"
+     }
+    },
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "HealthLogGroupB28CD87A"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "HealthExecutionRoleB401190D",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "DependsOn": [
+    "HealthExecutionRoleDefaultPolicyEB9BE0AF",
+    "HealthExecutionRoleB401190D"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/HealthFunction/Resource",
+    "aws:asset:path": "asset.68b30d7f4e14183e7c7f1200ab4b24fd6a44688ceb25450b3e8f2be908e3a159",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "UserPool6BA7E5F2": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_email",
+       "Priority": 1
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": true
+    },
+    "AutoVerifiedAttributes": [
+     "email"
+    ],
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "Schema": [
+     {
+      "Mutable": true,
+      "Name": "email",
+      "Required": true
+     }
+    ],
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolTags": {
+     "Environment": "dev",
+     "ManagedBy": "AWS-CDK",
+     "Plane": "control-plane",
+     "Project": "agent-launchpad"
+    },
+    "UsernameAttributes": [
+     "email"
+    ],
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/UserPool/Resource"
+   }
+  },
+  "UserPoolWebClient4C9370B0": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AllowedOAuthFlows": [
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "openid",
+     "email",
+     "profile"
+    ],
+    "CallbackURLs": [
+     "http://localhost:3000/auth/callback"
+    ],
+    "ExplicitAuthFlows": [
+     "ALLOW_USER_SRP_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "GenerateSecret": false,
+    "LogoutURLs": [
+     "http://localhost:3000/login"
+    ],
+    "PreventUserExistenceErrors": "ENABLED",
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/UserPool/WebClient/Resource"
+   }
+  },
+  "UserPoolUserPoolDomain9F01E991": {
+   "Type": "AWS::Cognito::UserPoolDomain",
+   "Properties": {
+    "Domain": "agent-launchpad-dev-804260298217",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/UserPool/UserPoolDomain/Resource"
+   }
+  },
+  "ControlPlaneHttpApi95948481": {
+   "Type": "AWS::ApiGatewayV2::Api",
+   "Properties": {
+    "Description": "Control-plane HTTP API.",
+    "Name": "ControlPlaneHttpApi",
+    "ProtocolType": "HTTP",
+    "Tags": {
+     "Environment": "dev",
+     "ManagedBy": "AWS-CDK",
+     "Plane": "control-plane",
+     "Project": "agent-launchpad"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/Resource"
+   }
+  },
+  "ControlPlaneHttpApiDefaultStage50CC7D41": {
+   "Type": "AWS::ApiGatewayV2::Stage",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AutoDeploy": true,
+    "StageName": "$default",
+    "Tags": {
+     "Environment": "dev",
+     "ManagedBy": "AWS-CDK",
+     "Plane": "control-plane",
+     "Project": "agent-launchpad"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/DefaultStage/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGEThealthHealthIntegration104121DA": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "HealthFunction19D7724A",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--health/HealthIntegration/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGEThealthHealthIntegrationPermissionDB44A508": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "HealthFunction19D7724A",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/health"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--health/HealthIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGEThealth5D0405C2": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "NONE",
+    "RouteKey": "GET /health",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGEThealthHealthIntegration104121DA"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--health/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--me/ControlApiIntegration/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETmeControlApiIntegrationPermission1EBC723F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/me"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--me/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETme1B9DAB3D": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /me",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--me/Resource"
+   }
+  },
+  "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED": {
+   "Type": "AWS::ApiGatewayV2::Authorizer",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizerType": "JWT",
+    "IdentitySource": [
+     "$request.header.Authorization"
+    ],
+    "JwtConfiguration": {
+     "Audience": [
+      {
+       "Ref": "UserPoolWebClient4C9370B0"
+      }
+     ],
+     "Issuer": {
+      "Fn::GetAtt": [
+       "UserPool6BA7E5F2",
+       "ProviderURL"
+      ]
+     }
+    },
+    "Name": "CognitoJwtAuthorizer"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/CognitoJwtAuthorizer/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantsControlApiIntegrationPermissionCD96F9DD": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantsB2120ADA": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdControlApiIntegrationPermission2591B56F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantId985717B6": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETagenttemplatesControlApiIntegrationPermission4EF3383E": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/agent-templates"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETagenttemplatesE4C86F3F": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /agent-templates",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETagenttemplatestemplateIdversionsversionControlApiIntegrationPermission73C34FAB": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/agent-templates/{templateId}/versions/{version}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates--{templateId}--versions--{version}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETagenttemplatestemplateIdversionsversion6BD205CF": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /agent-templates/{templateId}/versions/{version}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates--{templateId}--versions--{version}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsControlApiIntegrationPermission9A01B992": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagents720C8E37": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsControlApiIntegrationPermissionFBAE7DB5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsAD19185D": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/agents",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdControlApiIntegrationPermission5CFC87B2": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentId8753B53F": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents/{agentId}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPATCHtenantstenantIdagentsagentIdControlApiIntegrationPermission4BED1F2F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/PATCH--tenants--{tenantId}--agents--{agentId}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPATCHtenantstenantIdagentsagentIdAD9AF2B4": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "PATCH /tenants/{tenantId}/agents/{agentId}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/PATCH--tenants--{tenantId}--agents--{agentId}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIddeploymentsControlApiIntegrationPermission6B566BFE": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/deployments"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--deployments/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIddeployments0CBC9F55": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents/{agentId}/deployments",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--deployments/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdversionsControlApiIntegrationPermissionAE632C8F": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/versions"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--versions/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdversions983B1690": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents/{agentId}/versions",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--versions/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdrollbackControlApiIntegrationPermission3D2F2886": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/rollback"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--rollback/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdrollback7289FF31": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/agents/{agentId}/rollback",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--rollback/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdundeployControlApiIntegrationPermission86F26883": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/undeploy"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--undeploy/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdundeploy0F63B721": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/agents/{agentId}/undeploy",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--undeploy/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIddeployControlApiIntegrationPermission5D0C76FF": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/deploy"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--deploy/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIddeployAD7FBC80": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/agents/{agentId}/deploy",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--deploy/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdinvokeControlApiIntegrationPermissionFBAAE5D9": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/invoke"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--invoke/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdinvokeE0EA553D": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/agents/{agentId}/invoke",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--invoke/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdexecutionsControlApiIntegrationPermissionD9191029": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/executions"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--executions/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdexecutions3BDBDAEA": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents/{agentId}/executions",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--executions/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdmetricsControlApiIntegrationPermission6809DDEA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/agents/{agentId}/metrics"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--metrics/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdmetrics6322CAD1": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/agents/{agentId}/metrics",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--metrics/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdauditeventsControlApiIntegrationPermissionA549BC20": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/audit-events"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--audit-events/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdauditeventsC2BAB514": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/audit-events",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--audit-events/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsControlApiIntegrationPermissionCC60D223": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/aws-connections"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsED513DE8": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/aws-connections",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsControlApiIntegrationPermissionC5791958": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/aws-connections"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdawsconnections76A4CE65": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/aws-connections",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsconnectionIdControlApiIntegrationPermission8DCCF5ED": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/aws-connections/{connectionId}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections--{connectionId}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsconnectionId4DDF5835": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/aws-connections/{connectionId}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections--{connectionId}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsconnectionIdverifyControlApiIntegrationPermission259E843C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/aws-connections/{connectionId}/verify"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections--{connectionId}--verify/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsconnectionIdverifyC6E355BA": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/aws-connections/{connectionId}/verify",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections--{connectionId}--verify/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIddeploymentsControlApiIntegrationPermission55FD94A5": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/deployments"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIddeploymentsE5D6A4CC": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/deployments",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments/Resource"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIddeploymentsdeploymentIdControlApiIntegrationPermission88946CE1": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/deployments/{deploymentId}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments--{deploymentId}/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiGETtenantstenantIddeploymentsdeploymentId4A21190A": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "GET /tenants/{tenantId}/deployments/{deploymentId}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments--{deploymentId}/Resource"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIddeploymentsdeploymentIdretryControlApiIntegrationPermissionC0439E48": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ControlApiFunctionDD3AC749",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:eu-west-2:804260298217:",
+       {
+        "Ref": "ControlPlaneHttpApi95948481"
+       },
+       "/*/*/tenants/{tenantId}/deployments/{deploymentId}/retry"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--deployments--{deploymentId}--retry/ControlApiIntegration-Permission"
+   }
+  },
+  "ControlPlaneHttpApiPOSTtenantstenantIddeploymentsdeploymentIdretryB41CFB15": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "ControlPlaneHttpApi95948481"
+    },
+    "AuthorizationType": "JWT",
+    "AuthorizerId": {
+     "Ref": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    "RouteKey": "POST /tenants/{tenantId}/deployments/{deploymentId}/retry",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--deployments--{deploymentId}--retry/Resource"
+   }
+  },
+  "ControlApiLogGroupF0C7B091": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 14,
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlApiLogGroup/Resource"
+   }
+  },
+  "ControlApiExecutionRoleBCA1F41B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Execution role for authenticated control-plane API routes.",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlApiExecutionRole/Resource"
+   }
+  },
+  "ControlApiExecutionRoleDefaultPolicy17587AAC": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "ControlApiLogGroupF0C7B091",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": "states:StartExecution",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "DeploymentStateMachine9F414E2C"
+       }
+      },
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Resource": "arn:aws:iam::*:role/AgentLaunchpadDeploymentRole"
+      },
+      {
+       "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Query"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ControlPlaneTable34018A4D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ControlPlaneTable34018A4D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ControlApiExecutionRoleDefaultPolicy17587AAC",
+    "Roles": [
+     {
+      "Ref": "ControlApiExecutionRoleBCA1F41B"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlApiExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "DeploymentWorkerLogGroupD9C7D86B": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 14,
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentWorkerLogGroup/Resource"
+   }
+  },
+  "DeploymentWorkerRoleEA75E395": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Deployment orchestration worker; assumes only the customer bootstrap deployment role.",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentWorkerRole/Resource"
+   }
+  },
+  "DeploymentWorkerRoleDefaultPolicy81A043D3": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "DeploymentWorkerLogGroupD9C7D86B",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ControlPlaneTable34018A4D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ControlPlaneTable34018A4D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Resource": "arn:aws:iam::*:role/AgentLaunchpadDeploymentRole"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "DeploymentWorkerRoleDefaultPolicy81A043D3",
+    "Roles": [
+     {
+      "Ref": "DeploymentWorkerRoleEA75E395"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentWorkerRole/DefaultPolicy/Resource"
+   }
+  },
+  "DeploymentWorkerFunction66360956": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+     "S3Key": "cfb89734f64f1ad43f6f08e8575f344dd0b6129f5ca80b1dc28fa1519047689f.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "CONTROL_PLANE_TABLE_NAME": {
+       "Ref": "ControlPlaneTable34018A4D"
+      },
+      "AGENT_RUNTIME_SOURCE_PATH": "/var/task/runtime-source/app.ts",
+      "AGENT_DEPENDENCY_TEMPLATE_URL": "https://agent-launchpad-templates-804260298217-eu-west-2.s3.eu-west-2.amazonaws.com/templates/customer-support-tools.template.json"
+     }
+    },
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "DeploymentWorkerLogGroupD9C7D86B"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "DeploymentWorkerRoleEA75E395",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ],
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "DeploymentWorkerRoleDefaultPolicy81A043D3",
+    "DeploymentWorkerRoleEA75E395"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentWorkerFunction/Resource",
+    "aws:asset:path": "asset.cfb89734f64f1ad43f6f08e8575f344dd0b6129f5ca80b1dc28fa1519047689f",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "MetricsWorkerLogGroup020C7F6E": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 14,
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsWorkerLogGroup/Resource"
+   }
+  },
+  "MetricsWorkerRole31E5EA8F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Scheduled, read-only customer CloudWatch metrics collector.",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsWorkerRole/Resource"
+   }
+  },
+  "MetricsWorkerRoleDefaultPolicy7427C48E": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MetricsWorkerLogGroup020C7F6E",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ControlPlaneTable34018A4D",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "ControlPlaneTable34018A4D",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Resource": "arn:aws:iam::*:role/AgentLaunchpadDeploymentRole"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "MetricsWorkerRoleDefaultPolicy7427C48E",
+    "Roles": [
+     {
+      "Ref": "MetricsWorkerRole31E5EA8F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsWorkerRole/DefaultPolicy/Resource"
+   }
+  },
+  "MetricsWorkerFunctionB15E2435": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+     "S3Key": "8a147da0ef34a67653086eb7b2a1a96ef66fa50626e57822f18f5357b1874d4c.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "CONTROL_PLANE_TABLE_NAME": {
+       "Ref": "ControlPlaneTable34018A4D"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "MetricsWorkerLogGroup020C7F6E"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "MetricsWorkerRole31E5EA8F",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ],
+    "Timeout": 120
+   },
+   "DependsOn": [
+    "MetricsWorkerRoleDefaultPolicy7427C48E",
+    "MetricsWorkerRole31E5EA8F"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsWorkerFunction/Resource",
+    "aws:asset:path": "asset.8a147da0ef34a67653086eb7b2a1a96ef66fa50626e57822f18f5357b1874d4c",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "MetricsCollectionSchedule4849671F": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": "rate(15 minutes)",
+    "State": "ENABLED",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ],
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "MetricsWorkerFunctionB15E2435",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsCollectionSchedule/Resource"
+   }
+  },
+  "MetricsCollectionScheduleAllowEventRuleControlPlanedevMetricsWorkerFunction4413B5BAFDE2E6C0": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "MetricsWorkerFunctionB15E2435",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "MetricsCollectionSchedule4849671F",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/MetricsCollectionSchedule/AllowEventRuleControlPlanedevMetricsWorkerFunction4413B5BA"
+   }
+  },
+  "DeploymentStateMachineLogGroup8F568F7F": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "RetentionInDays": 14,
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentStateMachineLogGroup/Resource"
+   }
+  },
+  "DeploymentStateMachineRole1BADD1CB": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "states.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentStateMachine/Role/Resource"
+   }
+  },
+  "DeploymentStateMachineRoleDefaultPolicyF6ED0811": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "DeploymentWorkerFunction66360956",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "DeploymentWorkerFunction66360956",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      },
+      {
+       "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+       ],
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "DeploymentStateMachineRoleDefaultPolicyF6ED0811",
+    "Roles": [
+     {
+      "Ref": "DeploymentStateMachineRole1BADD1CB"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentStateMachine/Role/DefaultPolicy/Resource"
+   }
+  },
+  "DeploymentStateMachine9F414E2C": {
+   "Type": "AWS::StepFunctions::StateMachine",
+   "Properties": {
+    "DefinitionString": {
+     "Fn::Join": [
+      "",
+      [
+       "{\"StartAt\":\"LifecycleOperation\",\"States\":{\"LifecycleOperation\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.operationType\",\"StringEquals\":\"DEPLOY\",\"Next\":\"VALIDATINGTask\"},{\"Variable\":\"$.operationType\",\"StringEquals\":\"ROLLBACK\",\"Next\":\"ROLLBACK_VALIDATINGTask\"},{\"Variable\":\"$.operationType\",\"StringEquals\":\"UNDEPLOY\",\"Next\":\"UNDEPLOY_VALIDATINGTask\"}],\"Default\":\"InvalidLifecycleOperation\"},\"InvalidLifecycleOperation\":{\"Type\":\"Fail\",\"Error\":\"Deployment.InvalidOperation\"},\"VALIDATINGTask\":{\"Next\":\"VERIFYING_CUSTOMER_ACCESSTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"VALIDATING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"VERIFYING_CUSTOMER_ACCESSTask\":{\"Next\":\"PREFLIGHT_REGIONTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"VERIFYING_CUSTOMER_ACCESS\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PREFLIGHT_REGIONTask\":{\"Next\":\"PREFLIGHT_MODELTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PREFLIGHT_REGION\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PREFLIGHT_MODELTask\":{\"Next\":\"PREFLIGHT_IAMTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PREFLIGHT_MODEL\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PREFLIGHT_IAMTask\":{\"Next\":\"PREFLIGHT_STORAGETask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PREFLIGHT_IAM\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PREFLIGHT_STORAGETask\":{\"Next\":\"PREFLIGHT_AGENTCORETask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PREFLIGHT_STORAGE\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PREFLIGHT_AGENTCORETask\":{\"Next\":\"ENSURING_ARTIFACTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PREFLIGHT_AGENTCORE\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"ENSURING_ARTIFACTTask\":{\"Next\":\"PROVISIONING_DEPENDENCIESTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ENSURING_ARTIFACT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PROVISIONING_DEPENDENCIESTask\":{\"Next\":\"DependenciesReady?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PROVISIONING_DEPENDENCIES\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"DependenciesReady?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"WAITING_FOR_DEPENDENCIESTask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"DependencyWait\"},\"DependencyWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"WAITING_FOR_DEPENDENCIESTask\"},\"WAITING_FOR_DEPENDENCIESTask\":{\"Next\":\"DEPLOYING_RUNTIMETask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"WAITING_FOR_DEPENDENCIES\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"DEPLOYING_RUNTIMETask\":{\"Next\":\"RuntimeReady?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"DEPLOYING_RUNTIME\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"RuntimeReady?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"WAITING_FOR_RUNTIMETask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"RuntimeWait\"},\"RuntimeWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"WAITING_FOR_RUNTIMETask\"},\"WAITING_FOR_RUNTIMETask\":{\"Next\":\"HEALTH_CHECKINGTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"WAITING_FOR_RUNTIME\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"HEALTH_CHECKINGTask\":{\"Next\":\"PROMOTING_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"HEALTH_CHECKING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"PROMOTING_ENDPOINTTask\":{\"Next\":\"WAITING_FOR_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"PROMOTING_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"WAITING_FOR_ENDPOINTTask\":{\"Next\":\"ProductionEndpointReady?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"WAITING_FOR_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"EndpointWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"WAITING_FOR_ENDPOINTTask\"},\"ProductionEndpointReady?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"DeploymentReady\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"EndpointWait\"},\"DeploymentReady\":{\"Type\":\"Succeed\"},\"DeploymentFailed\":{\"Type\":\"Fail\",\"Error\":\"Deployment.Failed\"},\"ROLLBACK_REVERTING_ENDPOINTTask\":{\"Next\":\"DeploymentFailed\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_REVERTING_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"ROLLBACK_HEALTH_CHECKINGTask\":{\"Next\":\"RollbackReady\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"ROLLBACK_REVERTING_ENDPOINTTask\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_HEALTH_CHECKING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"RollbackEndpointReady?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"ROLLBACK_HEALTH_CHECKINGTask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"ROLLBACK_REVERTING_ENDPOINTTask\"}],\"Default\":\"RollbackEndpointWait\"},\"ROLLBACK_WAITING_FOR_ENDPOINTTask\":{\"Next\":\"RollbackEndpointReady?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_WAITING_FOR_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"RollbackEndpointWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"ROLLBACK_WAITING_FOR_ENDPOINTTask\"},\"ROLLBACK_UPDATING_ENDPOINTTask\":{\"Next\":\"ROLLBACK_WAITING_FOR_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_UPDATING_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"ROLLBACK_VERIFYING_TARGETTask\":{\"Next\":\"ROLLBACK_UPDATING_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_VERIFYING_TARGET\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"ROLLBACK_VALIDATINGTask\":{\"Next\":\"ROLLBACK_VERIFYING_TARGETTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"ROLLBACK_VALIDATING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"RollbackReady\":{\"Type\":\"Succeed\"},\"UNDEPLOY_VALIDATINGTask\":{\"Next\":\"UNDEPLOY_DISABLING_INVOCATIONTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_VALIDATING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_DISABLING_INVOCATIONTask\":{\"Next\":\"UNDEPLOY_DELETING_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_DISABLING_INVOCATION\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_DELETING_ENDPOINTTask\":{\"Next\":\"UNDEPLOY_WAITING_ENDPOINTTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_DELETING_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_WAITING_ENDPOINTTask\":{\"Next\":\"EndpointDeleted?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_WAITING_ENDPOINT\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UndeployEndpointWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"UNDEPLOY_WAITING_ENDPOINTTask\"},\"EndpointDeleted?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"UNDEPLOY_DELETING_RUNTIMETask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"UndeployEndpointWait\"},\"UNDEPLOY_DELETING_RUNTIMETask\":{\"Next\":\"UNDEPLOY_WAITING_RUNTIMETask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_DELETING_RUNTIME\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_WAITING_RUNTIMETask\":{\"Next\":\"RuntimeDeleted?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_WAITING_RUNTIME\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UndeployRuntimeWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"UNDEPLOY_WAITING_RUNTIMETask\"},\"RuntimeDeleted?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"UNDEPLOY_DELETING_DEPENDENCIESTask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"UndeployRuntimeWait\"},\"UNDEPLOY_DELETING_DEPENDENCIESTask\":{\"Next\":\"UNDEPLOY_WAITING_DEPENDENCIESTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_DELETING_DEPENDENCIES\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_WAITING_DEPENDENCIESTask\":{\"Next\":\"DependenciesDeleted?\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_WAITING_DEPENDENCIES\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UndeployDependenciesWait\":{\"Type\":\"Wait\",\"Seconds\":20,\"Next\":\"UNDEPLOY_WAITING_DEPENDENCIESTask\"},\"DependenciesDeleted?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"READY\",\"Next\":\"UNDEPLOY_DELETING_ARTIFACTSTask\"},{\"Variable\":\"$.task.Payload.status\",\"StringEquals\":\"FAILED\",\"Next\":\"DeploymentFailed\"}],\"Default\":\"UndeployDependenciesWait\"},\"UNDEPLOY_DELETING_ARTIFACTSTask\":{\"Next\":\"UNDEPLOY_VERIFYINGTask\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_DELETING_ARTIFACTS\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UNDEPLOY_VERIFYINGTask\":{\"Next\":\"UndeployReady\",\"Retry\":[{\"ErrorEquals\":[\"Deployment.Transient\"],\"IntervalSeconds\":2,\"MaxAttempts\":4,\"BackoffRate\":2,\"MaxDelaySeconds\":30,\"JitterStrategy\":\"FULL\"}],\"Catch\":[{\"ErrorEquals\":[\"States.ALL\"],\"ResultPath\":\"$.failure\",\"Next\":\"DeploymentFailed\"}],\"Type\":\"Task\",\"TimeoutSeconds\":120,\"ResultPath\":\"$.task\",\"Resource\":\"arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+       {
+        "Fn::GetAtt": [
+         "DeploymentWorkerFunction66360956",
+         "Arn"
+        ]
+       },
+       "\",\"Payload\":{\"stage\":\"UNDEPLOY_VERIFYING\",\"deploymentId.$\":\"$.deploymentId\",\"tenantId.$\":\"$.tenantId\",\"agentId.$\":\"$.agentId\",\"configurationRevision.$\":\"$.configurationRevision\",\"artifactId.$\":\"$.artifactId\",\"operationType.$\":\"$.operationType\"}}},\"UndeployReady\":{\"Type\":\"Succeed\"}},\"TimeoutSeconds\":7200}"
+      ]
+     ]
+    },
+    "LoggingConfiguration": {
+     "Destinations": [
+      {
+       "CloudWatchLogsLogGroup": {
+        "LogGroupArn": {
+         "Fn::GetAtt": [
+          "DeploymentStateMachineLogGroup8F568F7F",
+          "Arn"
+         ]
+        }
+       }
+      }
+     ],
+     "IncludeExecutionData": false,
+     "Level": "ALL"
+    },
+    "RoleArn": {
+     "Fn::GetAtt": [
+      "DeploymentStateMachineRole1BADD1CB",
+      "Arn"
+     ]
+    },
+    "StateMachineType": "STANDARD",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ],
+    "TracingConfiguration": {
+     "Enabled": true
+    }
+   },
+   "DependsOn": [
+    "DeploymentStateMachineRoleDefaultPolicyF6ED0811",
+    "DeploymentStateMachineRole1BADD1CB"
+   ],
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/DeploymentStateMachine/Resource"
+   }
+  },
+  "ControlApiFunctionDD3AC749": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+     "S3Key": "24a96e47e2faefdb502744e60b9be8905a61348053e01372aa7e4837fb5afcf9.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "ENVIRONMENT": "dev",
+      "CONTROL_PLANE_TABLE_NAME": {
+       "Ref": "ControlPlaneTable34018A4D"
+      },
+      "CUSTOMER_BOOTSTRAP_TEMPLATE_URL": "https://agent-launchpad-templates-804260298217-eu-west-2.s3.eu-west-2.amazonaws.com/templates/customer-bootstrap.template.json",
+      "CONTROL_API_EXECUTION_ROLE_ARN": {
+       "Fn::GetAtt": [
+        "ControlApiExecutionRoleBCA1F41B",
+        "Arn"
+       ]
+      },
+      "CUSTOMER_CONNECTION_ALLOWED_REGIONS": "eu-west-2",
+      "DEPLOYMENT_STATE_MACHINE_ARN": {
+       "Ref": "DeploymentStateMachine9F414E2C"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "ControlApiLogGroupF0C7B091"
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "ControlApiExecutionRoleBCA1F41B",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x",
+    "Tags": [
+     {
+      "Key": "Environment",
+      "Value": "dev"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "AWS-CDK"
+     },
+     {
+      "Key": "Plane",
+      "Value": "control-plane"
+     },
+     {
+      "Key": "Project",
+      "Value": "agent-launchpad"
+     }
+    ]
+   },
+   "DependsOn": [
+    "ControlApiExecutionRoleDefaultPolicy17587AAC",
+    "ControlApiExecutionRoleBCA1F41B"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/ControlApiFunction/Resource",
+    "aws:asset:path": "asset.24a96e47e2faefdb502744e60b9be8905a61348053e01372aa7e4837fb5afcf9",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/5VSTW/bMAz9Lc1Z0QYH2GG3NEW3At0aJBt2GIaAkRmHiS0aJpWsE/zfB1n5QoEdduJ75NMTRaqwxYeJfX8HRxm7cj+uaW3jUsHtDRxlFctXDw2Xaxu/wbpGM9v4AfRGJjbeB7dHTcmMfsZRQ7/Jjz6Obg2Tk0zsUBKbpdOg/IA1Kr6sd+hURv0vk0tzrsm9Xl0z/w/vfGCpoNigv7W+B8He1FyJjc9cfeo4tOmiM+4NQWPjgvNTh3htJ6Pe1NCsS1h5LnEn9usQHoN3SuyNTFYggip2msJJbONs4y+a5IVdQyLEvjeOK0/KNn4X7ObMdRJc8BnMakKvt6VT5kwfuAHyt4Kc6Q20VIHiEV4PhY2fVdtpS0mYQqJLhWp4cQYpteCgGT15xaqDc+dv6FU3Dbrljv5gN1hfWG/wkNZg4yKc5hqGH6TYbk4jERsfgWrzA0jNMjiHWJrZlsmhGRb5BdyW/LnHC3/jslKQvdjnYeZP/sB77M0ChUPn0MyCKDdXuvH/KM07PlCJXfouZlhjmgv5Kp15CdoG7U1av93Ju0NR2GJii7udEI274JUatIsc/wI2Hs36YAMAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "ControlPlane-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "ApiEndpoint": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ControlPlaneHttpApi95948481",
+     "ApiEndpoint"
+    ]
+   }
+  },
+  "ControlPlaneTableName": {
+   "Value": {
+    "Ref": "ControlPlaneTable34018A4D"
+   }
+  },
+  "ArtifactBucketName": {
+   "Value": {
+    "Ref": "ArtifactBucket7410C9EF"
+   }
+  },
+  "CognitoUserPoolId": {
+   "Value": {
+    "Ref": "UserPool6BA7E5F2"
+   }
+  },
+  "CognitoWebClientId": {
+   "Value": {
+    "Ref": "UserPoolWebClient4C9370B0"
+   }
+  },
+  "CognitoIssuer": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UserPool6BA7E5F2",
+     "ProviderURL"
+    ]
+   }
+  },
+  "CognitoDomain": {
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Ref": "UserPoolUserPoolDomain9F01E991"
+      },
+      ".auth.eu-west-2.amazoncognito.com"
+     ]
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

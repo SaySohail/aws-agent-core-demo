@@ -9,6 +9,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/.next/**',
       '**/cdk.out/**',
+      // CDK asset staging output written alongside the local control-plane template.
+      'infrastructure/control-plane/table/**',
       '**/node_modules/**',
       '**/coverage/**',
       'apps/web/next-env.d.ts'

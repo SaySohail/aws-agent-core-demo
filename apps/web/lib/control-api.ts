@@ -123,7 +123,7 @@ export function createControlApiClient(options: ControlApiClientOptions) {
 
   const request = async <T>(path: string, requestOptions: RequestOptions = {}): Promise<T> => {
     const token = await options.getAccessToken();
-    const response = await fetchImplementation(new URL(path, baseUrl), {
+    const response = await fetchImplementation( new URL(path.replace(/^\/+/, ''), baseUrl), {
       method: requestOptions.method ?? 'GET',
       headers: {
         accept: 'application/json',
@@ -150,7 +150,7 @@ export function createControlApiClient(options: ControlApiClientOptions) {
 
   const requestPage = async <T>(path: string): Promise<Page<T>> => {
     const token = await options.getAccessToken();
-    const response = await fetchImplementation(new URL(path, baseUrl), {
+    const response = await fetchImplementation( new URL(path.replace(/^\/+/, ''), baseUrl), {
       headers: {
         accept: 'application/json',
         ...(token ? { authorization: `Bearer ${token}` } : {})

@@ -1,14 +1,9 @@
-import { AppShell } from '@astryxdesign/core/AppShell';
-import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { Heading } from '@astryxdesign/core/Heading';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { redirect } from 'next/navigation';
 import { currentSession } from '../../lib/auth';
 import { AwsConnectionOnboarding } from './aws-connection';
 import { AgentTemplateCatalog } from './agent-catalog';
 import { ActiveTenantSelector } from './active-tenant-selector';
+import { DashboardSettings } from './dashboard-settings';
 
 export default async function DashboardPage() {
   const session = await currentSession();
@@ -16,23 +11,10 @@ export default async function DashboardPage() {
     redirect('/login?error=expired&returnTo=%2Fdashboard');
   }
   return (
-    <AppShell contentPadding={4} height="auto" mobileNav={false} variant="elevated">
-      <VStack gap={4}>
-        <Heading level={1}>Control plane</Heading>
-        <Card maxWidth="640px" padding={4}>
-          <VStack gap={2}>
-            <Heading level={2}>Signed in</Heading>
-            <Text as="p">{session.user.email}</Text>
-            <Text as="p" color="secondary">
-              Your stable user ID is managed by Cognito.
-            </Text>
-            <Button href="/auth/logout" label="Sign out" variant="secondary" />
-          </VStack>
-        </Card>
-        <ActiveTenantSelector />
-        <AwsConnectionOnboarding />
-        <AgentTemplateCatalog />
-      </VStack>
-    </AppShell>
+    <DashboardSettings email={session.user.email}>
+      <ActiveTenantSelector />
+      <AwsConnectionOnboarding />
+      <AgentTemplateCatalog />
+    </DashboardSettings>
   );
 }

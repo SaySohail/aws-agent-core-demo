@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../lambda/health.ts"],
+  "sourcesContent": ["import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';\n\nexport const handler: APIGatewayProxyHandlerV2 = async () => ({\n  statusCode: 200,\n  headers: { 'content-type': 'application/json' },\n  body: JSON.stringify({\n    status: 'ok',\n    service: 'control-plane',\n    environment: process.env.ENVIRONMENT\n  })\n});\n"],
+  "mappings": "yaAAA,IAAAA,EAAA,GAAAC,EAAAD,EAAA,aAAAE,IAAA,eAAAC,EAAAH,GAEO,IAAME,EAAoC,UAAa,CAC5D,WAAY,IACZ,QAAS,CAAE,eAAgB,kBAAmB,EAC9C,KAAM,KAAK,UAAU,CACnB,OAAQ,KACR,QAAS,gBACT,YAAa,QAAQ,IAAI,WAC3B,CAAC,CACH",
+  "names": ["health_exports", "__export", "handler", "__toCommonJS"]
+}

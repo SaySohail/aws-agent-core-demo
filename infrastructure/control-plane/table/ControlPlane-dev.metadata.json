@@ -1,0 +1,1606 @@
+{
+  "/ControlPlane-dev": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    },
+    {
+      "type": "aws:cdk:stack-tags",
+      "data": [
+        {
+          "key": "Environment",
+          "value": "dev"
+        },
+        {
+          "key": "ManagedBy",
+          "value": "AWS-CDK"
+        },
+        {
+          "key": "Plane",
+          "value": "control-plane"
+        },
+        {
+          "key": "Project",
+          "value": "agent-launchpad"
+        }
+      ]
+    }
+  ],
+  "/ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+    {
+      "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+      "data": true
+    }
+  ],
+  "/ControlPlane-dev/ApiEndpoint": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ApiEndpoint"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:577:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:578:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ArtifactBucketName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ArtifactBucketName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:579:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CognitoUserPoolId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CognitoUserPoolId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:580:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CognitoWebClientId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CognitoWebClientId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:581:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CognitoIssuer": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CognitoIssuer"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:582:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CognitoDomain": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CognitoDomain"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:583:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneTable34018A4D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:38:31)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ArtifactBucket/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ArtifactBucket7410C9EF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:80:28)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    },
+    {
+      "type": "aws:cdk:analytics:mixin",
+      "data": {
+        "mixin": "aws-cdk-lib.aws_s3.mixins.BucketAutoDeleteObjects"
+      }
+    }
+  ],
+  "/ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/HealthLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HealthLogGroupB28CD87A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:95:28)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/HealthExecutionRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HealthExecutionRoleB401190D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:100:33)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/HealthFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HealthFunction19D7724A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:111:28)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/UserPool/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPool6BA7E5F2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new UserPool2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:121:22)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApi95948481"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new HttpApi2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:149:21)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlApiLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlApiLogGroupF0C7B091"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:167:32)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlApiExecutionRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlApiExecutionRoleBCA1F41B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:171:37)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentWorkerLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentWorkerLogGroupD9C7D86B"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:181:38)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentWorkerRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentWorkerRoleEA75E395"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:185:34)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentWorkerFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentWorkerFunction66360956"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:214:38)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsWorkerLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsWorkerLogGroup020C7F6E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:254:35)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsWorkerRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsWorkerRole31E5EA8F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Role2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:258:31)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsWorkerFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsWorkerFunctionB15E2435"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:280:35)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsCollectionSchedule/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsCollectionSchedule4849671F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Rule2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:299:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsCollectionSchedule/AllowEventRuleControlPlanedevMetricsWorkerFunction4413B5BA": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsCollectionScheduleAllowEventRuleControlPlanedevMetricsWorkerFunction4413B5BAFDE2E6C0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Rule2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:299:5)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentStateMachineLogGroup/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentStateMachineLogGroup8F568F7F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new LogGroup2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:303:34)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentStateMachine/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentStateMachine9F414E2C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StateMachine2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:468:36)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlApiFunction/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlApiFunctionDD3AC749"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new NodejsFunction in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:499:32)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm, node internals...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ArtifactBucket/Policy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ArtifactBucketPolicy4B4B7752"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:80:28)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)"
+      ]
+    },
+    {
+      "type": "aws:cdk:analytics:mixin",
+      "data": {
+        "mixin": "aws-cdk-lib.aws_s3.mixins.BucketPolicyStatements"
+      }
+    }
+  ],
+  "/ControlPlane-dev/ArtifactBucket/AutoDeleteObjectsCustomResource/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ArtifactBucketAutoDeleteObjectsCustomResource0BB47FD6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "....pnpm...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/HealthExecutionRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "HealthExecutionRoleDefaultPolicyEB9BE0AF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:104:25)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/UserPool/WebClient/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolWebClient4C9370B0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addClient in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:131:37)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/UserPool/UserPoolDomain/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolUserPoolDomain9F01E991"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.addDomain in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:143:37)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/DefaultStage/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiDefaultStage50CC7D41"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new HttpApi2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:149:21)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--health/HealthIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGEThealthHealthIntegrationPermissionDB44A508"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:159:13)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--health/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGEThealth5D0405C2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:159:13)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--me/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETmeControlApiIntegrationPermission1EBC723F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--me/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETme1B9DAB3D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/CognitoJwtAuthorizer/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiCognitoJwtAuthorizer766EF7ED"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantsControlApiIntegrationPermissionCD96F9DD"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantsB2120ADA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdControlApiIntegrationPermission2591B56F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantId985717B6"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETagenttemplatesControlApiIntegrationPermission4EF3383E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETagenttemplatesE4C86F3F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates--{templateId}--versions--{version}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETagenttemplatestemplateIdversionsversionControlApiIntegrationPermission73C34FAB"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--agent-templates--{templateId}--versions--{version}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETagenttemplatestemplateIdversionsversion6BD205CF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsControlApiIntegrationPermission9A01B992"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagents720C8E37"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsControlApiIntegrationPermissionFBAE7DB5"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsAD19185D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdControlApiIntegrationPermission5CFC87B2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentId8753B53F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/PATCH--tenants--{tenantId}--agents--{agentId}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPATCHtenantstenantIdagentsagentIdControlApiIntegrationPermission4BED1F2F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/PATCH--tenants--{tenantId}--agents--{agentId}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPATCHtenantstenantIdagentsagentIdAD9AF2B4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--deployments/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIddeploymentsControlApiIntegrationPermission6B566BFE"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--deployments/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIddeployments0CBC9F55"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--versions/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdversionsControlApiIntegrationPermissionAE632C8F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--versions/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdversions983B1690"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--rollback/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdrollbackControlApiIntegrationPermission3D2F2886"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--rollback/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdrollback7289FF31"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--undeploy/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdundeployControlApiIntegrationPermission86F26883"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--undeploy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdundeploy0F63B721"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--deploy/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIddeployControlApiIntegrationPermission5D0C76FF"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--deploy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIddeployAD7FBC80"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--invoke/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdinvokeControlApiIntegrationPermissionFBAAE5D9"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--agents--{agentId}--invoke/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdagentsagentIdinvokeE0EA553D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--executions/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdexecutionsControlApiIntegrationPermissionD9191029"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--executions/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdexecutions3BDBDAEA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--metrics/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdmetricsControlApiIntegrationPermission6809DDEA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--agents--{agentId}--metrics/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdagentsagentIdmetrics6322CAD1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--audit-events/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdauditeventsControlApiIntegrationPermissionA549BC20"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--audit-events/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdauditeventsC2BAB514"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsControlApiIntegrationPermissionCC60D223"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsED513DE8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsControlApiIntegrationPermissionC5791958"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdawsconnections76A4CE65"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections--{connectionId}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsconnectionIdControlApiIntegrationPermission8DCCF5ED"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--aws-connections--{connectionId}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIdawsconnectionsconnectionId4DDF5835"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections--{connectionId}--verify/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsconnectionIdverifyControlApiIntegrationPermission259E843C"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--aws-connections--{connectionId}--verify/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIdawsconnectionsconnectionIdverifyC6E355BA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIddeploymentsControlApiIntegrationPermission55FD94A5"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIddeploymentsE5D6A4CC"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments--{deploymentId}/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIddeploymentsdeploymentIdControlApiIntegrationPermission88946CE1"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--tenants--{tenantId}--deployments--{deploymentId}/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETtenantstenantIddeploymentsdeploymentId4A21190A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--deployments--{deploymentId}--retry/ControlApiIntegration-Permission": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIddeploymentsdeploymentIdretryControlApiIntegrationPermissionC0439E48"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/POST--tenants--{tenantId}--deployments--{deploymentId}--retry/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiPOSTtenantstenantIddeploymentsdeploymentIdretryB41CFB15"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlApiExecutionRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlApiExecutionRoleDefaultPolicy17587AAC"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:175:29)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentWorkerRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentWorkerRoleDefaultPolicy81A043D3"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:190:26)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/MetricsWorkerRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MetricsWorkerRoleDefaultPolicy7427C48E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:262:23)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentStateMachine/Role/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentStateMachineRole1BADD1CB"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StateMachine2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:468:36)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:10:1)",
+        "<anonymous> (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\bin\\control-plane.ts:14:2)",
+        "...node internals, .pnpm..."
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--health/HealthIntegration/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGEThealthHealthIntegration104121DA"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:159:13)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/ControlPlaneHttpApi/GET--me/ControlApiIntegration/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ControlPlaneHttpApiGETmeControlApiIntegration2B069B71"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...D:\\aws-agent-core-demo\\node_modules\\.pnpm\\aws-cdk-lib@2.263.0_constructs@10.8.1\\node_modules\\aws-cdk-lib\\aws-apigatewayv2\\lib\\http\\api.js:1:96 in .pnpm...",
+        "Array.map (:)",
+        "...WrappedClass.<anonymous> in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:575:15)"
+      ]
+    }
+  ],
+  "/ControlPlane-dev/DeploymentStateMachine/Role/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "DeploymentStateMachineRoleDefaultPolicyF6ED0811"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new StateMachine2 in .pnpm...",
+        "new ControlPlaneStack (D:\\aws-agent-core-demo\\infrastructure\\control-plane\\lib\\control-plane-stack.ts:468:36)"
+      ]
+    }
+  ]
+}

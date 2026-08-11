@@ -93,13 +93,16 @@ export interface AwsConnectionOnboardingResponse extends Omit<AwsConnection, 'ex
 export interface AwsConnectionConfiguration {
   readonly templateUrl: string;
   readonly trustedControlPlanePrincipalArn: string;
+  readonly trustedDeploymentWorkerPrincipalArn: string;
   readonly allowedRegions: readonly string[];
 }
 
 const defaultConnectionConfiguration: AwsConnectionConfiguration = {
   templateUrl: 'https://example.invalid/agent-launchpad/customer-bootstrap.template.json',
   trustedControlPlanePrincipalArn: 'arn:aws:iam::123456789012:role/AgentLaunchpadControlApiRole',
-  allowedRegions: ['us-east-1', 'us-west-2', 'eu-west-1']
+  trustedDeploymentWorkerPrincipalArn:
+    'arn:aws:iam::123456789012:role/AgentLaunchpadDeploymentWorkerRole',
+  allowedRegions: ['us-east-1', 'us-west-2', 'eu-west-1', 'eu-west-2']
 };
 
 export class ApiError extends Error {
@@ -319,6 +322,14 @@ export class ControlApi {
         }
       }
     } catch (cause) {
+      if (!(cause instanceof ApiError)) {
+        console.error('Control API unhandled error', {
+          requestId: request.requestId,
+          route: request.route,
+          errorName: cause instanceof Error ? cause.name : 'UnknownError',
+          errorMessage: cause instanceof Error ? cause.message : 'Unknown error'
+        });
+      }
       result = error(request.requestId, cause);
     }
     console.log(
@@ -490,6 +501,8 @@ export class ControlApi {
               region: connection.region,
               templateUrl: this.connections.templateUrl,
               trustedControlPlanePrincipalArn: this.connections.trustedControlPlanePrincipalArn,
+              trustedDeploymentWorkerPrincipalArn:
+                this.connections.trustedDeploymentWorkerPrincipalArn,
               externalId: connection.externalId
             })
           })

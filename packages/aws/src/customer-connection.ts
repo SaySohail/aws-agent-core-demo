@@ -38,6 +38,7 @@ export function buildCustomerBootstrapQuickCreateUrl(input: {
   readonly region: string;
   readonly templateUrl: string;
   readonly trustedControlPlanePrincipalArn: string;
+  readonly trustedDeploymentWorkerPrincipalArn: string;
   readonly externalId: string;
 }): string {
   const template = new URL(input.templateUrl);
@@ -46,6 +47,7 @@ export function buildCustomerBootstrapQuickCreateUrl(input: {
     templateURL: template.toString(),
     stackName: CUSTOMER_BOOTSTRAP_STACK_NAME,
     param_TrustedControlPlanePrincipalArn: input.trustedControlPlanePrincipalArn,
+    param_TrustedDeploymentWorkerPrincipalArn: input.trustedDeploymentWorkerPrincipalArn,
     param_ExternalId: input.externalId
   });
   return `https://${input.region}.console.aws.amazon.com/cloudformation/home?region=${encodeURIComponent(input.region)}#/stacks/create/review?${query.toString()}`;

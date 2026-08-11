@@ -1,0 +1,96 @@
+{
+  "version": "54.0.0",
+  "files": {
+    "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6": {
+      "displayName": "ControlPlane-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider Code",
+      "source": {
+        "path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-3eb3fa1b": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    },
+    "68b30d7f4e14183e7c7f1200ab4b24fd6a44688ceb25450b3e8f2be908e3a159": {
+      "displayName": "HealthFunction/Code",
+      "source": {
+        "path": "asset.68b30d7f4e14183e7c7f1200ab4b24fd6a44688ceb25450b3e8f2be908e3a159",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-8c9178ca": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "68b30d7f4e14183e7c7f1200ab4b24fd6a44688ceb25450b3e8f2be908e3a159.zip",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    },
+    "cfb89734f64f1ad43f6f08e8575f344dd0b6129f5ca80b1dc28fa1519047689f": {
+      "displayName": "DeploymentWorkerFunction/Code",
+      "source": {
+        "path": "asset.cfb89734f64f1ad43f6f08e8575f344dd0b6129f5ca80b1dc28fa1519047689f",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-55ef5efe": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "cfb89734f64f1ad43f6f08e8575f344dd0b6129f5ca80b1dc28fa1519047689f.zip",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    },
+    "8a147da0ef34a67653086eb7b2a1a96ef66fa50626e57822f18f5357b1874d4c": {
+      "displayName": "MetricsWorkerFunction/Code",
+      "source": {
+        "path": "asset.8a147da0ef34a67653086eb7b2a1a96ef66fa50626e57822f18f5357b1874d4c",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-9449a921": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "8a147da0ef34a67653086eb7b2a1a96ef66fa50626e57822f18f5357b1874d4c.zip",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    },
+    "24a96e47e2faefdb502744e60b9be8905a61348053e01372aa7e4837fb5afcf9": {
+      "displayName": "ControlApiFunction/Code",
+      "source": {
+        "path": "asset.24a96e47e2faefdb502744e60b9be8905a61348053e01372aa7e4837fb5afcf9",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-2367a825": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "24a96e47e2faefdb502744e60b9be8905a61348053e01372aa7e4837fb5afcf9.zip",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    },
+    "63c8341a162a65abbf67b308531222fc226d495fc487b58b3ac26423cbc923dc": {
+      "displayName": "ControlPlane-dev Template",
+      "source": {
+        "path": "ControlPlane-dev.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "804260298217-eu-west-2-1720c27a": {
+          "bucketName": "cdk-hnb659fds-assets-804260298217-eu-west-2",
+          "objectKey": "63c8341a162a65abbf67b308531222fc226d495fc487b58b3ac26423cbc923dc.json",
+          "region": "eu-west-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::804260298217:role/cdk-hnb659fds-file-publishing-role-804260298217-eu-west-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

@@ -42,6 +42,7 @@ test('synthesizes closed lifecycle branches and operation-bearing worker tasks',
   ])
     assert.match(definition, new RegExp(stage));
   assert.match(definition, /operationType\.\$/);
+  assert.doesNotMatch(definition, /artifactId\.\$/);
   assert.match(definition, /Deployment\.Transient/);
   assert.match(definition, /InvalidLifecycleOperation/);
 });
